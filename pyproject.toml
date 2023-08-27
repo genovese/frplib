@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
   "click",
   "parsy",
-  "prompt-toolkit"
+  "prompt-toolkit",
   "ptpython",
   "Pygments",
   "rich",

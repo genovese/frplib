@@ -688,7 +688,9 @@ def kind(any) -> Kind:
         return any
     if hasattr(any, 'kind'):
         return any.kind
-    if not any or any in {'void', 'empty'} or re.match(r'\s*\(\s*<\s*>\s*\)\s*', any):
+    if not any:
+        return Kind.empty
+    if isinstance(any, str) and any in {'void', 'empty'} or re.match(r'\s*\(\s*<\s*>\s*\)\s*', any):
         return Kind.empty
     return Kind(any)
 
