@@ -29,6 +29,7 @@ dependencies = [
   "ptpython",
   "Pygments",
   "rich",
+  "typing_extensions",
 ]
 
 [project.optional-dependencies]

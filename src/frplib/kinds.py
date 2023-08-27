@@ -690,7 +690,7 @@ def kind(any) -> Kind:
         return any.kind
     if not any:
         return Kind.empty
-    if isinstance(any, str) and any in {'void', 'empty'} or re.match(r'\s*\(\s*<\s*>\s*\)\s*', any):
+    if isinstance(any, str) and (any in {'void', 'empty'} or re.match(r'\s*\(\s*<\s*>\s*\)\s*', any)):
         return Kind.empty
     return Kind(any)
 
