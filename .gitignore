@@ -1,0 +1,10 @@
+# Ignore emacs backup files (at least, the ones I generate)
+.*~
+# Ignore scratch file
+.bonz
+# Ignore mac specific junk
+.DS_Store
+# Build artifacts
+*.pyc
+dist/
+__pycache__/
