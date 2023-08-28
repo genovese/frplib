@@ -1,5 +1,7 @@
 # output.py - tools for managing terminal output
 
+from __future__ import annotations
+
 from dataclasses       import dataclass
 from typing            import Any, Literal
 

@@ -5,6 +5,7 @@
 # or rich ways in an interactive session. While this can be used at the
 # library level, it is primarily for interactive use and not thread safe.
 #
+from __future__ import annotations
 
 from dataclasses  import dataclass
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from frplib.exceptions import ComplexExpectationWarning
 from frplib.frps       import ConditionalFRP
 from frplib.kinds      import ConditionalKind

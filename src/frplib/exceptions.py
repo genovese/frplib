@@ -1,3 +1,4 @@
+from __future__ import annotations
 
 class FrplibException(Exception):
     "Base exception for specialized playground user errors."

@@ -3,6 +3,8 @@
 A stub for the playground app, which will actually be a subcommand.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from prompt_toolkit.formatted_text import HTML

@@ -1,6 +1,7 @@
 #
 # Structure, Methods, Parsing for general (non-canonical) FRP Kinds
 #
+from __future__ import annotations
 
 from collections       import namedtuple, defaultdict
 from dataclasses       import dataclass

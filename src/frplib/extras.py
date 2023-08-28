@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from frplib.exceptions import IndexingError
 from frplib.kinds      import Kind
 from frplib.frps       import FRP

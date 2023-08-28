@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from importlib                     import import_module
 from prompt_toolkit.formatted_text import HTML, ANSI
 from prompt_toolkit.shortcuts      import print_formatted_text
