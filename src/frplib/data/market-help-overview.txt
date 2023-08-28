@@ -1,0 +1,36 @@
+The FRP market allows you to activate and purchase large
+collections of Fixed Random Payoffs and to study the
+results of such investments. The goal is to provide
+a platform for learning how an FRP's kind connects
+with our predictions about an FRP's value.
+
+There are four main commands in the market
+
+- show :: show the kind tree associated with the string
+      input format used by the market.
+
+      See `help show` for details on the command
+      and `help kinds` for details on the input format.
+
+- demo :: activate batches of FRPs with a fixed kind
+      and see a summery of the results.
+
+      See `help demo` for details.
+
+- buy :: purchase and activate batches of FRPs with a fixed kind
+      and at various prices. See details on the payoff from
+      purchases at each price.
+
+      See `help buy` for details.
+
+- compare :: compare the results of activating the same sized
+      batches with two different kinds.
+
+      See `help compare` for details.
+
+All commands can span multiple lines and should end in a period.
+Validation information is shown at the bottom of the screen
+once you have entered a command's period.
+
+You can use `exit.` or `quit.` to exit the market.
+

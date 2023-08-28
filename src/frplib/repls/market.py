@@ -1,6 +1,7 @@
 import re
 
-from pathlib import Path
+from importlib.resources           import files
+from pathlib                       import Path
 from typing                        import Callable
 
 from prompt_toolkit                import PromptSession, print_formatted_text
@@ -20,13 +21,17 @@ from parsy                         import (Parser,
                                            whitespace,
                                            )
 from prompt_toolkit.validation     import Validator, ValidationError
-from rich                          import print as rich_print
+from rich.table                    import Table
+from rich                          import box as rich_box
 
 from frplib.env                    import environment
 from frplib.exceptions             import MarketError
 from frplib.frps                   import FrpDemoSummary
 from frplib.kinds                  import Kind, kind
-from frplib.kind_trees             import canonical_from_tree
+from frplib.kind_trees             import (canonical_from_tree, unfolded_labels,
+                                           unfold_scan, unfolded_str)
+from frplib.numeric                import Numeric, as_real, show_tuples, show_values
+from frplib.output                 import in_panel
 from frplib.repls.market_lexer     import MarketCommandLexer
 from frplib.parsing.parsy_adjust   import (generate,
                                            join_nl,
@@ -34,10 +39,12 @@ from frplib.parsing.parsy_adjust   import (generate,
                                            with_label
                                            )
 from frplib.parsing.kind_strings   import (kind_sexp, integer_p, validate_kind)
+from frplib.vec_tuples             import VecTuple
 
+# from rich         import print as rich_print
 # from rich.console import Console
 # from rich.table   import Table
-# console = Console(highlight=False)
+
 
 #
 # Basic Combinators
@@ -47,7 +54,7 @@ ws1 = with_label('whitespace', whitespace)
 ws = ws1.optional()
 count = with_label('an FRP count', integer_p)
 
-price_re = r'\$?((?:0|[1-9][0-9]*)(\.[0-9]+)?(e[-+]?(?:0|[1-9][0-9]*))?)'
+price_re = r'\$?(-?(?:0|[1-9][0-9]*)(\.[0-9]+)?(e[-+]?(?:0|[1-9][0-9]*))?)'
 price = with_label('a price', regex(price_re, group=1).map(float))
 
 with_kw = with_label('keyword "with"', string('with') << ws1)
@@ -118,7 +125,7 @@ def help_command():
     yield ws >> end_of_command
     return ('help', re.sub(r'\r?\n', ' ', topic).strip())
 
-exit_command = (success('exit') << end_of_command).map(lambda x: (x,))
+exit_command = (success('exit') << ws << end_of_command).map(lambda x: (x,))
 
 command_parsers = {
     'demo': demo_command,
@@ -172,8 +179,6 @@ class CommandValidator(Validator):
 #
 
 def emit(*a, **kw) -> None:
-    # print_formatted_text(*a, **kw)
-    # rich_print(*a, **kw)
     environment.console.print(*a, **kw)
 
 command_style = Style.from_dict({  # ATTN:TEMP Colors for teting
@@ -244,6 +249,15 @@ def _(event):
 #
 
 def demo_handler(count, kind_tree) -> None:
+    """Simulates the activation of `count` FRPs with kind given by `kind_tree`.
+
+    `count` is a positive integer
+    `kind_tree` is a sexp-formatted kind tree encoded in lists.
+        It is the result of successful parsing by frplib.parsing.kind_strings.kind_sexp.
+
+    Emits a picture of the kind summary table of the simulation result.
+
+    """
     canonical = canonical_from_tree(kind_tree)
     k: Kind = kind(canonical)
     summary = FrpDemoSummary()
@@ -251,22 +265,134 @@ def demo_handler(count, kind_tree) -> None:
         summary.add(sample)
     emit(f'Activated {count} FRPs with kind')
     emit(k.__frplib_repr__())
-    emit(summary)
+    emit(summary.table(environment.ascii_only))
 
-def buy_handler(count, prices, kind_tree) -> None:
-    pass
+def buy_handler(count: int, prices: list[float], kind_tree: list) -> None:
+    """Simulates the purchase, activation, and observation of FRPs.
+
+    `count` is the number of FRPs to purchase at each price.
+        It should be positive.
+    `prices` is a list of prices (floats) at which batches of size `count`
+        will be purchased
+    `kind_tree` specifies the kind of FRPs being purchased. It is
+        is a sexp-formatted kind tree encoded in lists, as parsed by
+        frplib.parsing.kind_strings.kind_sexp.
+
+    Emits a table summarizing the simulation, giving the Price/Unit,
+    the Net Payoff, and the Net Payoff/Unit.
+
+    """
+    if count <= 0:
+        return
+
+    canonical = canonical_from_tree(kind_tree)
+    k: Kind = kind(canonical)
+
+    prices.sort()
+
+    real_prices: list[Numeric] = []
+    net_payoffs: list[VecTuple] = []
+    net_per_unt: list[VecTuple] = []
+    n = as_real(count)
+    for price in prices:
+        real_price: Numeric = as_real(price)
+        total: VecTuple = sum(k.sample(count))
+        net: VecTuple = total - n * real_price
+        per_unit: VecTuple = net / n
+
+        real_prices.append(real_price)
+        net_payoffs.append(net)
+        net_per_unt.append(per_unit)
+        # fields = {
+        #     'price': nroundx(real_price, mask=as_real('1.00')),
+        #     'net': net,
+        #     'net-per-unit': per_unit
+        #     'ps':
+        # }
+        # widths = (0, 0, 0)
+        # widths = tuple(map(max, zip(widths, (fields['price'], fields['net'], fields['net/u']))))
+        # payoffs.append(fields)
+
+    real_prices_s = show_values(real_prices, max_denom=1)
+    net_payoffs_s = show_tuples(net_payoffs, max_denom=1)
+    net_per_unt_s = show_tuples(net_per_unt, max_denom=1)
+
+    emit(f'Buying {int(count):,} FRPs with kind')
+    emit(k.__frplib_repr__())
+    emit('at each price')
+
+    if environment.ascii_only:
+        out: list[str] = []
+        for i in range(len(prices)):
+            out.append("  {price:<12}  {net:>16}    {perunit:>12}".format(
+                price='$' + real_prices_s[i],
+                net='$' + net_payoffs_s[i],
+                perunit='$' + net_per_unt_s[i]
+            ))
+
+        header = "{price:<12}{net:>26} {perunit:>12}".format(
+            price='Price/Unit',
+            net='Net Payoff',
+            perunit='Net Payoff/Unit'
+        )
+        emit(header + '\n' + "\n".join(out))
+    else:
+        # ATTN: Put styles in a more central place (environment?), e.g., environment.styles['values']
+        table = Table(box=rich_box.SQUARE_DOUBLE_HEAD)
+        table.add_column('Price/Unit ($)', justify='right', style='#4682b4', no_wrap=True)
+        table.add_column('Net Payoff ($)', justify='right')
+        table.add_column('Net Payoff/Unit ($)', justify='right', style='#6a6c6e')
+
+        for i in range(len(prices)):
+            table.add_row(
+                real_prices_s[i],
+                net_payoffs_s[i],
+                net_per_unt_s[i]
+            )
+        emit(table)
 
 def compare_handler(count, kind_tree1, kind_tree2) -> None:
-    pass
+    canonical1 = canonical_from_tree(kind_tree1)
+    canonical2 = canonical_from_tree(kind_tree2)
+    k1: Kind = kind(canonical1)
+    k2: Kind = kind(canonical2)
+
+    emit(f'Comparing {count} activated FRPs each for two kinds, A and B.')
+
+    emit(in_panel(str(k1), title='Kind A'))
+    emit(in_panel(str(k2), title='Kind B'))
+
+    for k, which in [(k1, 'A'), (k2, 'B')]:
+        summary = FrpDemoSummary()
+        for sample in k.sample(count):
+            summary.add(sample)
+        emit(summary.table(environment.ascii_only, title=f'Summary of Demo for Kind {which}'))
 
 def show_handler(kind_tree) -> None:
-    k: Kind = kind(canonical_from_tree(kind_tree))
-    # ATTN: Replace with the unfolded version
-    # ATTN: Add *a, *kw to frplib_repr ?
-    emit(k.__frplib_repr__())
+    "Display a kind tree in text format; the tree need not be canonical."
+
+    def _find_dims(xs):
+        for x in xs:
+            if isinstance(x, list):
+                yield from _find_dims(x)
+            elif isinstance(x, tuple):
+                yield len(x)
+
+    dim = max(_find_dims(kind_tree))
+    wd = [(0, 3)]  # Widths of the root node weight and value
+    labelled = unfolded_labels(kind_tree[1:], str(kind_tree[0]), 1, wd)
+    sep = [2 * (dim - level) for level in range(dim + 1)]  # seps should be even
+    scan, _ = unfold_scan(labelled, wd, sep)
+
+    emit(in_panel(unfolded_str(scan, wd)))
 
 def help_handler(topic) -> None:
-    pass
+    if not topic:
+        overview = files('frplib.data').joinpath('market-help-overview.txt').read_text()
+        emit(overview)
+    else:
+        emit(f'Help on ...{topic}...')
+
 
 def default_handler(*a, **kw) -> None:
     raise MarketError('I do not know what to do as I did not recognize that command.')
@@ -301,22 +427,6 @@ def main() -> None:
         try:
             text = session.prompt(PROMPT1)
         except KeyboardInterrupt:
-            # # with console.capture() as capture:
-            # #     console.print("[bold red]Hello[/] World")
-            # # print(capture.get())
-            # # rich_print("Say [bold blue]hello[/] world!")
-            #
-            # table = Table(title="Star Wars Movies")
-            #
-            # table.add_column("Released", justify="right", style="cyan", no_wrap=True)
-            # table.add_column("Title", style="magenta")
-            # table.add_column("Box Office", justify="right", style="green")
-            #
-            # table.add_row("Dec 20, 2019", "Star Wars: The Rise of Skywalker", "$952,110,690")
-            # table.add_row("May 25, 2018", "Solo: A Star Wars Story", "$393,151,347")
-            # table.add_row("Dec 15, 2017", "Star Wars Ep. V111: The Last Jedi", "$1,332,539,889")
-            # table.add_row("Dec 16, 2016", "Rogue One: A Star Wars Story", "$1,332,439,889")
-            # rich_print(table)
             abort_count += 1
             if abort_count > 2:
                 exit(0)
