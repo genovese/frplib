@@ -1,0 +1,13 @@
+The market's show command is used to display the kind tree
+specified by the kind input format. (See `help kinds`.)
+The command has syntax
+
+   show kind (___).
+
+where the word `kind` is optional and the ___ is to be
+filled with the kind specification. 
+
+This produces a display of the tree as specified,
+i.e., not necessarily in canonical form. The tree
+is displayed horizontally with the root on the left
+and the leaves on the right.

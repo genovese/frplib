@@ -1,0 +1,12 @@
+The market's compare command is used to examine demos from two
+kinds, side-by-side (so to speak). The output is similar to that of
+the demo command, but there is a kind display and summary for each
+of the specified kinds.
+
+The syntax for the command is
+
+   compare _count_ with kinds (___) and (___).
+
+where _count_ should be replaced with a positive integer, and the __'s
+should be replaced by the kind input format. The words 'with',
+'kinds', and 'and' are all optional here.

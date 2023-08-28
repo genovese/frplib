@@ -60,6 +60,7 @@ price = with_label('a price', regex(price_re, group=1).map(float))
 with_kw = with_label('keyword "with"', string('with') << ws1)
 kind_kw = with_label('keyword "kind"', string('kind') << ws)
 kinds_kw = with_label('keyword "kinds"', string('kinds') << ws)
+and_kw = with_label('keyword "and"', string('and') << ws)
 
 end_of_command = with_label('an end of command (".") character', string('.'))
 
@@ -113,6 +114,7 @@ def compare_command():
     yield kinds_kw.optional()
     kind1 = yield kind_sexp
     yield ws
+    yield and_kw.optional()
     kind2 = yield kind_sexp
     yield ws
     yield end_of_command
@@ -391,8 +393,13 @@ def help_handler(topic) -> None:
         overview = files('frplib.data').joinpath('market-help-overview.txt').read_text()
         emit(overview)
     else:
-        emit(f'Help on ...{topic}...')
-
+        try:
+            clean_topic = re.sub(r'[^-A-Za-z_0-9]', '', topic)
+            guidance = files('frplib.data').joinpath(f'market-help-{clean_topic}.txt').read_text()
+            emit(guidance)
+        except Exception:
+            emit(f'I\'m sorry, but I do not have any guidance on {topic}. '
+                 'Try "help." or "help help". for an overview of topics.')
 
 def default_handler(*a, **kw) -> None:
     raise MarketError('I do not know what to do as I did not recognize that command.')

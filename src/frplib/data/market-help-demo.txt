@@ -1,0 +1,24 @@
+The market's demo command is used to study the values of a large
+batch of activated FRPs. The designated FRPs are activated and a
+table summarizing their values is displayed, along with the kind
+that all these FRPs share.
+
+The syntax of the command is
+
+  demo _count_ with kind (___).
+
+where _count_ represents a positive integer and the ___ is
+filled in by the input format for specifying a kind. 
+(See `help kinds` and `help show` for more.) The words 'with' 
+and 'kind' are both optional. The command must, as usual, end 
+in a period.
+
+The output table shows the distinct values produced by the
+batch, the counts of how many FRPs have each value, and
+the percentage of the FRPs having each value.
+
+The market will validate the kind tree as you are entering
+it. Validation messages are delayed until the ending period
+is typed. You will not be able to enter the command until
+the validation warnings are resolved. These messags show
+where in the command input a problem was discovered.

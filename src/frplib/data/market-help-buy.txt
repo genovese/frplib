@@ -1,0 +1,19 @@
+The market's buy command is used to set prices for FRPs of a
+particular kind. In particular, it can be used to estimate the
+risk-neutral prices of FRPs and kinds.
+
+The syntax of the command is
+
+  buy _count_ @ _prices_ with kind (___).
+
+Here, _count_ is a positive integer (like 1000); you can use _ as a
+separator between blocks of three digits. Also, _prices_ is a
+comma-separated list of numbers, with an optional sign and an
+optional leading $. And ___ should be filled with the specification
+of a kind (see `help kinds`).
+
+The output includes a display of the specified kind
+and a table summarizing the purchases. The table has one
+row per specified price, in order, and shows the price per unit,
+the total net payoff from the purchase of all the FRPs,
+and the net payoff per unit.

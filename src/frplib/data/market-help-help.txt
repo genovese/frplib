@@ -1,0 +1,5 @@
+The market's help command is used to get further information
+about commands and formats. If given as 'help.' and overview
+is provided. If specified as 'help _topic_.', help on the stated
+topic is given. Currently, the following topics are supported:
+show, demo, buy, compare, exit, help, and kinds.
