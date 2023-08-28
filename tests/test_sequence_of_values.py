@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from decimal import Decimal
 
 from frplib.kinds      import sequence_of_values, Flatten
