@@ -328,7 +328,7 @@ class Kind:
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, Kind):
-            NotImplemented
+            return False
         return self._canonical == other._canonical
 
     def __len__(self) -> int:

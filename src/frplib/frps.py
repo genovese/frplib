@@ -637,7 +637,9 @@ class FRP:
             self._kind: Kind | None = Kind.empty
             self._expr: FrpExpression | None = None
             self._value: ValueType | None = vec_tuple()
-        elif isinstance(create_from, FRP):  # Like clone, value not copied
+            return
+
+        if isinstance(create_from, FRP):  # Like clone, value not copied
             if create_from.is_kinded():
                 assert create_from._kind is not None
                 create_from = create_from._kind
@@ -647,7 +649,7 @@ class FRP:
 
         if isinstance(create_from, FrpExpression):
             self._expr = create_from
-            self._kind = create_from._cached_kind         # Computed Lazily
+            self._kind = create_from._cached_kind    # Computed Lazily
             self._value = create_from._cached_value  # Computed Lazily
         else:
             self._kind = Kind(create_from)
