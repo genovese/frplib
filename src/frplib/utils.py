@@ -4,8 +4,8 @@ import sys
 
 from collections.abc   import Iterable
 from functools         import reduce
-from typing            import (Any, Callable, Generic, Generator,
-                               Mapping, TypeAlias, TypeGuard, TypeVar)
+from typing            import Callable, Generator, TypeVar
+from typing_extensions import Any, TypeGuard
 
 from frplib.env        import environment
 from frplib.exceptions import ConstructionError, OperationError

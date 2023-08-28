@@ -1,8 +1,8 @@
-from __future__ import annotations
+from __future__        import annotations
 
-from collections import defaultdict
-from functools   import reduce
-from typing      import Any
+from collections       import defaultdict
+from functools         import reduce
+from typing_extensions import Any
 
 from parsy import (
     ParseError,

@@ -6,10 +6,9 @@ from __future__ import annotations
 from collections       import namedtuple, defaultdict
 from dataclasses       import dataclass
 from enum              import Enum, auto
-from decimal           import Decimal
 from fractions         import Fraction
 from itertools         import accumulate
-from typing            import Any, Callable, Generic, Mapping, TypeAlias, TypeVar
+from typing_extensions import Any, TypeAlias
 
 from parsy             import ParseError
 

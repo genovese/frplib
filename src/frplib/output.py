@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses       import dataclass
-from typing            import Any, Literal
+from typing            import Literal
+from typing_extensions import Any
 
 from rich              import box
 from rich.panel        import Panel

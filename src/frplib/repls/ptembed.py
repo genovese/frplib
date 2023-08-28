@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import builtins
 
-from ptpython.repl import PythonRepl
-from typing        import Any, Callable, ContextManager, Protocol
+from ptpython.repl     import PythonRepl
+from typing            import Callable, ContextManager, Protocol
+from typing_extensions import Any
 
 from prompt_toolkit.patch_stdout      import patch_stdout as patch_stdout_context
 from prompt_toolkit.utils             import DummyContext

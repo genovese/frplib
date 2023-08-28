@@ -5,11 +5,11 @@ from parsy     import (
     ParseError,
     Result,
 )
-from collections.abc import Iterable
-from functools       import wraps
-from typing          import Any
+from collections.abc   import Iterable
+from functools         import wraps
+from typing_extensions import Any
 
-from prompt_toolkit.formatted_text import FormattedText
+
 #
 # Helpers
 #

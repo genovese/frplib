@@ -6,16 +6,17 @@ from collections.abc   import Iterable
 from decimal           import Decimal
 from fractions         import Fraction
 from functools         import reduce
-from operator          import add, itemgetter, mul, sub
-from typing            import cast, Type, TypeAlias, TypeGuard, TypeVar
-from typing_extensions import final, Self
+from operator          import add, mul, sub
+from typing            import cast, Type, TypeVar
+from typing_extensions import Self, TypeGuard
 
 from frplib.exceptions import OperationError, NumericConversionError
-from frplib.numeric    import NumericF, NumericD, NumericB     # ATTN: Numeric only  (combined with Symbolic, SupportsVec, ...)
+from frplib.numeric    import NumericF, NumericD, NumericB     # ATTN: Numeric+Symbolic+SupportsVec
 from frplib.numeric    import as_numeric as scalar_as_numeric
 
 # SupportsVec  mixin can allow Symbolic and VecTuple automatically,   __plus__  __scalar_mul__
-# SupportsNumeric protocol __numeric__ with numeric conversion.  Can newtype Decimal and Fraction etc.; subclass with __slots__
+# SupportsNumeric protocol __numeric__ with numeric conversion.
+# Can newtype Decimal and Fraction etc.; subclass with __slots__
 
 #
 # Types
@@ -62,7 +63,7 @@ def as_scalar_strict(x) -> T:
 # Numeric/Quantified VecTuples
 #
 
-class VecTuple(tuple[T,...]):
+class VecTuple(tuple[T, ...]):
     "A variant tuple type that supports addition and scalar multiplication like a vector."
     def __new__(cls, contents: Iterable[T]) -> 'VecTuple[T]':
         return super().__new__(cls, contents)     # type: ignore
@@ -113,7 +114,7 @@ class VecTuple(tuple[T,...]):
             # cannot let us check that other has a matching type
             try:
                 return VecTuple(map(lambda x: x * z, self))     # type: ignore
-            except:
+            except Exception:
                 return NotImplemented
         return NotImplemented
 
@@ -124,7 +125,7 @@ class VecTuple(tuple[T,...]):
             # cannot let us check that other has a matching type
             try:
                 return VecTuple(map(lambda x: z * x, self))     # type: ignore
-            except:
+            except Exception:
                 return NotImplemented
         return NotImplemented
 
@@ -135,7 +136,7 @@ class VecTuple(tuple[T,...]):
             # cannot let us check that other has a matching type
             try:
                 return VecTuple(map(lambda x: x / z, self))  # type: ignore
-            except:
+            except Exception:
                 return NotImplemented
         return NotImplemented
 
@@ -146,7 +147,7 @@ class VecTuple(tuple[T,...]):
             # cannot let us check that other has a matching type
             try:
                 return VecTuple(map(lambda x: x // z, self))  # type: ignore
-            except:
+            except Exception:
                 return NotImplemented
         return NotImplemented
 
@@ -157,7 +158,7 @@ class VecTuple(tuple[T,...]):
             # cannot let us check that other has a matching type
             try:
                 return VecTuple(map(lambda x: x % z, self))  # type: ignore
-            except:
+            except Exception:
                 return NotImplemented
         return NotImplemented
 
@@ -168,7 +169,7 @@ class VecTuple(tuple[T,...]):
             # cannot let us check that other has a matching type
             try:
                 return VecTuple(map(lambda x: x ** z, self))  # type: ignore
-            except:
+            except Exception:
                 return NotImplemented
         return NotImplemented
 
@@ -179,7 +180,7 @@ class VecTuple(tuple[T,...]):
             # cannot let us check that other has a matching type
             try:
                 return VecTuple(map(lambda x: z ** x, self))  # type: ignore
-            except:
+            except Exception:
                 return NotImplemented
         return NotImplemented
 
@@ -213,7 +214,7 @@ class VecTuple(tuple[T,...]):
             return super().__ne__(other)
         except TypeError as e:
             raise OperationError(f'Could not test for != with {other}: {str(e)}')
-        
+
     def __lt__(self, other):
         other = from_scalar(other)   # Allow scalar comparison of VecTuples
         try:

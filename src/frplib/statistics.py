@@ -8,14 +8,14 @@ import textwrap
 from collections.abc   import Iterable
 from functools         import wraps
 from operator          import itemgetter
-from typing            import Callable, Literal, Optional, overload, TypeGuard
-from typing_extensions import Self
+from typing            import Callable, Literal, Optional, overload
+from typing_extensions import Self, TypeGuard
 
 from frplib.exceptions import OperationError, StatisticError
 from frplib.numeric    import as_real, as_numeric
 from frplib.protocols  import Projection, Transformable
 from frplib.utils      import ensure_tuple, identity, is_interactive, is_tuple, scalarize
-from frplib.vec_tuples import VecTuple, as_scalar, as_scalar_strict, as_vec_tuple, is_vec_tuple
+from frplib.vec_tuples import VecTuple, as_scalar, as_scalar_strict, as_vec_tuple
 
 # ATTN: conversion with as_real etc in truediv, pow to prevent accidental float conversion
 # This could be mitigated by eliminating ints from as_numeric*, but we'll see how this
@@ -39,7 +39,7 @@ def compose2(after: 'Statistic', before: 'Statistic') -> 'Statistic':
 # Decorator/Wrapper to make functions auto-uncurry
 #
 
-def tuple_safe(fn: Callable, arity : Optional[int] = None) -> Callable:
+def tuple_safe(fn: Callable, arity: Optional[int] = None) -> Callable:
     """Returns a function that can accept a single tuple or multiple individual arguments.
 
     Ensures that the returned function has an `arity` attribute set
@@ -92,31 +92,30 @@ def tuple_safe(fn: Callable, arity : Optional[int] = None) -> Callable:
 # dice | fork(Sum, Count)               # produces tuples x :-> (sum(x), len(x))
 # dice | chain(Id - 7, Abs, Id <= 3)    # should reduce to lambda x: |x - 7| <= 3
 #
-# Built-in statistics: Sum, Mean, Max, Min, Product, Count, Dot(c1,c2,c3,...) [dot product, repeat last coefficient ad infinitum; this is a function that produces a Statistic],
-#                      Id, Proj(1,...) [func that produces a statistic, equiv to @ but allows Proj(2) - Proj(1)], Permutation(i1,i2,i3,...),
-#                      Square, Cube, SumOfSquares, Sqrt, Pow(exp), Exp, Ln, Abs, Sin, Cos, Tan
+# Built-in statistics: Sum, Mean, Max, Min, Product, Count, Dot(c1,c2,c3,...)
+# [dot product, repeat last coefficient ad infinitum; this is a function that produces a Statistic],
+# Id, Proj(1,...) [func that produces a statistic, equiv to @ but allows Proj(2) - Proj(1)],
+# Permutation(i1,i2,i3,...),
+# Square, Cube, SumOfSquares, Sqrt, Pow(exp), Exp, Ln, Abs, Sin, Cos, Tan
 
 # NOTE: This means that we want to accept 0-1 valued functions in conditioning predicates
 # as well as boolean functions. Or maybe it's OK and just works, but probably want to convert
 # boolean to 0-1 in .map().  <<<---- so events become easy
 
-# Note: codim=0 can be used to mean the same dim as input 
+# Note: codim=0 can be used to mean the same dim as input
 
-## ATTN: Also implement things like __is__ and __in__ so we can do X ^ (__ in {0, 1, 2})
-
-## ATTN: call of a statistic can check for FRP or Kind  (need root class) and call their transform method on self   Sum(X)
-##   THis is great as it closely models our notation
-## We still have the ^ notation for piping and can add @ for compose ("after")  so  k ^ Double @ Scalar == Double(Scalar(k)) == Double(Scalar(k))
+# ATTN: Also implement things like __is__ and __in__ so we can do X ^ (__ in {0, 1, 2})
 
 class Statistic:
     "A function that operates on the output of an FRP."
-    def __init__(self: Self,
-                 fn: Callable | 'Statistic',         # Either a Statistic or a function to be turned into one
-                 dim: Optional[int] = None,          # Number of arguments the function takes; 0 means tuple expected
-                 codim: Optional[int] = None,        # Dimension of the codomain; None means don't know
-                 name: Optional[str] = None,         # A user-facing name for the statistic
-                 description: Optional[str] = None   # A description used as a __doc__ string for the Statistic
-                ) -> None:
+    def __init__(
+            self: Self,
+            fn: Callable | 'Statistic',         # Either a Statistic or a function to be turned into one
+            dim: Optional[int] = None,          # Number of arguments the function takes; 0 means tuple expected
+            codim: Optional[int] = None,        # Dimension of the codomain; None means don't know
+            name: Optional[str] = None,         # A user-facing name for the statistic
+            description: Optional[str] = None   # A description used as a __doc__ string for the Statistic
+    ) -> None:
         "Note: set arity to 0 to advise that it takes the whole tuple/vector; None means try to find out"
 
         if isinstance(fn, Statistic):
@@ -134,7 +133,7 @@ class Statistic:
         self._name = name or fn.__name__ or ''
         self.__doc__ = self.__describe__(description or fn.__doc__ or '')
 
-    def __describe__ (self, description: str, returns: Optional[str] = None) -> str:
+    def __describe__(self, description: str, returns: Optional[str] = None) -> str:
         def splitPascal(pascal: str) -> str:
             return re.sub(r'([a-z])([A-Z])', r'\1 \2', pascal)
 
@@ -163,7 +162,7 @@ class Statistic:
         structure = f'{arity}{conj}{scalar}.'
 
         return f'{me}{descriptor}{structure}'
-        
+
     def __str__(self) -> str:
         return self.__doc__
 
@@ -324,7 +323,7 @@ class Statistic:
                 return self(*x) + other
             label = str(other)
 
-        return Statistic(a_plus_b, dim=0, name=f'{self.name}(__)')
+        return Statistic(a_plus_b, dim=0, name=f'{self.name}(__) + {label}')
 
     def __radd__(self, other):
         if callable(other):   # other cannot be a Statistic in __r*__
@@ -624,14 +623,15 @@ class Condition(Statistic):
 
     Boolean values here are represented in the output with
     0 for false and 1 for true, though the input callable
-    can return any 
-    """ 
-    def __init__(self,
-                 predicate: Callable | 'Statistic', # Either a Statistic or a function to be turned into one
-                 dim: Optional[int] = None,         # Number of arguments the function takes; 0 means tuple expected
-                 name: Optional[str] = None,        # A user-facing name for the statistic
-                 description: Optional[str] = None  # A description used as a __doc__ string for the Statistic
-                ) -> None:
+    can return any
+    """
+    def __init__(
+            self,
+            predicate: Callable | 'Statistic',  # Either a Statistic or a function to be turned into one
+            dim: Optional[int] = None,          # Number of arguments the function takes; 0 means tuple expected
+            name: Optional[str] = None,         # A user-facing name for the statistic
+            description: Optional[str] = None   # A description used as a __doc__ string for the Statistic
+    ) -> None:
         super().__init__(predicate, dim, 1, name, description)
         self.__doc__ = self.__describe__(description or predicate.__doc__ or '', 'returns a 0-1 (boolean) value')
 
@@ -652,13 +652,13 @@ class Condition(Statistic):
 #
 
 def statistic(
-        maybe_fn : Optional[Callable] = None, # If supplied, return Statistic, else a decorator
+        maybe_fn: Optional[Callable] = None,  # If supplied, return Statistic, else a decorator
         *,
         name: Optional[str] = None,         # A user-facing name for the statistic
         dim: Optional[int] = None,          # Number of arguments the function takes; 0 means tuple expected
         codim: Optional[int] = None,        # Dimension of the codomain; None means don't know
         description: Optional[str] = None,  # A description used as a __doc__ string for the Statistic
-        monoidal = None                     # If not None, the unit for a Monoidal Statistic
+        monoidal=None                       # If not None, the unit for a Monoidal Statistic
 ) -> Statistic | Callable[[Callable], Statistic]:
     """
     """
@@ -679,20 +679,20 @@ def scalar_statistic(
         name: Optional[str] = None,         # A user-facing name for the statistic
         dim: Optional[int] = None,          # Number of arguments the function takes; 0 means tuple expected
         description: Optional[str] = None,  # A description used as a __doc__ string for the Statistic
-        monoidal = None                     # If not None, the unit of a Monoidal Statistic
+        monoidal=None                     # If not None, the unit of a Monoidal Statistic
 ):
     def decorator(fn: Callable) -> Statistic:     # Function to be converted to a statistic
         return Statistic(fn, dim, 1, name, description)
     return decorator
 
 def condition(
-        maybe_predicate : Optional[Callable] = None, # If supplied, return Condition, else a decorator
+        maybe_predicate: Optional[Callable] = None,  # If supplied, return Condition, else a decorator
         *,
         name: Optional[str] = None,         # A user-facing name for the statistic
         dim: Optional[int] = None,          # Number of arguments the function takes; 0 means tuple expected
         codim: Optional[int] = None,        # Dimension of the codomain; None means don't know
         description: Optional[str] = None,  # A description used as a __doc__ string for the Statistic
-        monoidal = None                     # If not None, the unit for a Monoidal Statistic
+        monoidal=None                     # If not None, the unit for a Monoidal Statistic
 ) -> Condition | Callable[[Callable], Condition]:
     """
     """
@@ -786,7 +786,7 @@ Log10 = Statistic(math.log2, dim=1, codim=1, name='log', description='returns th
 # Combinators
 #
 
-def ForEach( s: Statistic ) -> Statistic:
+def ForEach(s: Statistic) -> Statistic:
     def foreach(*x):
         if len(x) > 0 and is_tuple(x[0]):
             x = x[0]
@@ -794,11 +794,11 @@ def ForEach( s: Statistic ) -> Statistic:
     return Statistic(foreach, dim=0, name=f'applies {s.name} to every component of input value')
 
 
-##
-## ATTN: Need better handling of dim, arity, codim.  arity=0, etc. is fine while dim is the minimum dimension allowed
-## codim=0 means returns a tuple whose equals its input length; codim=n means returns an n-tuple, codim=None is unknown
-##
-def Fork( stat: Statistic, *more_stats: Statistic ) -> Statistic:
+# #
+# # ATTN: Need better handling of dim, arity, codim.  arity=0, etc. is fine while dim is the minimum dimension allowed
+# # codim=0 means returns a tuple whose equals its input length; codim=n means returns an n-tuple, codim=None is unknown
+# #
+def Fork(stat: Statistic, *more_stats: Statistic) -> Statistic:
     # Arities must all be the same
     if any([s.arity != stat.arity for s in more_stats]):  #ATTN!: Statistics need to distinguish arity from minimum dim, need two properties
         raise ValueError('Fork must be called on statistics with the same dimension')

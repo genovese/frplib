@@ -12,13 +12,14 @@ from __future__  import annotations
 import math
 import re
 
-from abc             import abstractmethod
-from collections.abc import Iterable
-from dataclasses     import dataclass
-from decimal         import Decimal, ROUND_HALF_UP, ROUND_UP
-from enum            import Enum, auto
-from fractions       import Fraction
-from typing          import cast, Literal, TypeAlias
+from abc               import abstractmethod
+from collections.abc   import Iterable
+from dataclasses       import dataclass
+from decimal           import Decimal, ROUND_HALF_UP, ROUND_UP
+from enum              import Enum, auto
+from fractions         import Fraction
+from typing            import cast, Literal
+from typing_extensions import TypeAlias
 
 from frplib.exceptions import EvaluationError
 
@@ -215,7 +216,7 @@ def numeric_q(
     return rvalue
 
 REAL_ZERO = Decimal('0')
-REAL_ONE  = Decimal('1')
+REAL_ONE = Decimal('1')
 
 # Adjust these parameters for a default numerical quantification policy
 def as_numeric(x: ScalarQ = RealQuantity()) -> Numeric:

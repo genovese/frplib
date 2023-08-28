@@ -8,8 +8,9 @@ from collections.abc   import Collection, Iterable
 from dataclasses       import dataclass
 from enum              import Enum, auto
 from itertools         import chain, combinations, permutations, product
-from typing            import Any, Literal, Callable, overload, TypeAlias, Optional
-from typing_extensions import final
+from typing            import Literal, Callable, overload
+from typing_extensions import TypeAlias
+
 
 from rich              import box
 from rich.panel        import Panel
@@ -19,7 +20,7 @@ from frplib.exceptions import ConstructionError, KindError, MismatchedDomain
 from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
-from frplib.numeric    import Numeric, as_numeric, show_values, show_tuples, show_tuple
+from frplib.numeric    import Numeric, as_numeric, show_values, show_tuples
 from frplib.statistics import Statistic
 from frplib.protocols  import Projection
 from frplib.utils      import (compose, const, ensure_tuple, identity,
@@ -83,8 +84,6 @@ class EmptyKindDescriptor:
     def __get__(self, obj, objtype=None):
         return objtype([])
 
-
-@final
 class Kind:
     """
     The Kind of a Fixed Random Payoff
@@ -910,4 +909,3 @@ def show_labeled(kind, label, width=None):
 
 def tbl(mix, pad=': '):
     print( '\n\n'.join([show_labeled(mix[k], str(k) + pad) for k in mix]))
-

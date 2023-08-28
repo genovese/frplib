@@ -6,8 +6,8 @@ import random
 from abc               import ABC, abstractmethod
 from collections       import defaultdict
 from collections.abc   import Iterable
-from typing            import (Any, Callable, cast, overload, TypeAlias)
-from typing_extensions import Self
+from typing            import Callable, cast, overload
+from typing_extensions import Self, Any, TypeAlias
 
 from rich.table        import Table
 from rich              import box as rich_box
