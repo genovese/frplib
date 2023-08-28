@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import random
 
 from abc               import ABC, abstractmethod
 from collections       import defaultdict
@@ -14,8 +15,8 @@ from rich.panel        import Panel
 
 from frplib.env        import environment
 from frplib.exceptions import (ConditionMustBeCallable, ComplexExpectationWarning,
-                               ConstructionError, FrpError, MismatchedDomain,)
-from frplib.kinds      import Kind, kind, ConditionalKind
+                               ConstructionError, FrpError, KindError, MismatchedDomain,)
+from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
 # ATTN:Will replace this value type with a unified type TBD
 from frplib.numeric    import Numeric, show_tuple, as_real
 from frplib.protocols  import Projection
@@ -69,9 +70,11 @@ class FrpDemoSummary:
         self._size += 1
         return self
 
-    def rich_table(self):
+    def rich_table(self, title: str | None = None):
         # ATTN: Put styles in a more central place (environment?), e.g., environment.styles['values']
-        table = Table(title='Summary of Output Values', box=rich_box.SQUARE_DOUBLE_HEAD)
+        if title is None:
+            title = 'Summary of Output Values'
+        table = Table(title=title, box=rich_box.SQUARE_DOUBLE_HEAD)
         table.add_column('Values', justify='left', style='#4682b4', no_wrap=True)
         table.add_column('Count', justify='right')
         table.add_column('Proportion', justify='right', style='#6a6c6e')
@@ -85,9 +88,11 @@ class FrpDemoSummary:
 
         return table
 
-    def ascii_table(self) -> str:
+    def ascii_table(self, title: str | None = None) -> str:
         out: list[str] = []
-        out.append('Summary of output values:')
+        if title is None:
+            title = 'Summary of output values:'
+        out.append(title)
 
         values = sorted(self._summary.keys())
         n = float(self._size)
@@ -106,10 +111,10 @@ class FrpDemoSummary:
                        "    {prop:>{w[2]}s}".format(**row, w=list(widths.values())))
         return "\n".join(out)
 
-    def table(self, ascii=False) -> str:
+    def table(self, ascii=False, title: str | None = None) -> str:
         if ascii:
-            return self.ascii_table()
-        return self.rich_table()
+            return self.ascii_table(title)
+        return self.rich_table(title)
 
     def __len__(self) -> int:
         return self._size
@@ -964,8 +969,9 @@ class FRP:
 
         return conditional
 
+
 #
-# Utilities and Constructors
+# Constructors
 #
 
 def frp(spec) -> FRP:
@@ -974,6 +980,42 @@ def frp(spec) -> FRP:
         return FRP(kind(spec))
 
     return FRP(spec)
+
+
+#
+# Utilities and Additional Factories and Combinators
+#
+
+class FisherYates(FrpExpression):
+    def __init__(self, items: Iterable):
+        super().__init__()
+        self.items = tuple(items)
+        self.n = len(self.items)
+
+    def sample1(self):
+        permuted = list(self.items)
+        for i in range(self.n - 1):
+            j = random.randrange(i, self.n)
+            permuted[j], permuted[i] = permuted[i], permuted[j]  # swap
+        return VecTuple(permuted)
+
+    def value(self):
+        if self._cached_value is None:
+            self._cached_value = self.sample1()
+        return self._cached_value
+
+    def kind(self) -> Kind:
+        if self.n <= 10:
+            return permutations_of(self.items)
+        raise KindError(f'The kind of a large ({self.n} > 10) permutation is too costly to compute.')
+
+    def clone(self) -> 'FisherYates':
+        self._cached_value = None
+        self.value()
+        return self
+
+def shuffle(items: Iterable) -> FRP:
+    return frp(FisherYates(items))
 
 
 #
