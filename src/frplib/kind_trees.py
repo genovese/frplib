@@ -8,6 +8,7 @@ from dataclasses       import dataclass
 from enum              import Enum, auto
 from fractions         import Fraction
 from itertools         import accumulate
+from typing            import Union
 from typing_extensions import Any, TypeAlias
 
 from parsy             import ParseError
@@ -215,8 +216,8 @@ class Segment:
     y: int
     z: Any
 
-Items: TypeAlias = list[Branch | Segment]
-STree: TypeAlias = 'list[str | STree]'
+Items: TypeAlias = list[Union[Branch, Segment]]
+STree: TypeAlias = 'list[Union[str, STree]]'
 
 # from frplib.kind_trees import unfold_tree
 # from frplib.uscan import *

@@ -18,7 +18,7 @@ from dataclasses       import dataclass
 from decimal           import Decimal, ROUND_HALF_UP, ROUND_UP
 from enum              import Enum, auto
 from fractions         import Fraction
-from typing            import cast, Literal
+from typing            import cast, Literal, Union
 from typing_extensions import TypeAlias
 
 from frplib.exceptions import EvaluationError
@@ -140,12 +140,12 @@ class RealQuantity(NumericQuantity):
 # The NumericX types provide separate interoperable types for
 # consistent arithmetic
 
-NumericQ: TypeAlias = IntegerQuantity | RationalQuantity | RealQuantity
-ScalarQ:  TypeAlias = int | float | Fraction | Decimal | NumericQ | str
+NumericQ: TypeAlias = Union[IntegerQuantity, RationalQuantity, RealQuantity]
+ScalarQ:  TypeAlias = Union[int, float, Fraction, Decimal, NumericQ, str]
 
-NumericB: TypeAlias = int | float     # Binary floating point numbers
-NumericD: TypeAlias = int | Decimal   # Decimal floating point numbers
-NumericF: TypeAlias = int | Fraction  # Arbitrary Precision rational numbers
+NumericB: TypeAlias = Union[int, float]     # Binary floating point numbers
+NumericD: TypeAlias = Union[int, Decimal]   # Decimal floating point numbers
+NumericF: TypeAlias = Union[int, Fraction]  # Arbitrary Precision rational numbers
 
 Numeric:  TypeAlias = NumericD  # Default underlying numeric representation
 
