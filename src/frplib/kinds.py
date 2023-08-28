@@ -515,7 +515,7 @@ def unfold(k: Kind) -> UnfoldedKind:  # ATTN: Return an object that prints this 
         return UnfoldedKind(k._canonical, k.show_full())
     # ATTN: Remove other components from this, no longer needed
 
-    wd = [(0, 3)]
+    wd = [(0, 3)]  # Widths of the root node weight (empty) and value (<>)
     labelled = unfolded_labels(unfolded[1:], str(unfolded[0]), 1, wd)
     sep = [2 * (dim - level) for level in range(dim + 1)]  # seps should be even
     scan, _ = unfold_scan(labelled, wd, sep)

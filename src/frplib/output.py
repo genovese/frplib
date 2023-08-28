@@ -1,13 +1,42 @@
 # output.py - tools for managing terminal output
 
 from dataclasses       import dataclass
-from typing            import Any
+from typing            import Any, Literal
 
 from rich              import box
 from rich.panel        import Panel
 
 from frplib.env        import environment
 
+
+#
+# Rendered Output
+#
+
+def in_panel(
+        s: str,
+        box=box.SQUARE,
+        title: str | None = None,
+        title_align: Literal['left', 'center', 'right'] = 'center',
+        subtitle: str | None = None,
+        subtitle_align: Literal['left', 'center', 'right'] = 'center',
+) -> str | Panel:
+    if environment.ascii_only:
+        return s
+    return Panel(
+        s,
+        expand=False,
+        box=box,
+        title=title,
+        title_align=title_align,
+        subtitle=subtitle,
+        subtitle_align=subtitle_align,
+    )
+
+
+#
+# Wrapped Quantities Providing Rich String Representations
+#
 
 @dataclass(frozen=True)
 class RichQuantity:
