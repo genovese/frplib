@@ -36,6 +36,7 @@ dependencies = [
 dev = ["black", "ruff", "pytest", "hypothesis", "returns"]
 
 [project.urls]
+Homepage = "https://github.com/genovese/frplib"
 Documentation = "https://github.com/genovese/frplib#readme"
 Issues = "https://github.com/genovese/frplib/issues"
 Source = "https://github.com/genovese/frplib"
