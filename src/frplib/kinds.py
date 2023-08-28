@@ -692,7 +692,10 @@ def kind(any) -> Kind:
         return Kind.empty
     if isinstance(any, str) and (any in {'void', 'empty'} or re.match(r'\s*\(\s*<\s*>\s*\)\s*', any)):
         return Kind.empty
-    return Kind(any)
+    try:
+        return Kind(any)
+    except Exception as e:
+        raise KindError(f'I could not create a kind from {any}: {str(e)}')
 
 
 #

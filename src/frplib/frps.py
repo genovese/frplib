@@ -979,7 +979,10 @@ def frp(spec) -> FRP:
     if isinstance(spec, str):
         return FRP(kind(spec))
 
-    return FRP(spec)
+    try:
+        return FRP(spec)
+    except Exception as e:
+        raise FrpError(f'I could not create an Frp from {any}: {str(e)}')
 
 
 #
