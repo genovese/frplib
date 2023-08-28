@@ -8,8 +8,7 @@ from enum              import Enum, auto
 from decimal           import Decimal
 from fractions         import Fraction
 from itertools         import accumulate
-from typing            import Callable, Generic, Mapping, TypeAlias, TypeVar
-from typing_extensions import Any, final, Self
+from typing            import Any, Callable, Generic, Mapping, TypeAlias, TypeVar
 
 from parsy             import ParseError
 
@@ -17,8 +16,7 @@ from frplib.exceptions           import KindError
 from frplib.numeric              import Numeric, as_numeric, show_values, show_tuples
 from frplib.parsing.kind_strings import canonical_tree, kind_sexp, validate_kind
 from frplib.parsing.parsy_adjust import parse_error_message
-from frplib.utils                import (compose, ensure_tuple, identity,
-                                         is_interactive, is_tuple, lmap,)
+from frplib.utils                import identity
 from frplib.vec_tuples           import VecTuple, as_vec_tuple, vec_tuple
 
 #
@@ -162,7 +160,7 @@ def unfold_tree(canonical: list[KindBranch]) -> list | None:  # ATTN: give this 
     use the standard methods for display canonical kinds.
 
     This is used as a primitive in a higher-level unfolding utility.
-    
+
     """
     root = vec_tuple()
     if len(canonical) == 0 or len(canonical[0].vs) == 1:
@@ -312,7 +310,7 @@ def unfold_scan(unfolded, widths_by_level: list[tuple[int, int]], sep: list[int]
         # Leaf
         if isinstance(more, str):  # <=> level == env.dim
             if len(acc) == 0:  # First/top leaf node
-                return (Branch(x, 0, Edge.FIRST, level, (weight, more)), 0, 0)
+                return (Branch(x, 0, edge, level, (weight, more)), 0, 0)
             base = acc[-1]
             yb = base.y
             return (Branch(x, yb + 1, edge, level, (weight, more)), yb + 1, yb + 1)
