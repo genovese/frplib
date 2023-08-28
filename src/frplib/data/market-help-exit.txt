@@ -1,5 +1,5 @@
 The exit command is used to end the market session. You can use the
-word `exit` or the word `quit` as you prefer, and as usual the
+word `exit` (or `quit` or `done` as you prefer), and as usual the
 command must end in a period.
 
 Syntax:  exit.

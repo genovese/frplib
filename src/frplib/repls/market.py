@@ -133,10 +133,11 @@ command_parsers = {
     'demo': demo_command,
     'show': show_command,
     'buy':  buy_command,
+    'compare': compare_command,
     'help': help_command,
     'exit': exit_command,
     'quit': exit_command,
-    'compare': compare_command,
+    'done': exit_command,
 }
 
 def cmd_token(cmd_name: str) -> Parser:
@@ -160,6 +161,8 @@ class CommandValidator(Validator):
                 cmd_info = command.parse(text)
                 if cmd_info[0] == 'demo' or cmd_info[0] == 'buy':
                     kind_validation = validate_kind(cmd_info[-1])
+                elif cmd_info[0] == 'compare':
+                    kind_validation = validate_kind(cmd_info[-2]) + validate_kind(cmd_info[-1])
                 else:
                     kind_validation = ''
                 if kind_validation:
