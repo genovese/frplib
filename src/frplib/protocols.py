@@ -27,7 +27,6 @@ class Transformable(Protocol):
 
 @runtime_checkable
 class SupportsExpectation(Protocol):
-    @property
     def expectation(self):
         ...
 

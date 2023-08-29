@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from frplib.exceptions import ComplexExpectationWarning
-from frplib.frps       import ConditionalFRP
-from frplib.kinds      import ConditionalKind
+from frplib.frps       import FRP, ConditionalFRP
+from frplib.kinds      import Kind, ConditionalKind
 from frplib.numeric    import show_tuple
 from frplib.output     import TitledRichFacade
 from frplib.protocols  import SupportsExpectation, SupportsApproxExpectation, SupportsForcedExpectation
+from frplib.statistics import Statistic
 from frplib.vec_tuples import as_vec_tuple
 
 
@@ -28,15 +29,15 @@ def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
 
     """
     if isinstance(x, (ConditionalKind, ConditionalFRP)):
-        return x.expectation
+        return x.expectation()
 
     if isinstance(x, SupportsExpectation):
         title = ''
         try:
-            expect = x.expectation
+            expect = x.expectation()
         except ComplexExpectationWarning as e:
             if force_kind and isinstance(x, SupportsForcedExpectation):
-                expect = x.forced_expectation
+                expect = x.forced_expectation()
             elif isinstance(x, SupportsApproxExpectation):
                 expect = x.approximate_expectation(tolerance)
                 title = (f'Computing approximation (tolerance {tolerance}) '
@@ -47,3 +48,16 @@ def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
         expect = as_vec_tuple(expect)
         return TitledRichFacade(expect, show_tuple(expect), title)
     return None
+
+def D_(X: FRP | Kind):
+    """The distribution operator for an FRP or kind.
+
+    When passed an FRP or kind, this returns a function
+    that maps any compatible statistic to the expectation
+    of the transformed FRP or kind.
+
+    """
+    def probe(psi: Statistic):
+        # ATTN: Check compatibility here
+        return E(psi(X))
+    return probe

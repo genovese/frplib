@@ -19,7 +19,7 @@ from frplib.exceptions import (ConditionMustBeCallable, ComplexExpectationWarnin
 from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
 # ATTN:Will replace this value type with a unified type TBD
 from frplib.numeric    import Numeric, show_tuple, as_real
-from frplib.protocols  import Projection
+from frplib.protocols  import Projection, SupportsExpectation
 from frplib.statistics import Statistic, tuple_safe
 from frplib.utils      import scalarize
 from frplib.vec_tuples import VecTuple, as_scalar, as_vec_tuple, vec_tuple
@@ -202,6 +202,10 @@ class IMixtureExpression(FrpExpression):
     def __init__(self, terms: Iterable['FrpExpression']) -> None:
         super().__init__()
         self._operands = list(terms)
+        if all(f._cached_kind is not None for f in terms):
+            pass  # ATTN: Reduce with operator.mul and nno initial value
+        if all(f._cached_value is not None for f in terms):
+            self._cached_value = join_values(f._cached_value for f in terms)  # type: ignore
 
     def sample1(self) -> ValueType:
         if len(self._operands) == 0:
@@ -231,6 +235,15 @@ class IMixtureExpression(FrpExpression):
         new_expr._cached_kind = self._cached_kind
         return new_expr
 
+    def expectation(self):
+        cached = [k._cached_kind for k in self._operands]
+        if all(k is not None for k in cached):
+            return as_vec_tuple([k.expectation() for k in cached])   # type: ignore
+        elif all(isinstance(term, SupportsExpectation) for term in self._operands):
+            return as_vec_tuple([term.expectation() for term in self._operands])  # type: ignore
+        raise ComplexExpectationWarning('The expectation of this FRP could not be computed '
+                                        'without first finding its kind.')
+
     @classmethod
     def append(cls, mixture: 'IMixtureExpression', other: 'FrpExpression') -> 'IMixtureExpression':
         "Returns a new IMixture with target as the last term."
@@ -251,6 +264,8 @@ class IMixPowerExpression(FrpExpression):
         super().__init__()
         self._term = term
         self._pow = pow
+        if term._cached_kind is not None:
+            self._cached_kind = term._cached_kind ** pow
 
     def sample1(self) -> ValueType:
         draws = [self._term.sample1() for _ in range(self._pow)]
@@ -270,6 +285,16 @@ class IMixPowerExpression(FrpExpression):
         new_expr = IMixPowerExpression(self._term.clone(), self._pow)
         new_expr._cached_kind = self._cached_kind
         return new_expr
+
+    def expectation(self):
+        if self._term._cached_kind is not None:
+            exp = self._term._cached_kind.expectation()
+            return as_vec_tuple([exp] * self._pow)
+        elif isinstance(self._term, SupportsExpectation):
+            exp = self._term.expectation()
+            return as_vec_tuple([exp] * self._pow)
+        raise ComplexExpectationWarning('The expectation of this FRP could not be computed '
+                                        'without first finding its kind.')
 
 class MixtureExpression(FrpExpression):
     # ATTN: the target should be passed to conditional_frp before this
@@ -348,6 +373,10 @@ class PureExpression(FrpExpression):
     def __init__(self, frp: 'FRP') -> None:
         super().__init__()
         self._target = frp
+        if frp.is_kinded():
+            self._cached_kind = frp.kind
+        if frp._value is not None:
+            self._cached_value = frp._value
 
     def sample1(self, want_value=False) -> ValueType:
         return FRP.sample1(self._target)
@@ -356,12 +385,19 @@ class PureExpression(FrpExpression):
         return self._target.value
 
     def kind(self) -> Kind:
+        self._cached_kind = self._target.kind  # For checks in other expressions
         return self._target.kind
 
     def clone(self) -> 'PureExpression':
         new_expr = PureExpression(self._target.clone())
         new_expr._target._kind = self._target._kind
         return new_expr
+
+    def expectation(self):
+        if self._target.is_kinded():
+            return self._target.kind.expectation()
+        raise ComplexExpectationWarning('The expectation of this FRP could not be computed '
+                                        'without first finding its kind.')
 
 def as_expression(frp: 'FRP') -> FrpExpression:
     """Returns an FRP expression that is equivalent to this FRP.
@@ -486,13 +522,12 @@ class ConditionalFRP:
 
             return ConditionalFRP(fn, dim=self._dim, codim=self._codim, domain=self._domain)
 
-    @property
     def expectation(self):
         """Returns a function from values to the expectation of the corresponding FRP.
 
         Note that for a lazily evaluated FRP, it may be costly to compute the expectation
         so this will fail with a warning. See the forced_expectation and approximate_expectation
-        properties for alternatives in that case.
+        methods for alternatives in that case.
 
         The domain, dim, and codim of the conditional kind are each included as an
         attribute ('domain', 'dim', and 'codim', respetively) of the returned
@@ -504,7 +539,7 @@ class ConditionalFRP:
                 frp = self._fn(*x)
             except MismatchedDomain:
                 return None
-            return frp.expectation
+            return frp.expectation()
 
         setattr(fn, 'codim', self._codim)
         setattr(fn, 'dim', self._dim)
@@ -512,7 +547,6 @@ class ConditionalFRP:
 
         return fn
 
-    @property
     def forced_expectation(self):
         """Returns a function from values to the expectation of the corresponding FRP.
 
@@ -531,7 +565,7 @@ class ConditionalFRP:
                 frp = self._fn(*x)
             except MismatchedDomain:
                 return None
-            return frp.forced_expectation
+            return frp.forced_expectation()
 
         setattr(fn, 'codim', self._codim)
         setattr(fn, 'dim', self._dim)
@@ -696,7 +730,6 @@ class FRP:
             self._kind = self._expr.kind()
         return self._kind
 
-    @property
     def expectation(self):
         """Returns the expectation of this FRP, unless computationally inadvisable.
 
@@ -711,18 +744,17 @@ class FRP:
 
         """
         if self.is_kinded():
-            return self.kind.expectation
+            return self.kind.expectation()
         else:
             assert self._expr is not None
             return _expectation_from_expr(self._expr)
 
-    @property
     def forced_expectation(self):
         "Returns the expectation of this FRP, computing the kind if necessary to do so."
         try:
-            return self.expectation
+            return self.expectation()
         except ComplexExpectationWarning:
-            return self.kind.expectation
+            return self.kind.expectation()
 
     def approximate_expectation(self, tolerance=0.01) -> ValueType:
         "Computes an approximation to this FRP's expectation to the specified tolerance."
@@ -747,6 +779,11 @@ class FRP:
             return (f'An [bold]FRP[/] of dimension [#3333cc]{self.kind.dim}[/] and size [#3333cc]{self.kind.size}[/]'
                     f' with value [bold #4682b4]{self.value}[/]')
         return f'An [bold]FRP[/] with value [bold #4682b4]{self.value}[/]. (It may be slow to evaluate its kind.)'
+
+    def __repr__(self) -> str:
+        if environment.is_interactive:
+            return str(self)
+        return super().__repr__()
 
     def __bool__(self) -> bool:
         return self.dim > 0
@@ -1047,6 +1084,11 @@ def _sample_from_expr(n: int, expr: FrpExpression, summary: bool) -> FrpDemoSumm
     return values
 
 def _expectation_from_expr(expr: FrpExpression):
+    # ATTN: Expand the range of things that this works for
+    # For instance, mixture powers or PureExpressions where the kind is available
+    # should be automatic
+    if expr._cached_kind is not None:
+        return expr._cached_kind.expectation()
     raise ComplexExpectationWarning('The expectation of this FRP could not be computed without first finding its kind.')
 
 def join_values(values: Iterable[ValueType]) -> ValueType:

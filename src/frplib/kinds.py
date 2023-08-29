@@ -311,7 +311,6 @@ class Kind:
                             'matching mapping of values to kinds of the same dimension')
         return self.bind(value_map(cond_kind, self))
 
-    @property
     def expectation(self):
         """Computes the expectation of this kind. Scalar expectations are unwrapped. (Internal use.)
 
@@ -813,7 +812,6 @@ class ConditionalKind:
             return transform(fn(*x))
         return trans_map
 
-    @property
     def expectation(self) -> Callable:
         """Returns a function from values to the expectation of the corresponding kind.
 
@@ -827,7 +825,7 @@ class ConditionalKind:
                 k = self._fn(*x)
             except MismatchedDomain:
                 return None
-            return k.expectation
+            return k.expectation()
 
         setattr(fn, 'codim', self._codim)
         setattr(fn, 'dim', self._dim)

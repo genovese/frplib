@@ -21,6 +21,7 @@ from fractions         import Fraction
 from typing            import cast, Literal, Union
 from typing_extensions import TypeAlias
 
+from frplib.env        import environment
 from frplib.exceptions import EvaluationError
 
 
@@ -234,10 +235,27 @@ def as_real(x: ScalarQ = RealQuantity()) -> Decimal:
 
 
 #
-# Temporary numeric output; replace with a general approach
+# Friendly Decimals
+#
+# This type behaves well at the repl, but to keep things light weight
+# it only is useful to wrap the final values of a computation because
+# Decimal operations return new Decimals.
 #
 
-# ATTN: Move these to environment?
+class RealValue(Decimal):
+    def __frplib_repr__(self) -> str:
+        return str(self)
+
+    def __repr__(self) -> str:
+        if environment.is_interactive:
+            return str(self)
+        return super().__repr__()
+
+#
+# Numeric output (needs improvement)
+#
+
+# ATTN: Move these to environment as settable options
 MAX_DENOMINATOR_EXC = 50
 EXCLUDE_DENOMINATOR = {10, 25, 50, 100, 125, 250, 500, 1000}
 DEC_DENOMINATOR_LIMIT: int = 10**9
