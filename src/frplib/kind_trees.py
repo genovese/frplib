@@ -14,7 +14,7 @@ from typing_extensions import Any, TypeAlias
 from parsy             import ParseError
 
 from frplib.exceptions           import KindError
-from frplib.numeric              import Numeric, as_numeric, show_values, show_tuples
+from frplib.numeric              import Numeric, as_numeric, as_real, show_values, show_tuples
 from frplib.parsing.kind_strings import canonical_tree, kind_sexp, validate_kind
 from frplib.parsing.parsy_adjust import parse_error_message
 from frplib.utils                import identity
@@ -118,8 +118,8 @@ def normalize_branches(canonical) -> list[KindBranch]:
 
 def canonical_from_tree(ktree: list) -> list[KindBranch]:
     compact = canonical_tree(ktree, p=1,
-                             weight_fn=as_numeric,
-                             value_fn=as_numeric)
+                             weight_fn=as_real,
+                             value_fn=as_real)
     canonical = [KindBranch.make(vs=subtree, p=weight) for weight, subtree in compact]
     canonical.sort(key=lambda x: x.vs)
     return canonical
