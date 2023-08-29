@@ -343,12 +343,12 @@ def show_tuples(
 
     # Transpose, Format, and Transpose back
     outT = []
-    for out in zip(*tups, strict=True):
+    for out in zip(*tups):  # , strict=True
         outT.append(show_values(out, max_denom, exclude_denoms, rounding_mask, rounding))
     dim = len(outT)
     if scalarize and dim == 1:
-        return [components[0] for components in zip(*outT, strict=True)]
-    return [f'<{", ".join(components)}>' for components in zip(*outT, strict=True)]
+        return [components[0] for components in zip(*outT)]  # , strict=True
+    return [f'<{", ".join(components)}>' for components in zip(*outT)]  # , strict=True
 
 # Use VecTuple.show when value types are normalized here
 def show_tuple(
