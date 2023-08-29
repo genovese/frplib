@@ -158,7 +158,7 @@ command = command.bind(lambda cmd: command_parsers[cmd])
 class CommandValidator(Validator):
     def validate(self, document):
         text = document.text
-        if text and text.endswith('.'):
+        if text and re.search(r'\.\s*$', text):  # text.endswith('.'):
             try:
                 cmd_info = command.parse(text)
                 if cmd_info[0] == 'demo' or cmd_info[0] == 'buy':
@@ -219,7 +219,7 @@ market_bindings = KeyBindings()
 @market_bindings.add('enter')
 def _(event):
     doc: Document = event.current_buffer.document
-    if doc.text.endswith('.'):  # doc.char_before_cursor == '.' and doc.is_cursor_at_the_end:
+    if re.search(r'\.\s*$', doc.text):   # doc.text.endswith('.'):  # doc.char_before_cursor == '.' and doc.is_cursor_at_the_end:
         event.current_buffer.validate_and_handle()
     else:
         event.current_buffer.insert_text('\n')
@@ -271,7 +271,8 @@ def demo_handler(count, kind_tree) -> None:
     for sample in k.sample(count):
         summary.add(sample)
     emit(f'Activated {count} FRPs with kind')
-    emit(k.__frplib_repr__())
+    show_handler(kind_tree)
+    # emit(k.__frplib_repr__())
     emit(summary.table(environment.ascii_only))
 
 def buy_handler(count: int, prices: list[float], kind_tree: list) -> None:
@@ -325,7 +326,8 @@ def buy_handler(count: int, prices: list[float], kind_tree: list) -> None:
     net_per_unt_s = show_tuples(net_per_unt, max_denom=1)
 
     emit(f'Buying {int(count):,} FRPs with kind')
-    emit(k.__frplib_repr__())
+    show_handler(kind_tree)
+    # emit(k.__frplib_repr__())
     emit('at each price')
 
     if environment.ascii_only:
@@ -366,8 +368,8 @@ def compare_handler(count, kind_tree1, kind_tree2) -> None:
 
     emit(f'Comparing {count} activated FRPs each for two kinds, A and B.')
 
-    emit(in_panel(str(k1), title='Kind A'))
-    emit(in_panel(str(k2), title='Kind B'))
+    emit(in_panel(show_kind_tree(kind_tree1), title='Kind A'))
+    emit(in_panel(show_kind_tree(kind_tree2), title='Kind B'))
 
     for k, which in [(k1, 'A'), (k2, 'B')]:
         summary = FrpDemoSummary()
@@ -375,9 +377,8 @@ def compare_handler(count, kind_tree1, kind_tree2) -> None:
             summary.add(sample)
         emit(summary.table(environment.ascii_only, title=f'Summary of Demo for Kind {which}'))
 
-def show_handler(kind_tree) -> None:
-    "Display a kind tree in text format; the tree need not be canonical."
-
+def show_kind_tree(kind_tree) -> str:
+    "Convert a kind tree to text; the tree need not be canonical."
     def _find_dims(xs):
         for x in xs:
             if isinstance(x, list):
@@ -391,7 +392,11 @@ def show_handler(kind_tree) -> None:
     sep = [2 * (dim - level) for level in range(dim + 1)]  # seps should be even
     scan, _ = unfold_scan(labelled, wd, sep)
 
-    emit(in_panel(unfolded_str(scan, wd)))
+    return unfolded_str(scan, wd)
+
+def show_handler(kind_tree) -> None:
+    "Display a kind tree in text format; the tree need not be canonical."
+    emit(in_panel(show_kind_tree(kind_tree)))
 
 def help_handler(topic) -> None:
     if not topic:

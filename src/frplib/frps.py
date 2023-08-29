@@ -82,7 +82,7 @@ class FrpDemoSummary:
         values = sorted(self._summary.keys())
         n = float(self._size)
         for value in values:
-            table.add_row(str(value),
+            table.add_row(show_tuple(value.map(lambda x: "{0:.4g}".format(x))),
                           str(self._summary[value]),
                           "{0:.3g}%".format(round(100 * self._summary[value] / n, 3)))
 
@@ -100,7 +100,7 @@ class FrpDemoSummary:
         rows = []
         for value in values:
             cells = {
-                'value': str(VecTuple(value)),
+                'value': show_tuple(value.map(lambda x: "{0:.5g}".format(x))),  # str(VecTuple(value)),
                 'count': "{0:,d}".format(self._summary[value]),
                 'prop': "({0:.4f}%)".format(round(100 * self._summary[value] / n, 3))
             }
