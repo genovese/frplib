@@ -10,8 +10,8 @@ from frplib.env        import environment
 from frplib.exceptions import FrplibException
 from frplib.protocols  import Renderable
 
-def intro(topic: str = '') -> None:
-    print_formatted_text(HTML('<violet>This is useful information</violet>'))
+def info(topic: str = '') -> None:
+    print_formatted_text(HTML('<violet>This is useful information. More coming soon!</violet>'))
 
 playground_imports: dict[str, list[str]] = {
     # When there are submodules loaded, order from parent down
@@ -132,12 +132,12 @@ class PlaygroundRepl(PythonRepl):
 
         self._injected_globals = [
             "get_playground",
-            "intro",
+            "info",
             "_running_in_playground"
         ]
 
         globals["get_playground"] = get_playground
-        globals["intro"] = intro
+        globals["info"] = info
         globals["_running_in_playground"] = True
         environment.interactive_mode()
         import_playground(globals)
