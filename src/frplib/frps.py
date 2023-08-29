@@ -782,7 +782,7 @@ class FRP:
 
     def __repr__(self) -> str:
         if environment.is_interactive:
-            return str(self)
+            return f'FRP(value={show_tuple(self.value, max_denom=10)})'
         return super().__repr__()
 
     def __bool__(self) -> bool:
