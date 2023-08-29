@@ -222,7 +222,7 @@ REAL_ONE = Decimal('1')
 def as_numeric(x: ScalarQ = RealQuantity()) -> Numeric:
     "A specialized version of `numeric` that defines a system-wide quantification policy."
     return cast(
-        IntegerQuantity | RealQuantity,
+        Union[IntegerQuantity, RealQuantity],
         numeric_q(x, exclude=NumType.RATIONAL, limit_denominator=1000000000)
     ).value
 
