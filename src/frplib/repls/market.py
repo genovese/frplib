@@ -188,6 +188,8 @@ class CommandValidator(Validator):
 def emit(*a, **kw) -> None:
     environment.console.print(*a, **kw)
 
+# Potentially add a completely separate color scheme for dark mode
+text_color = "white" if environment.dark_mode else "black"
 command_style = Style.from_dict({  # ATTN:TEMP Colors for teting
     'pygments.command': "steelblue bold",
     'pygments.connective': "#777777",  # "#430363",
@@ -197,11 +199,11 @@ command_style = Style.from_dict({  # ATTN:TEMP Colors for teting
     'pygments.count': "#91011e",
     'pygments.node': "#0240a3",
     'pygments.weight': "#047d40 italic",  # "#016935",
-    'pygments.other':  "black",
+    'pygments.other': text_color,
     'prompt': "#4682b4",
     'parse.parsed': '#71716f',
     'parse.error': '#ff0f0f bold',
-    '': 'black',
+    '': text_color,
 })
 
 def continuation_prompt(prompt_width: int, line_number: int, wrap_count: int) -> FormattedText:
