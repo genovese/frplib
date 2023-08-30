@@ -124,7 +124,7 @@ def check_kind_tree(tree, errors, min_leaf_dim=None, max_leaf_dim=None):
             else:
                 next_added[subtree[len(parent)]] += 1
                 min_leaf_dim = dm(len(subtree), min_leaf_dim, min)
-                max_leaf_dim = dm(len(subtree), min_leaf_dim, max)
+                max_leaf_dim = dm(len(subtree), max_leaf_dim, max)
         else:  # Subtree
             if len(subtree[0]) <= len(parent):
                 st_str = convert(subtree[0], str)
