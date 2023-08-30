@@ -765,19 +765,16 @@ class FRP:
 
     def __str__(self) -> str:
         if self._kind == Kind.empty:
-            return 'The empty FRP of dimension 0 and size 1 with value <>'
+            return 'The empty FRP of dimension 0 with value <>'
         if self._kind is not None:
-            return (f'An FRP of dimension {self.kind.dim} and size {self.kind.size} '
-                    f'with value {show_tuple(self.value, max_denom=10)}')
+            return (f'An FRP with value {show_tuple(self.value, max_denom=10)}')
         return f'An FRP with value {show_tuple(self.value, max_denom=10)}. (It may be slow to evaluate its kind.)'
 
     def __frplib_repr__(self) -> str:
         if self._kind == Kind.empty:
-            return ('The [bold]empty FRP[/] of dimension [#3333cc]0[/] and size [#3333cc]1[/] '
-                    'with value [bold #4682b4]<>[/]')
+            return ('The [bold]empty FRP[/] of dimension [#3333cc]0[/] with value [bold #4682b4]<>[/]')
         if self._kind is not None:
-            return (f'An [bold]FRP[/] of dimension [#3333cc]{self.kind.dim}[/] and size [#3333cc]{self.kind.size}[/]'
-                    f' with value [bold #4682b4]{self.value}[/]')
+            return (f'An [bold]FRP[/] with value [bold #4682b4]{self.value}[/]')
         return f'An [bold]FRP[/] with value [bold #4682b4]{self.value}[/]. (It may be slow to evaluate its kind.)'
 
     def __repr__(self) -> str:
