@@ -84,7 +84,7 @@ class FrpDemoSummary:
         for value in values:
             table.add_row(show_tuple(value.map(lambda x: "{0:.4g}".format(x))),
                           str(self._summary[value]),
-                          "{0:.3g}%".format(round(100 * self._summary[value] / n, 3)))
+                          "{0:.4g}%".format(round(100 * self._summary[value] / n, 6)))
 
         return table
 
@@ -102,7 +102,7 @@ class FrpDemoSummary:
             cells = {
                 'value': show_tuple(value.map(lambda x: "{0:.5g}".format(x))),  # str(VecTuple(value)),
                 'count': "{0:,d}".format(self._summary[value]),
-                'prop': "({0:.4f}%)".format(round(100 * self._summary[value] / n, 3))
+                'prop': "({0:.4f}%)".format(round(100 * self._summary[value] / n, 6))
             }
             rows.append(cells)
             widths = {k: max(len(cells[k]), widths[k]) for k in widths}
