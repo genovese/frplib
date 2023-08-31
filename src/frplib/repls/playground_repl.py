@@ -21,7 +21,7 @@ playground_imports: dict[str, list[str]] = {
     'kinds': [
         'Kind', 'kind', 'unfold', 'conditional_kind',
         'constant', 'uniform', 'either', 'symmetric',
-        'weighted_by',
+        'weighted_by', 'weighted_as',
         'integers', 'evenly_spaced', 'bin',
         'without_replacement', 'subsets', 'permutations_of',
     ],

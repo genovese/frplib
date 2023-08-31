@@ -630,6 +630,15 @@ def weighted_by(*xs, weight_by: Callable):
         return Kind.empty
     return Kind([KindBranch.make(vs=as_numeric_vec(x), p=as_numeric(weight_by(x))) for x in values])
 
+def weighted_as(*xs, weights: list[ScalarQ] = []):
+    values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES)
+    if len(values) == 0:
+        return Kind.empty
+    if len(weights) < len(values):
+        weights = [*weights, *([1] * (len(values) - len(weights)))]
+    return Kind([KindBranch.make(vs=as_numeric_vec(x), p=as_numeric(w))
+                 for x, w in zip(values, weights)])
+
 def integers(start, stop=None, step: int = 1, weight_fn=lambda _: 1):
     if stop is None:
         stop = start
