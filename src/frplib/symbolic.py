@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import re
 
-from abc         import ABC
-from collections import defaultdict
-from decimal     import Decimal
-from operator    import add
-from typing      import cast, Literal, Generator, Union   # ATTN: check collections.abc.Generator ok for 3.9
+from abc               import ABC
+from collections       import defaultdict
+from decimal           import Decimal
+from operator          import add
+from typing            import cast, Literal, Generator, Union   # ATTN: check collections.abc.Generator ok for 3.9
+from typing_extensions import TypeGuard
 
 from frplib.exceptions import ConstructionError
-from frplib.numeric    import Numeric, ScalarQ, as_real, as_numeric, show_numeric
+from frplib.numeric    import Numeric, ScalarQ, as_real, as_nice_numeric, as_numeric, show_numeric
 
 
 #
@@ -56,6 +57,9 @@ class Symbolic(ABC):
     def key_of(self):
         ...
 
+    def substitute(self, mapping: dict[str, ScalarQ], purify=True):
+        ...
+
 
 #
 # Multinomial Terms
@@ -63,13 +67,15 @@ class Symbolic(ABC):
 
 class SymbolicMulti(Symbolic):
     "A symbolic multinomial term c a_1^k_1 a_2^k_2 ... a_n^k_n."
-    def __init__(self, vars: list[str], powers: list[int], coef: Numeric = 1):
+    def __init__(self, vars: list[str], powers: list[int], coef: ScalarQ = 1):
         # if powers too short, those count as 0, so ok; extra powers ignored
         # coef, [], []  acts as a scalar and a *multiplicative* identity
+        self.coef = as_numeric(coef)
+
         order = 0
-        sig = show_coef(coef)
+        sig = show_coef(self.coef)
         multi: dict[str, int] = defaultdict(int)
-        if not is_zero(coef):
+        if not is_zero(self.coef):
             for var, pow in zip(vars, powers):
                 if not var:
                     raise ConstructionError('A symbolic variable name must be a non-empty string.')
@@ -85,7 +91,6 @@ class SymbolicMulti(Symbolic):
                 sig = " ".join(sigs)
 
         self.term = multi
-        self.coef = coef
         self.order = order
         self.key = sig
         self.as_str: Union[str, None] = None   # Computed lazily
@@ -113,6 +118,18 @@ class SymbolicMulti(Symbolic):
         if self.is_pure():
             return self.coef
         return None
+
+    def substitute(self, mapping: dict[str, ScalarQ], purify=True) -> SymbolicMulti | Numeric:
+        coef = self.coef
+        multi = self.term.copy()
+        for var, pow in self.term.items():
+            if var in mapping:
+                coef *= as_numeric(mapping[var]) ** pow
+                del multi[var]
+        coef = as_numeric(coef)  # ATTN: needed?
+        if len(multi) == 0:
+            return coef
+        return SymbolicMulti.from_terms(multi, coef)
 
     @property
     def signature(self) -> str:
@@ -275,6 +292,15 @@ class SymbolicMultiSum(Symbolic):
         if self.is_pure():
             return self.coef
         return None
+
+    def substitute(self, mapping: dict[str, ScalarQ], purify=True) -> SymbolicMultiSum | Numeric:
+        if self.is_pure() and purify:
+            return as_nice_numeric(self.coef)
+        total: Union[SymbolicMultiSum, Numeric] = sum(term.substitute(mapping, purify=purify)  # type: ignore
+                                                      for term in self.terms)
+        if isinstance(total, Symbolic):
+            return total
+        return as_nice_numeric(total)
 
     @property
     def key_of(self):
@@ -487,6 +513,18 @@ class SymbolicMultiRatio(Symbolic):
         if npv is not None and dpv is not None:
             return as_numeric(npv / dpv)
         return None
+
+    def substitute(self, mapping: dict[str, ScalarQ], purify=True) -> Symbolic | Numeric:
+        spv = self.pure_value()
+        if spv is not None:
+            return spv if purify else SymbolicMultiSum.singleton(SymbolicMulti.pure(spv))
+
+        num = self.numerator.substitute(mapping, purify)
+        den = self.denominator.substitute(mapping, purify)
+
+        if not isinstance(num, SymbolicMultiSum) and not isinstance(num, SymbolicMultiSum):
+            return as_nice_numeric(as_real(num / den))
+        return simplify(symbolic(num, den))
 
     def __add__(self, other):
         if isinstance(other, (int, float, Decimal)):   # is_scalar_q(other):
@@ -745,11 +783,5 @@ def symbol(var: str) -> SymbolicMulti:
     "Generates a symbol with given variable name."
     return SymbolicMulti([var], [1])
 
-def is_symbolic(obj) -> bool:
+def is_symbolic(obj) -> TypeGuard[SymbolicMulti | SymbolicMultiSum | SymbolicMultiRatio]:
     return isinstance(obj, (SymbolicMulti, SymbolicMultiSum, SymbolicMultiRatio))
-
-# def arbitrary(*xs):
-#     values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES, transform=as_numeric_vec)
-#     if len(values) == 0:
-#         return Kind.empty
-#     return Kind([KindBranch.make(vs=x, p=gen_symbol()) for x in values])
