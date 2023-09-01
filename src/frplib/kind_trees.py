@@ -14,9 +14,10 @@ from typing_extensions import Any, TypeAlias
 from parsy             import ParseError
 
 from frplib.exceptions           import KindError
-from frplib.numeric              import Numeric, as_numeric, as_real, show_values, show_tuples
+from frplib.numeric              import Numeric, ScalarQ, as_numeric, as_real, show_values, show_tuples
 from frplib.parsing.kind_strings import canonical_tree, kind_sexp, validate_kind
 from frplib.parsing.parsy_adjust import parse_error_message
+from frplib.symbolic             import Symbolic
 from frplib.utils                import identity
 from frplib.vec_tuples           import VecTuple, as_vec_tuple, vec_tuple
 
@@ -44,6 +45,18 @@ def rational_prob(x):  # ATTN: Add some methods to Numeric for this
 
 
 #
+# Representations of Weights and Values
+#
+
+def as_weight(w: Union[ScalarQ, Symbolic] = as_numeric()):
+    if isinstance(w, Symbolic):
+        return w
+    return as_numeric(w)
+
+as_value = as_vec_tuple  # ATTN: This can change to include symbolic components
+
+
+#
 # Branch Representation in Canonical Form
 #
 
@@ -59,7 +72,7 @@ class KindBranch(_KindBranch):
 
     @classmethod
     def make(cls, vs, p):
-        return KindBranch(vs=as_vec_tuple(vs), p=as_numeric(p))
+        return KindBranch(vs=as_value(vs), p=as_weight(p))
 
     @property
     def value(self):
@@ -173,7 +186,7 @@ def unfold_tree(canonical: list[KindBranch]) -> list | None:  # ATTN: give this 
 
     while len(S) > 0 and dim > 1:
         partition: dict[VecTuple, list] = defaultdict(list)
-        weights: dict[VecTuple, Numeric] = defaultdict(as_numeric)
+        weights: dict[VecTuple, Numeric] = defaultdict(as_weight)
 
         # Partition branches at this level into groups with common value prefix
         for branch in S:

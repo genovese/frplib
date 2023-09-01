@@ -20,7 +20,7 @@ from frplib.exceptions import ConstructionError, KindError, MismatchedDomain
 from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
-from frplib.numeric    import Numeric, as_numeric, show_values, show_tuples
+from frplib.numeric    import Numeric, ScalarQ, as_numeric, show_values, show_tuples
 from frplib.statistics import Statistic
 from frplib.protocols  import Projection
 from frplib.utils      import (compose, const, ensure_tuple, identity,
@@ -271,7 +271,7 @@ class Kind:
         def combine_product(branchA, branchB):
             return KindBranch.make(vs=list(branchA.vs) + list(branchB.vs), p=branchA.p * branchB.p)
 
-        return Kind([combine_product(br[0], br[1]) for br in product(self._canonical, r_kind._canonical)])
+        return Kind([combine_product(brA, brB) for brA, brB in product(self._canonical, r_kind._canonical)])
 
     def transform(self, statistic):
         """Kind Combinator: Transforms this kind by a statistic. Returns a new kind.
