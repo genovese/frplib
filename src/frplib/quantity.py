@@ -4,13 +4,15 @@ import re
 
 from collections.abc   import Iterable
 
-from frplib.numeric    import Numeric, ScalarQ, as_numeric, as_real, numeric_q_from_str
+from frplib.numeric    import (NICE_DIGITS, Numeric, ScalarQ,
+                               as_nice_numeric, as_numeric, as_real,
+                               numeric_q_from_str, show_values, show_nice_numeric)
 from frplib.symbolic   import Symbolic, symbol
 from frplib.vec_tuples import VecTuple, vec_tuple
 
 def as_quantity(
         x: ScalarQ | Symbolic = 0,
-        convert_numeric=as_numeric
+        convert_numeric=as_nice_numeric
 ) -> Numeric | Symbolic:
     if isinstance(x, Symbolic):
         return x
@@ -31,3 +33,65 @@ def as_quant_vec(x, convert=as_quantity):
         return VecTuple(map(convert, x))
     else:
         return vec_tuple(convert(x))
+
+def show_quantity(x: Numeric | Symbolic, digits=NICE_DIGITS) -> str:
+    if isinstance(x, Symbolic):
+        return str(x)
+    return show_nice_numeric(x, digits)
+
+def show_quantities(xs: Iterable[Numeric | Symbolic]) -> list[str]:
+    numerics: list[Numeric] = []
+    symbols: list[str] = []
+    place_at: list[tuple[int, bool]] = []
+
+    n = 0
+    for i, x in enumerate(xs):
+        if isinstance(x, Symbolic):
+            symbols.append(str(x))
+            place_at.append((i, False))
+        else:
+            numerics.append(x)
+            place_at.append((i, True))
+        n = i + 1
+    numbers = show_values(numerics)
+
+    result = []
+    sym_ind = 0
+    num_ind = 0
+    for i in range(n):
+        ind, numeric = place_at[i]
+        if numeric:
+            result.append(numbers[num_ind])
+            num_ind += 1
+        else:
+            result.append(symbols[sym_ind])
+            sym_ind += 1
+
+    return result
+
+def show_qtuples(
+        tups: Iterable[tuple],
+        scalarize=True
+) -> list[str]:
+    "Convert a list of tuples to strings with angle-bracket syntax, with a shared representation for each component."
+    # if dim == 1:
+    #     return show_values([tup[0] for tup in tups], max_denom, exclude_denoms, rounding_mask, rounding)
+
+    # Transpose, Format, and Transpose back
+    outT = []
+    for out in zip(*tups):  # , strict=True
+        outT.append(show_quantities(out))
+    dim = len(outT)
+    if scalarize and dim == 1:
+        return [components[0] for components in zip(*outT)]  # , strict=True
+    return [f'<{", ".join(components)}>' for components in zip(*outT)]  # , strict=True
+
+def show_qtuple(
+        tup: tuple,
+        scalarize=True
+) -> str:
+    "Show a tuple with angle bracket syntax, but drop brackets for scalars."
+    if scalarize and len(tup) == 1:
+        return show_quantity(tup[0])
+    components = [show_quantity(x) for x in tup]
+    return f'<{", ".join(components)}>'

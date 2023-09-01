@@ -14,7 +14,7 @@ from typing_extensions import Any, TypeAlias
 from parsy             import ParseError
 
 from frplib.exceptions           import KindError
-from frplib.numeric              import Numeric, ScalarQ, show_values, show_tuples
+from frplib.numeric              import Numeric, ScalarQ, show_values, show_tuples, as_nice_numeric
 from frplib.parsing.kind_strings import canonical_tree, kind_sexp, validate_kind
 from frplib.parsing.parsy_adjust import parse_error_message
 from frplib.quantity             import as_quantity, as_quant_vec, as_real_quantity
@@ -190,7 +190,7 @@ def unfold_tree(canonical: list[KindBranch]) -> list | None:  # ATTN: give this 
 
     while len(S) > 0 and dim > 1:
         partition: dict[VecTuple, list] = defaultdict(list)
-        weights: dict[VecTuple, Numeric] = defaultdict(as_weight)
+        weights: dict[VecTuple, Numeric] = defaultdict(as_nice_numeric)  # ATTN: handle symbolic?
 
         # Partition branches at this level into groups with common value prefix
         for branch in S:

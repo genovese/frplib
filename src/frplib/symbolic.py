@@ -144,9 +144,12 @@ class SymbolicMulti(Symbolic):
 
     def __str__(self) -> str:
         if self.as_str is None:
-            coef = '' if self.coef == 1 else show_coef(self.coef) + ' '
-            term = re.sub(r'\^1( |$)', lambda m: ' ' if m.group(1) else '', self.signature)
-            self.as_str = coef + term
+            if self.is_pure():
+                self.as_str = show_coef(self.coef)
+            else:
+                coef = '' if self.coef == 1 else show_coef(self.coef) + ' '
+                term = re.sub(r'\^1( |$)', lambda m: ' ' if m.group(1) else '', self.signature)
+                self.as_str = coef + term
         return self.as_str
 
     def __frplib_repr__(self) -> str:

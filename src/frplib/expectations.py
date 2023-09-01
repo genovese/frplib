@@ -1,14 +1,25 @@
 from __future__ import annotations
 
+from collections.abc   import Iterable
+
 from frplib.exceptions import ComplexExpectationWarning
 from frplib.frps       import FRP, ConditionalFRP
 from frplib.kinds      import Kind, ConditionalKind
-from frplib.numeric    import show_tuple
-from frplib.output     import TitledRichFacade
+from frplib.output     import in_panel
 from frplib.protocols  import SupportsExpectation, SupportsApproxExpectation, SupportsForcedExpectation
+from frplib.quantity   import show_qtuple
 from frplib.statistics import Statistic
-from frplib.vec_tuples import as_vec_tuple
+from frplib.vec_tuples import VecTuple, as_vec_tuple
 
+class Expectation(VecTuple):
+    def __init__(self, contents: Iterable):
+        self.label = ''
+
+    def __str__(self) -> str:
+        return show_qtuple(self)
+
+    def __frplib_repr__(self):
+        return in_panel(str(self), title=self.label or None)
 
 def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
     """Computes and returns the expectation of a given object.
@@ -32,7 +43,7 @@ def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
         return x.expectation()
 
     if isinstance(x, SupportsExpectation):
-        title = ''
+        label = ''
         try:
             expect = x.expectation()
         except ComplexExpectationWarning as e:
@@ -40,13 +51,14 @@ def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
                 expect = x.forced_expectation()
             elif isinstance(x, SupportsApproxExpectation):
                 expect = x.approximate_expectation(tolerance)
-                title = (f'Computing approximation (tolerance {tolerance}) '
+                label = (f'Computing approximation (tolerance {tolerance}) '
                          f'as exact calculation may be costly: {str(e)}\n')
             else:
                 raise e
-
-        expect = as_vec_tuple(expect)
-        return TitledRichFacade(expect, show_tuple(expect), title)
+        expect = Expectation(as_vec_tuple(expect))
+        if label:
+            expect.label = label
+        return expect
     return None
 
 def D_(X: FRP | Kind):

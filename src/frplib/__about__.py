@@ -1,4 +1,4 @@
 # SPDX-FileCopyrightText: 2023-present Christopher R. Genovese <genovese@cmu.edu>
 #
 # SPDX-License-Identifier: MIT
-__version__ = "0.1.4"
+__version__ = "0.1.5"

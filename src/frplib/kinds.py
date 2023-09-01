@@ -20,11 +20,11 @@ from frplib.exceptions import ConstructionError, KindError, MismatchedDomain
 from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
-from frplib.numeric    import Numeric, ScalarQ, as_numeric, show_values, show_tuples
+from frplib.numeric    import Numeric, ScalarQ, as_numeric
+from frplib.protocols  import Projection
+from frplib.quantity   import as_quantity, as_quant_vec, as_real_quantity, show_quantities, show_qtuples
 from frplib.statistics import Statistic
 from frplib.symbolic   import Symbolic, gen_symbol, symbol
-from frplib.protocols  import Projection
-from frplib.quantity   import as_quantity, as_quant_vec, as_real_quantity
 from frplib.utils      import (compose, const, ensure_tuple, identity,
                                is_interactive, is_tuple, lmap,)
 from frplib.vec_tuples import VecTuple, as_numeric_vec, as_vec_tuple, vec_tuple
@@ -201,6 +201,11 @@ class Kind:
         new_kind = []
         for branch in self._canonical:
             new_kind.extend(mix(branch))
+        return Kind(new_kind)
+
+    def bimap(self, value_fn, weight_fn=identity):
+        "A functorial transformation of this kind. This is for internal use; use .transform() instead."
+        new_kind = lmap(KindBranch.bimap(value_fn, weight_fn), self._canonical)
         return Kind(new_kind)
 
     @classmethod
@@ -444,8 +449,8 @@ class Kind:
         size = self.size
         juncture, extra = (size // 2, size % 2 == 0)
 
-        p_labels = show_values(branch.p  for branch in self._canonical)
-        v_labels = show_tuples(branch.vs for branch in self._canonical)
+        p_labels = show_quantities(branch.p  for branch in self._canonical)
+        v_labels = show_qtuples(branch.vs for branch in self._canonical)
         pwidth = max(map(len, p_labels), default=0) + 2
 
         lines = []

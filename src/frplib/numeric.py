@@ -218,6 +218,19 @@ def numeric_q(
 
 REAL_ZERO = Decimal('0')
 REAL_ONE = Decimal('1')
+DECIMAL_DIG = 27  # current decimal precision used (digits)
+NICE_DIGITS = 16  # used in nice_round; must be 0 <= _ <= DECIMAL_DIG with current Decimal setup
+
+def nice_round(d: Decimal, dig=NICE_DIGITS) -> Decimal:
+    sign, digits, exp = d.as_tuple()
+    dig = min(dig - 1, DECIMAL_DIG)  # ATTN: negative dig is ok but think about that case
+    n = len(digits)
+    if n <= dig + 1 or not isinstance(exp, int):  # exp can be n, N, or F
+        return d
+    true_exp = n - 1 + exp
+    new_exp = true_exp - dig
+    dtuple = (0, tuple([1] + ([0] * dig)), new_exp)
+    return d.quantize(Decimal(dtuple), ROUND_HALF_UP)  # .normalize()
 
 # Adjust these parameters for a default numerical quantification policy
 def as_numeric(x: ScalarQ = RealQuantity()) -> Numeric:
@@ -233,21 +246,11 @@ def as_rational(x: ScalarQ = RationalQuantity(), limit_denominator=False) -> Fra
 def as_real(x: ScalarQ = RealQuantity()) -> Decimal:
     return numeric_q(x).real().value
 
-def nice_round(d: Decimal, dig=15) -> Decimal:
-    sign, digits, exp = d.as_tuple()
-    n = len(digits)
-    if n <= dig + 1 or not isinstance(exp, int):  # exp can be n, N, or F
-        return d
-    true_exp = n - 1 + exp
-    new_exp = true_exp - dig
-    dtuple = (0, tuple([1] + ([0] * dig)), new_exp)
-    return d.quantize(Decimal(dtuple), ROUND_HALF_UP)  # .normalize()
-
-def as_nice_numeric(x: ScalarQ = RealQuantity()) -> Numeric:
+def as_nice_numeric(x: ScalarQ = RealQuantity(), digits=NICE_DIGITS) -> Numeric:
     xn = as_numeric(x)
     if isinstance(xn, int):
         return xn
-    return nice_round(xn).normalize()
+    return nice_round(xn, digits).normalize()
 
 
 #
@@ -271,10 +274,10 @@ class RealValue(Decimal):
 # Numeric output (needs improvement)
 #
 
-# ATTN: Move these to environment as settable options
+# ATTN: Move these to environment as settable options, the first two
+DEC_DENOMINATOR_LIMIT: int = 10**9
 MAX_DENOMINATOR_EXC = 50
 EXCLUDE_DENOMINATOR = {10, 25, 50, 100, 125, 250, 500, 1000}
-DEC_DENOMINATOR_LIMIT: int = 10**9
 ROUND_MASK = Decimal('1.000000000')
 
 def nroundx(x: Numeric, mask=ROUND_MASK, rounding=ROUND_HALF_UP) -> Decimal:
@@ -315,6 +318,21 @@ def show_numeric(
         return str(frac)
 
     return str(nround(x, rounding_mask, rounding))
+
+def show_nice_numeric(
+        x: Numeric,
+        max_denom=MAX_DENOMINATOR_EXC,
+        exclude_denoms=EXCLUDE_DENOMINATOR,
+        digits=NICE_DIGITS
+) -> str:
+    if isinstance(x, int):
+        return str(x)
+
+    frac = as_frac(x)
+    if denom_rules(frac.denominator, max_denom, exclude_denoms):
+        return str(frac)
+
+    return str(nice_round(x, digits).normalize())
 
 def show_values(
         xs: Iterable[Numeric],

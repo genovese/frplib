@@ -37,5 +37,5 @@ class SupportsApproxExpectation(Protocol):
 
 @runtime_checkable
 class SupportsForcedExpectation(Protocol):
-    def forced_expectation(self, tolerance):
+    def forced_expectation(self):
         ...

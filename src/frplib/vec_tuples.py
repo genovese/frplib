@@ -13,6 +13,7 @@ from typing_extensions import Self, TypeGuard
 from frplib.exceptions import OperationError, NumericConversionError
 from frplib.numeric    import NumericF, NumericD, NumericB     # ATTN: Numeric+Symbolic+SupportsVec
 from frplib.numeric    import as_numeric as scalar_as_numeric
+from frplib.symbolic   import Symbolic
 
 # SupportsVec  mixin can allow Symbolic and VecTuple automatically,   __plus__  __scalar_mul__
 # SupportsNumeric protocol __numeric__ with numeric conversion.
@@ -23,7 +24,7 @@ from frplib.numeric    import as_numeric as scalar_as_numeric
 #
 
 # A VecTuple should contain entirely interoperable types
-T = TypeVar('T', NumericF, NumericD, NumericB)
+T = TypeVar('T', NumericF, NumericD, NumericB, Symbolic)
 
 
 #
@@ -32,7 +33,7 @@ T = TypeVar('T', NumericF, NumericD, NumericB)
 
 def extend(x, k, scalar_only=False):
     # Want T here but allow Quantity here when available
-    if isinstance(x, (int, float, Fraction, Decimal)):
+    if isinstance(x, (int, float, Fraction, Decimal, Symbolic)):
         return VecTuple([x] * k)
     if not scalar_only and isinstance(x, (tuple, list)) and len(x) == 1:
         return VecTuple(x * k)
@@ -40,23 +41,23 @@ def extend(x, k, scalar_only=False):
 
 def from_scalar(x):
     # Want T here but allow Quantity here when available
-    if isinstance(x, (int, float, Fraction, Decimal)):
+    if isinstance(x, (int, float, Fraction, Decimal, Symbolic)):
         return VecTuple([x])
     return x
 
 def as_scalar(x) -> T | None:
-    if isinstance(x, (int, float, Fraction, Decimal)):  # Allow Quantity here
+    if isinstance(x, (int, float, Fraction, Decimal, Symbolic)):  # Allow Quantity here
         return cast(T, x)
     elif isinstance(x, tuple) and len(x) == 1:
         return cast(T, x[0])
     return None
 
 def as_scalar_strict(x) -> T:
-    if isinstance(x, (int, float, Fraction, Decimal)):  # Allow Quantity here
+    if isinstance(x, (int, float, Fraction, Decimal, Symbolic)):  # Allow Quantity here
         return cast(T, x)
     elif isinstance(x, tuple) and len(x) == 1:
         return cast(T, x[0])
-    raise NumericConversionError(f'The quantity {x} could not be converted to a numeric scalar.')
+    raise NumericConversionError(f'The quantity {x} could not be converted to a numeric/symbolic scalar.')
 
 
 #
@@ -75,7 +76,7 @@ class VecTuple(tuple[T, ...]):
         return self.__str__()
 
     def map(self, fn) -> 'VecTuple[T]':
-        return VecTuple(map(fn, self))
+        return self.__class__(map(fn, self))
 
     @classmethod
     def show(cls, vtuple: 'VecTuple[T]', scalarize=True) -> str:
@@ -190,6 +191,9 @@ class VecTuple(tuple[T, ...]):
         return reduce(add, map(mul, self, other), cast(T, 0))
 
     def __abs__(self) -> float:
+        sq_norm = self @ self
+        if isinstance(sq_norm, Symbolic):
+            raise NotImplementedError('Symbolic function application not yet implemented')
         return math.sqrt(self @ self)
 
     def __getitem__(self, key):
