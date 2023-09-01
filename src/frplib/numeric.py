@@ -233,6 +233,22 @@ def as_rational(x: ScalarQ = RationalQuantity(), limit_denominator=False) -> Fra
 def as_real(x: ScalarQ = RealQuantity()) -> Decimal:
     return numeric_q(x).real().value
 
+def nice_round(d: Decimal, dig=15) -> Decimal:
+    sign, digits, exp = d.as_tuple()
+    n = len(digits)
+    if n <= dig + 1 or not isinstance(exp, int):  # exp can be n, N, or F
+        return d
+    true_exp = n - 1 + exp
+    new_exp = true_exp - dig
+    dtuple = (0, tuple([1] + ([0] * dig)), new_exp)
+    return d.quantize(Decimal(dtuple), ROUND_HALF_UP)  # .normalize()
+
+def as_nice_numeric(x: ScalarQ = RealQuantity()) -> Numeric:
+    xn = as_numeric(x)
+    if isinstance(xn, int):
+        return xn
+    return nice_round(xn).normalize()
+
 
 #
 # Friendly Decimals
