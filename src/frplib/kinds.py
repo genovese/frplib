@@ -22,7 +22,9 @@ from frplib.kind_trees import (KindBranch,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
 from frplib.numeric    import Numeric, ScalarQ, as_numeric, show_values, show_tuples
 from frplib.statistics import Statistic
+from frplib.symbolic   import Symbolic, gen_symbol, symbol
 from frplib.protocols  import Projection
+from frplib.quantity   import as_quantity, as_quant_vec, as_real_quantity
 from frplib.utils      import (compose, const, ensure_tuple, identity,
                                is_interactive, is_tuple, lmap,)
 from frplib.vec_tuples import VecTuple, as_numeric_vec, as_vec_tuple, vec_tuple
@@ -630,14 +632,24 @@ def weighted_by(*xs, weight_by: Callable):
         return Kind.empty
     return Kind([KindBranch.make(vs=as_numeric_vec(x), p=as_numeric(weight_by(x))) for x in values])
 
-def weighted_as(*xs, weights: list[ScalarQ] = []):
+def weighted_as(*xs, weights: list[ScalarQ | Symbolic] = []):
     values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES)
     if len(values) == 0:
         return Kind.empty
     if len(weights) < len(values):
         weights = [*weights, *([1] * (len(values) - len(weights)))]
-    return Kind([KindBranch.make(vs=as_numeric_vec(x), p=as_numeric(w))
+    return Kind([KindBranch.make(vs=as_quant_vec(x), p=as_quantity(w))
                  for x, w in zip(values, weights)])
+
+def arbitrary(*xs, names: list[str] = []):
+    "Returns a kind with the given values and arbitrary symbolic weights."
+    values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES, transform=as_numeric_vec)
+    if len(values) == 0:
+        return Kind.empty
+    syms = lmap(symbol, names)
+    for i in range(len(values) - len(syms)):
+        syms.append(gen_symbol())
+    return Kind([KindBranch.make(vs=x, p=sym) for x, sym in zip(values, syms)])
 
 def integers(start, stop=None, step: int = 1, weight_fn=lambda _: 1):
     if stop is None:

@@ -14,9 +14,10 @@ from typing_extensions import Any, TypeAlias
 from parsy             import ParseError
 
 from frplib.exceptions           import KindError
-from frplib.numeric              import Numeric, ScalarQ, as_numeric, as_real, show_values, show_tuples
+from frplib.numeric              import Numeric, ScalarQ, show_values, show_tuples
 from frplib.parsing.kind_strings import canonical_tree, kind_sexp, validate_kind
 from frplib.parsing.parsy_adjust import parse_error_message
+from frplib.quantity             import as_quantity, as_quant_vec, as_real_quantity
 from frplib.symbolic             import Symbolic
 from frplib.utils                import identity
 from frplib.vec_tuples           import VecTuple, as_vec_tuple, vec_tuple
@@ -48,19 +49,22 @@ def rational_prob(x):  # ATTN: Add some methods to Numeric for this
 # Representations of Weights and Values
 #
 
-def as_weight(w: Union[ScalarQ, Symbolic] = as_numeric()):
-    if isinstance(w, Symbolic):
-        return w
-    return as_numeric(w)
+# def as_weight(w: Union[ScalarQ, Symbolic] = as_numeric()):
+#     if isinstance(w, Symbolic):
+#         return w
+#     return as_numeric(w)
+#
+# as_value = as_vec_tuple
 
-as_value = as_vec_tuple  # ATTN: This can change to include symbolic components
+as_weight = as_quantity
+as_value = as_quant_vec
 
 
 #
 # Branch Representation in Canonical Form
 #
 
-_KindBranch = namedtuple('_KindBranch', ['vs', 'p'], defaults=(Fraction(1),))
+_KindBranch = namedtuple('_KindBranch', ['vs', 'p'], defaults=(as_weight(1),))
 # ATTN: Can type this out using the class form and NamedTuple superclass
 # class _KindBranch(namedtuple):
 #     vs: tuple,   # VecTuple[NumericD]
@@ -131,8 +135,8 @@ def normalize_branches(canonical) -> list[KindBranch]:
 
 def canonical_from_tree(ktree: list) -> list[KindBranch]:
     compact = canonical_tree(ktree, p=1,
-                             weight_fn=as_real,
-                             value_fn=as_real)
+                             weight_fn=as_real_quantity,
+                             value_fn=as_real_quantity)
     canonical = [KindBranch.make(vs=subtree, p=weight) for weight, subtree in compact]
     canonical.sort(key=lambda x: x.vs)
     return canonical
