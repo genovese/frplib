@@ -104,19 +104,20 @@ def ensure_tuple(x: Any) -> tuple:
 # Sequences and Collections
 #
 
-def irange(start_or_stop: int,
-           stop: int | None = None,
-           *,
-           step=1,
-           exclude: Callable[[int], bool] | Iterable[int] | None = None,
-           include: Callable[[int], bool] | Iterable[int] | None = None,
-    ) -> Generator[int, None, None]:
+def irange(
+        start_or_stop: int,
+        stop: int | None = None,
+        *,
+        step=1,
+        exclude: Callable[[int], bool] | Iterable[int] | None = None,
+        include: Callable[[int], bool] | Iterable[int] | None = None,
+) -> Generator[int, None, None]:
     """Inclusive integer range.
 
     Parameters
     ----------
       start_or_stop - if the only argument, an integer giving the stop (inclusive)
-          of the sequence; if stop is also supplied, this is the start. 
+          of the sequence; if stop is also supplied, this is the start.
       stop - if missing, start from 1 (unlike the builtin range that starts from 0);
           otherwise, the sequence goes up to and including this value.
       step - a non-zero integer giving the spacing between successive values of the
@@ -169,7 +170,7 @@ def index_of(value, xs, not_found=-1, *, start=0, stop=sys.maxsize):
     """
     if isinstance(xs, (list, tuple)):
         try:
-            return xs.index(value, start, stop) 
+            return xs.index(value, start, stop)
         except ValueError:
             return not_found
     else:
@@ -204,22 +205,30 @@ def compose(*functions):
     if n == 2:
         return compose2(functions[0], functions[1])
 
-    return reduce(compose2, functions )
+    return reduce(compose2, functions)
 
-    # # For later Python versions
-    #match functions:
-    #    case ():
-    #        return identity
-    #    case (f,):
-    #        return f
-    #    case (f, g):
-    #        return compose2(f, g)
-    #    case _:
-    #        return reduce(compose2, functions )
+    #  # For later Python versions
+    # match functions:
+    #     case ():
+    #         return identity
+    #     case (f,):
+    #         return f
+    #     case (f, g):
+    #         return compose2(f, g)
+    #     case _:
+    #         return reduce(compose2, functions )
 
 def lmap(func, *iterables):
     "Like the builtin `map` but automatically converts its results into a list."
     return list(map(func, *iterables))
+
+def every(func, iterable):
+    "Returns true if f(x) is truthy for every x in iterable."
+    return all(map(func, iterable))
+
+def some(func, iterable):
+    "Returns true if f(x) is truthy for some x in iterable."
+    return any(map(func, iterable))
 
 
 #
