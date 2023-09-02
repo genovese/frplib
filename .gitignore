@@ -1,3 +1,4 @@
+# -*- mode: fundamental; -*-
 # Ignore emacs backup files (at least, the ones I generate)
 .*~
 # Ignore scratch file
@@ -8,3 +9,4 @@
 *.pyc
 dist/
 __pycache__/
+src/frplib/dev/

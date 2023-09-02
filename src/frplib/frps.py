@@ -20,6 +20,7 @@ from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
 # ATTN:Will replace this value type with a unified type TBD
 from frplib.numeric    import Numeric, show_tuple, as_real
 from frplib.protocols  import Projection, SupportsExpectation
+from frplib.quantity   import as_quant_vec
 from frplib.statistics import Statistic, tuple_safe
 from frplib.utils      import scalarize
 from frplib.vec_tuples import VecTuple, as_scalar, as_vec_tuple, vec_tuple
@@ -202,10 +203,41 @@ class IMixtureExpression(FrpExpression):
     def __init__(self, terms: Iterable['FrpExpression']) -> None:
         super().__init__()
         self._operands = list(terms)
-        if all(f._cached_kind is not None for f in terms):
-            pass  # ATTN: Reduce with operator.mul and nno initial value
-        if all(f._cached_value is not None for f in terms):
-            self._cached_value = join_values(f._cached_value for f in terms)  # type: ignore
+
+        # Cache kind or value if appropriate
+        # We only cache these if they are available for every term.
+        # Moreover, we ensure that the kind is not too large,
+        # as determined by FRP's complexity threshold.
+        # We stop as soon as these conditions are not satisfied.
+        threshold = math.log2(FRP.COMPLEXITY_THRESHOLD)
+        logsize = 0.0
+        cache_kind = True
+        cache_value = True
+
+        combined_values: list = []
+        combined_kind = Kind.empty
+        for f in self._operands:
+            if cache_value:
+                if f._cached_value is not None:
+                    combined_values.extend(f._cached_value)
+                else:
+                    cache_value = False
+            if cache_kind:
+                if f._cached_kind is not None:
+                    logsize += math.log2(f._cached_kind.size)
+                    if logsize <= threshold:
+                        combined_kind = combined_kind * f._cached_kind
+                    else:
+                        cache_kind = False
+                else:
+                    cache_kind = False
+            elif not cache_value:
+                break
+
+        if cache_value:
+            self._cached_value = as_quant_vec(combined_values)
+        if cache_kind:
+            self._cached_kind = combined_kind
 
     def sample1(self) -> ValueType:
         if len(self._operands) == 0:
@@ -264,7 +296,8 @@ class IMixPowerExpression(FrpExpression):
         super().__init__()
         self._term = term
         self._pow = pow
-        if term._cached_kind is not None:
+        if (term._cached_kind is not None and
+           pow * math.log2(term._cached_kind.size) <= math.log2(FRP.COMPLEXITY_THRESHOLD)):
             self._cached_kind = term._cached_kind ** pow
 
     def sample1(self) -> ValueType:
@@ -382,11 +415,12 @@ class PureExpression(FrpExpression):
         return FRP.sample1(self._target)
 
     def value(self) -> ValueType:
-        return self._target.value
+        self._cached_value = self._target.value  # For checks in other expressions
+        return self._cached_value
 
     def kind(self) -> Kind:
-        self._cached_kind = self._target.kind  # For checks in other expressions
-        return self._target.kind
+        self._cached_kind = self._target.kind    # For checks in other expressions
+        return self._cached_kind
 
     def clone(self) -> 'PureExpression':
         new_expr = PureExpression(self._target.clone())
