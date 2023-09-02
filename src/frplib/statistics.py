@@ -800,7 +800,7 @@ def ForEach(s: Statistic) -> Statistic:
 # #
 def Fork(stat: Statistic, *more_stats: Statistic) -> Statistic:
     # Arities must all be the same
-    if any([s.arity != stat.arity for s in more_stats]):  #ATTN!: Statistics need to distinguish arity from minimum dim, need two properties
+    if stat.arity != 0 and any([s.arity != 0 and s.arity != stat.arity for s in more_stats]):  # ATTN!: Statistics need to distinguish arity from minimum dim, need two properties
         raise ValueError('Fork must be called on statistics with the same dimension')
     codim = 0
     if stat.codim is not None and stat.codim > 0 and all([s.codim is not None and s.codim > 0 for s in more_stats]):

@@ -1045,7 +1045,15 @@ class FRP:
 #
 
 def frp(spec) -> FRP:
-    "A generic constructor for FRPs, from a string, a Kind, another FRP or FRP expression."
+    """A generic constructor for FRPs from a variety of objects.
+
+    Parameter `spec` can be a string, a Kind, another FRP, or an FRP
+    expression.
+
+    Returns a fresh FRP corresponding to spec. If the input is an
+    FRP, this returns a clone.
+
+    """
     if isinstance(spec, str):
         return FRP(kind(spec))
 

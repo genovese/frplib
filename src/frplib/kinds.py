@@ -822,6 +822,9 @@ class ConditionalKind:
     def __call__(self, *value) -> Kind:
         return self._fn(*value)
 
+    def __getitem__(self, *value) -> Kind:
+        return self._fn(*value)
+
     def clone(self) -> 'ConditionalKind':
         "Returns a clone of this conditional kind, which being immutable is itself."
         return self

@@ -153,8 +153,8 @@ def irange(
         value = start
         while (value - stop) * sign <= 0:
             if ((include is None and exclude is None) or
-                (include is not None and include(value)) or
-                (exclude is not None and not exclude(value))):
+               (include is not None and include(value)) or
+               (exclude is not None and not exclude(value))):
                 yield value
             value += step
 
@@ -165,9 +165,11 @@ def index_of(value, xs, not_found=-1, *, start=0, stop=sys.maxsize):
 
     If xs is a list or tuple, restrict attention to the slice
     from start to stop, exclusive, where start <= stop.
-    For more general iterables, these arguments are ignored.
 
     """
+    if stop <= start:
+        return not_found
+
     if isinstance(xs, (list, tuple)):
         try:
             return xs.index(value, start, stop)
@@ -175,7 +177,7 @@ def index_of(value, xs, not_found=-1, *, start=0, stop=sys.maxsize):
             return not_found
     else:
         for i, v in enumerate(xs):
-            if v == value:
+            if i >= start and i < stop and v == value:
                 return i
         return not_found
 
