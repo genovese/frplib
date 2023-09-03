@@ -21,9 +21,13 @@ def frp():
 @frp.command()
 @click.option('-a', '--ascii-only', is_flag=True, show_default=True, default=False,
               help="Produce ASCII output only, no rich text.")
-def market(ascii_only: bool):
+@click.option('-d', '--dark-mode', is_flag=True, show_default=True, default=False,
+              help="Changes text color to suit dark colored terminals")
+def market(ascii_only: bool, dark_mode: bool):
     if ascii_only:
         environment.on_ascii_only()
+    if dark_mode:
+        environment.on_dark_mode()
     click.echo(f'This is the market. Use "exit." to end your session and "help." for help.')
     market_repl()
 
