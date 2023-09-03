@@ -122,7 +122,7 @@ def check_kind_tree(tree, errors, min_leaf_dim=None, max_leaf_dim=None):
                 st_str = convert(subtree, str)
                 errors.append(f'Node {st_str} inconsistent with parent {p_str}')
             else:
-                next_added[subtree[len(parent)]] += 1
+                next_added[subtree[len(parent):]] += 1
                 min_leaf_dim = dm(len(subtree), min_leaf_dim, min)
                 max_leaf_dim = dm(len(subtree), max_leaf_dim, max)
         else:  # Subtree
@@ -133,13 +133,13 @@ def check_kind_tree(tree, errors, min_leaf_dim=None, max_leaf_dim=None):
                 st_str = convert(subtree[0], str)
                 errors.append(f'Node {st_str} at subtree inconsistent with parent {p_str}')
             else:
-                next_added[subtree[0][len(parent)]] += 1
+                next_added[subtree[0][len(parent):]] += 1
                 errors, min_leaf_dim, max_leaf_dim = check_kind_tree(subtree, errors, min_leaf_dim, max_leaf_dim)
 
     for k, v in next_added.items():
         if v > 1:
             errors.append(f'Distinct branches have a common prefix '
-                          f'<{", ".join([str(x) for x in [*p_str, str(k)]])}>'
+                          f'<{", ".join([str(x) for x in [*p_str, *k]])}>'
                           f' in subtree directly below {p_str}.')
 
     return (errors, min_leaf_dim, max_leaf_dim)
