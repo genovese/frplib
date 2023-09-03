@@ -21,21 +21,25 @@ def frp():
 @frp.command()
 @click.option('-a', '--ascii-only', is_flag=True, show_default=True, default=False,
               help="Produce ASCII output only, no rich text.")
-@click.option('-d', '--dark-mode', is_flag=True, show_default=True, default=False,
+@click.option('-d', '--dark', is_flag=True, show_default=True, default=False,
               help="Changes text color to suit dark colored terminals")
-def market(ascii_only: bool, dark_mode: bool):
+def market(ascii_only: bool, dark: bool):
     if ascii_only:
         environment.on_ascii_only()
-    if dark_mode:
+    if dark:
         environment.on_dark_mode()
-    click.echo(f'This is the market. Use "exit." to end your session and "help." for help.')
+    click.echo('This is the market. Use "exit." to end your session and "help." for help.')
     market_repl()
 
 @frp.command()
 @click.option('-a', '--ascii-only', is_flag=True, show_default=True, default=False,
               help="Produce ASCII output only, no rich text.")
-def playground(ascii_only: bool):
+@click.option('-d', '--dark', is_flag=True, show_default=True, default=False,
+              help="Changes text color to suit dark colored terminals")
+def playground(ascii_only: bool, dark: bool):
     if ascii_only:
         environment.on_ascii_only()
-    click.echo(f'This is the playground. Use "quit()" to end your session and "intro()" for help.')
+    if dark:
+        environment.on_dark_mode()
+    click.echo('This is the playground. Use "quit()" to end your session and "intro()" for help.')
     playground_repl()

@@ -188,9 +188,8 @@ class CommandValidator(Validator):
 def emit(*a, **kw) -> None:
     environment.console.print(*a, **kw)
 
-# Potentially add a completely separate color scheme for dark mode
-text_color = "white" if environment.dark_mode else "black"
-command_style = Style.from_dict({  # ATTN:TEMP Colors for teting
+# Color themes for bright and dark terminals
+bright_theme = {
     'pygments.command': "steelblue bold",
     'pygments.connective': "#777777",  # "#430363",
     'pygments.kind': "#777777",   # "#430363",
@@ -199,12 +198,28 @@ command_style = Style.from_dict({  # ATTN:TEMP Colors for teting
     'pygments.count': "#91011e",
     'pygments.node': "#0240a3",
     'pygments.weight': "#047d40 italic",  # "#016935",
-    'pygments.other': text_color,
+    'pygments.other': 'black',
     'prompt': "#4682b4",
     'parse.parsed': '#71716f',
     'parse.error': '#ff0f0f bold',
-    '': text_color,
-})
+    '': 'black',
+}
+
+dark_theme = {
+    'pygments.command': "#b97d4b bold",
+    'pygments.connective': "#888888",  # "#bcfc9c",
+    'pygments.kind': '#888888',   # "#bcfc9c",
+    'pygments.operator': "gray",
+    'pygments.punctuation': '#8fbfff',
+    'pygments.count': '#6efee1',
+    'pygments.node': '#fdbf5c',
+    'pygments.weight': "#fb82bf italic",  # "#fe96ca",
+    'pygments.other': 'white',
+    'prompt': '#b97d4b',
+    'parse.parsed': '#8e8e90',
+    'parse.error': '#00f0f0 bold',
+    '': 'white',
+}
 
 def continuation_prompt(prompt_width: int, line_number: int, wrap_count: int) -> FormattedText:
     return to_formatted_text(PROMPT2 + ' ' * (prompt_width - 4), style='class:prompt')
@@ -221,7 +236,7 @@ market_bindings = KeyBindings()
 @market_bindings.add('enter')
 def _(event):
     doc: Document = event.current_buffer.document
-    if re.search(r'\.\s*$', doc.text):   # doc.text.endswith('.'):  # doc.char_before_cursor == '.' and doc.is_cursor_at_the_end:
+    if re.search(r'\.\s*$', doc.text):
         event.current_buffer.validate_and_handle()
     else:
         event.current_buffer.insert_text('\n')
@@ -391,6 +406,7 @@ def show_kind_tree(kind_tree) -> str:
     dim = max(_find_dims(kind_tree))
     wd = [(0, 3)]  # Widths of the root node weight and value
     labelled = unfolded_labels(kind_tree[1:], str(kind_tree[0]), 1, wd)
+    # ATTN: In case of dim bigger than max level, adjust sep
     sep = [2 * (dim - level) for level in range(dim + 1)]  # seps should be even
     scan, _ = unfold_scan(labelled, wd, sep)
 
@@ -430,6 +446,7 @@ dispatch: dict[str, Callable[..., None]] = {
 #
 
 def main() -> None:
+    command_style = Style.from_dict(dark_theme if environment.dark_mode else bright_theme)
     lexer = PygmentsLexer(MarketCommandLexer)
     session: PromptSession = PromptSession(
         multiline=True,
@@ -461,7 +478,7 @@ def main() -> None:
             dispatch[cmd_info[0]](*cmd_info[1:])
         except ParseError as e:
             emit('There was a problem with the last command.')
-            emit(parse_error_message(e))  # , style=command_style)
+            emit(parse_error_message(e))
 
 
 if __name__ == '__main__':
