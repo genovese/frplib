@@ -28,6 +28,7 @@ class Environment:
     """Options governing interactive sessions, globally available.
     """
     ascii_only: bool = False
+    dark_mode: bool = False
     is_interactive: bool = False
     console: Console = Console(highlight=True, theme=bright_theme)  # ATTN: auto-detect dark?
 
@@ -38,6 +39,14 @@ class Environment:
     def off_ascii_only(self) -> None:
         "Allow non-ascii and rich output"
         self.ascii_only = False
+
+    def on_dark_mode(self) -> None:
+        "Changes text color to suit dark colored terminals"
+        self.dark_mode = True
+
+    def off_dark_mode(self) -> None:
+        "Text color default suited for light colored terminals"
+        self.dark_mode = False
 
     def interactive_mode(self, ascii=None) -> None:
         "Indicate that this session is interactive. No need to turn this off."
