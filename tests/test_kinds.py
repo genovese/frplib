@@ -32,7 +32,7 @@ def test_kinds_factories():
 
     assert either(0, 1).values == {0, 1}
     assert weights_of(either(0, 1, 2).weights) == pytest.approx([as_quantity('2/3'), as_quantity('1/3')])
-    assert lmap(str, either(a, 2 * a, 2).values) == ['a', '2 a']
+    assert lmap(str, values_of(either(a, 2 * a, 2).weights)) == ['<a>', '<2 a>']
 
     u = uniform(1, 2, 3).weights
     assert values_of(u) == {vec_tuple(1), vec_tuple(2), vec_tuple(3)}

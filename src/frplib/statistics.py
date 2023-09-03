@@ -27,7 +27,7 @@ from frplib.vec_tuples import VecTuple, as_scalar, as_scalar_strict, as_vec_tupl
 # Types
 #
 
-ArityType: TypeAlias = tuple[int, int | float]   # Would like Literal[infinity] here, but mypy rejects
+ArityType: TypeAlias = tuple[int, Union[int, float]]   # Would like Literal[infinity] here, but mypy rejects
 
 
 #
