@@ -4,6 +4,8 @@ from decimal import Decimal
 
 from frplib.kinds      import sequence_of_values, Flatten
 from frplib.numeric    import as_numeric
+from frplib.symbolic   import symbol, is_symbolic
+from frplib.utils      import every, lmap
 from frplib.vec_tuples import as_vec_tuple, vec_tuple
 
 
@@ -32,3 +34,9 @@ def test_simple_seq():
                                pre_transform=numeric) ==
             [Decimal('1.2'), Decimal('2.4'), Decimal('3.6'), Decimal('4.8'),
              Decimal('6.0'), Decimal('7.2'), Decimal('8.4'), 10])
+
+def test_symbol_seq():
+    a = symbol('a')
+    b = symbol('b')
+    assert every(is_symbolic, sequence_of_values(a, b, 2 * a))
+    assert lmap(str, sequence_of_values(a, b, 2 * a)) == ['a', 'b', '2 a']

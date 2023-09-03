@@ -10,6 +10,7 @@ from frplib.vec_tuples import VecTuple
 #
 
 def substitute(quantity, mapping):
+    "Substitutes values for symbols in `quantity` from `mapping`."
     if hasattr(quantity, 'this'):  # Facades
         quantity = getattr(quantity, 'this')
 
@@ -29,6 +30,17 @@ def substitute(quantity, mapping):
     return quantity
 
 def substitute_with(mapping):
-    def sub(quantity):
-        return substitute(quantity, mapping)
+    """Returns a function that substitutes values for symbols from `mapping`.
+
+    See `substitute`.
+
+    """
+    def sub(quantity, **kw):
+        return substitute(quantity, mapping | kw)
     return sub
+
+def substitution(quantity, **kw):
+    """Substitutes values for symbols in quantity, with mapping from keywords.
+
+    """
+    return substitute(quantity, kw)

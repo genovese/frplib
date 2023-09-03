@@ -6,12 +6,15 @@ from abc               import ABC
 from collections       import defaultdict
 from decimal           import Decimal
 from operator          import add
-from typing            import cast, Literal, Generator, Union   # ATTN: check collections.abc.Generator ok for 3.9
+from typing            import Callable, cast, Literal, Generator, Union  # ATTN: collections.abc.Generator ok for 3.9?
 from typing_extensions import TypeGuard
 
 from frplib.exceptions import ConstructionError
-from frplib.numeric    import Numeric, ScalarQ, as_real, as_nice_numeric, as_numeric, show_numeric
-
+from frplib.numeric    import (Numeric, ScalarQ,
+                               as_real, as_nice_numeric, as_numeric,
+                               is_scalar_q, show_numeric)
+# from frplib.protocols  import NamedCallable
+# from frplib.utils      import every
 
 #
 # Helpers
@@ -57,8 +60,24 @@ class Symbolic(ABC):
     def key_of(self):
         ...
 
+    @property
+    def sort_key(self):
+        ...
+
     def substitute(self, mapping: dict[str, ScalarQ], purify=True):
         ...
+
+    def __lt__(self, other):
+        "Sort symbols before numbers and by sort_key against Symbolics."
+        if isinstance(other, Symbolic):
+            return self.sort_key < other.sort_key
+        if isinstance(other, str):
+            return str(self) < other
+        if is_scalar_q(other):
+            pv = self.pure_value()
+            if pv is not None:
+                return pv < as_real(other)
+        return True
 
 
 #
@@ -138,6 +157,10 @@ class SymbolicMulti(Symbolic):
     @property
     def key_of(self):
         return self.key
+
+    @property
+    def sort_key(self):
+        return (self.coef, self.key)
 
     def __bool__(self) -> bool:
         return False if self.is_pure() and is_zero(self.coef) else True
@@ -250,6 +273,46 @@ symbolic_one = SymbolicMulti.pure(1)
 
 
 #
+# Symbolic Function Calls
+#
+
+# class SymbolicFn(SymbolicMulti):
+#     def __init__(self, fn: NamedCallable, args: list[Symbolic]) -> None:
+#         var = next(gensym)
+#         self.fns = {var: {'fn': fn, 'args': args[:]}}
+#         super().__init__([var], [1])
+#
+#     def is_pure(self) -> bool:
+#         return (super().is_pure() or
+#                 (self.term.keys() == self.fns.keys() and
+#                  all(every(lambda s: s.is_pure(), f['args']) for f in self.fns.values())))
+#
+#     def pure_value(self):
+#         if self.is_pure():
+#             value = self.coef
+#             for fn_key in self.fns:
+#                 fstar = self.fns[fn_key]
+#                 fn = cast(Callable[..., Numeric], fstar['fn'])
+#                 args: list = fstar['args']
+#                 assert callable(fn)
+#                 value *= as_real(fn(*args))
+#             return value
+#         return None
+#
+#     def substitute(self, mapping: dict[str, ScalarQ], purify=True) -> SymbolicFn | Numeric:
+#         multi = self.substitute(mapping, purify)
+#         pass
+#
+#     def __mul__(self, other):
+#         # Stay as SymbolicFn against SymbolicMulti and pure
+#         pass
+#
+#     def __rmul__(self, other):
+#         # Stay as SymbolicFn against SymbolicMulti and pure
+#         pass
+
+
+#
 # Sums of Multinomial Terms
 #
 
@@ -291,6 +354,9 @@ class SymbolicMultiSum(Symbolic):
     def is_pure(self) -> bool:
         return len(self.terms) == 0
 
+    def is_single(self) -> bool:
+        return len(self.terms) == 1
+
     def pure_value(self):
         if self.is_pure():
             return self.coef
@@ -308,6 +374,10 @@ class SymbolicMultiSum(Symbolic):
     @property
     def key_of(self):
         return self.key
+
+    @property
+    def sort_key(self):
+        return (self.coef, self.key)
 
     @classmethod
     def singleton(cls, sym: SymbolicMulti):
@@ -447,12 +517,12 @@ class SymbolicMultiSum(Symbolic):
             d = as_real(other)
             return SymbolicMultiSum([term / d for term in self.terms])
 
-        if isinstance(other, (SymbolicMulti)):
-            if other.is_pure() and other.coef == 1:
-                return self
-            return SymbolicMultiSum([term / other for term in self.terms])
-
-        if isinstance(other, (SymbolicMultiSum, SymbolicMultiRatio)):
+        if isinstance(other, (SymbolicMulti, SymbolicMultiSum, SymbolicMultiRatio)):
+            opv = other.pure_value()
+            if opv is not None:
+                if opv == 1:
+                    return self
+                return SymbolicMultiSum([term / opv for term in self.terms])
             return simplify(symbolic(self, other))
 
         return NotImplemented
@@ -464,13 +534,8 @@ class SymbolicMultiSum(Symbolic):
             d = as_real(other)
             return symbolic(SymbolicMulti.pure(d), self)
 
-        if isinstance(other, (SymbolicMulti)):
-            if other.is_pure() and other.coef == 1:
-                return simplify(symbolic(symbolic_one, self))
+        if isinstance(other, (SymbolicMulti, SymbolicMultiRatio)):
             return simplify(symbolic(other, self))
-
-        if isinstance(other, SymbolicMultiRatio):
-            return simplify(symbolic(self, other))
 
         return NotImplemented
 
@@ -486,7 +551,20 @@ class SymbolicMultiRatio(Symbolic):
         # other types of values.
         self.terms = terms
         self.key = f'({numerator.key_of})/({denominator.key_of})'
-        self.as_str = f'({str(numerator)})/({str(denominator)})'
+
+        if numerator.is_pure() or numerator.is_single():
+            num = str(numerator)
+        else:
+            num = f'({str(numerator)})'
+
+        if denominator.is_pure() or denominator.is_single():
+            den = str(denominator)
+            if ' ' in den:
+                den = f'({str(denominator)})'
+        else:
+            den = f'({str(denominator)})'
+
+        self.as_str = f'{num}/{den}'
 
     @property
     def numerator(self):
@@ -499,6 +577,10 @@ class SymbolicMultiRatio(Symbolic):
     @property
     def key_of(self):
         return self.key
+
+    @property
+    def sort_key(self):
+        return (as_real(self.numerator.coef) / as_real(self.denominator.coef), self.key)
 
     def __str__(self) -> str:
         return self.as_str
@@ -778,12 +860,12 @@ def symbolic(numerator: Union[Symbolic, str], denominator: Union[Symbolic, Liter
 #
 
 def gen_symbol() -> SymbolicMulti:
-    "Generates a unique symbol as a symbolic quantity."
+    "Generates a symbol with a unique name."
     var = next(gensym)
     return SymbolicMulti([var], [1])
 
 def symbol(var: str) -> SymbolicMulti:
-    "Generates a symbol with given variable name."
+    "Generates a symbol with the given name, typically a single letter."
     return SymbolicMulti([var], [1])
 
 def is_symbolic(obj) -> TypeGuard[SymbolicMulti | SymbolicMultiSum | SymbolicMultiRatio]:

@@ -25,18 +25,22 @@ def test_symbol_arithmetic():
 
     assert str(gen_symbol()) != str(gen_symbol())
 
-    assert str(1 / (1 + a)) == '(1)/(1 + a)'
+    assert str(1 / (1 + a)) == '1/(1 + a)'
+    assert str((1 + a) / a) == '(1 + a)/a'
+    assert str((1 + a) / a**2) == '(1 + a)/a^2'
+    assert str((1 + a) / (2 * a**2)) == '(1 + a)/(2 a^2)'
 
     assert str(((1 + a) * (1 - a) * (1 + a**2)) / (1 - a**4)) == '1'
-    assert str(a / (1 - a)) == '(a)/(1 + -1 a)'
-    assert str(1 + a / (1 - a)) == '(1)/(1 + -1 a)'
+    assert str(a / (1 - a)) == 'a/(1 + -1 a)'
+    assert str(1 + a / (1 - a)) == '1/(1 + -1 a)'
 
     s = a + b + c
     assert str(s) == 'a + b + c'
+    assert str(a / s) == 'a/(a + b + c)'
     assert str(a / s + b / s + c / s) == '1'
-    assert str(0.5 * a / s) == '(0.5 a)/(a + b + c)'
+    assert str(0.5 * a / s) == '0.5 a/(a + b + c)'
 
     p = a / (1 - a)
     q = 1 / (1 - a)
     assert str(1 / (1 + p)) == '1 + -1 a'
-    assert str(a * q) == '(a)/(1 + -1 a)'
+    assert str(a * q) == 'a/(1 + -1 a)'

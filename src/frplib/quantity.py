@@ -28,11 +28,20 @@ def as_real_quantity(x: ScalarQ | Symbolic) -> Numeric | Symbolic:
     return as_quantity(x, convert_numeric=as_real)
 
 def as_quant_vec(x, convert=as_quantity):
-    # ATTN: Consider using as_real here
+    "Converts an iterable or a value into a vector-style tuple with numerics or symbols."
+    # ATTN: Consider using as_real for the convert_numeric in as_quantity
     if isinstance(x, Iterable) and not isinstance(x, str):
         return VecTuple(map(convert, x))
     else:
         return vec_tuple(convert(x))
+
+def qvec(*xs, convert=as_quantity):
+    "Wraps its arguments in a quantitative vector. If given a single iterable, converts that instead."
+    if len(xs) == 0:
+        return vec_tuple()
+    if len(xs) == 1 and isinstance(xs[0], Iterable) and not isinstance(xs[0], str):
+        return as_quant_vec(xs[0])
+    return as_quant_vec(xs)
 
 def show_quantity(x: Numeric | Symbolic, digits=NICE_DIGITS) -> str:
     if isinstance(x, Symbolic):

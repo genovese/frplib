@@ -20,6 +20,7 @@ def identity(x: A) -> A:
     return x
 
 def const(a: A) -> Callable[[Any], A]:
+    "Returns a constant function that returns the given value."
     def const_fn(x: Any) -> A:
         return a
     return const_fn

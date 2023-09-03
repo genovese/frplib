@@ -8,7 +8,7 @@ from collections.abc   import Collection, Iterable
 from dataclasses       import dataclass
 from enum              import Enum, auto
 from itertools         import chain, combinations, permutations, product
-from typing            import Literal, Callable, overload
+from typing            import Literal, Callable, overload, Union
 from typing_extensions import TypeAlias
 
 
@@ -24,9 +24,9 @@ from frplib.numeric    import Numeric, ScalarQ, as_numeric
 from frplib.protocols  import Projection
 from frplib.quantity   import as_quantity, as_quant_vec, as_real_quantity, show_quantities, show_qtuples
 from frplib.statistics import Statistic
-from frplib.symbolic   import Symbolic, gen_symbol, symbol
+from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol
 from frplib.utils      import (compose, const, ensure_tuple, identity,
-                               is_interactive, is_tuple, lmap,)
+                               is_interactive, is_tuple, lmap, some)
 from frplib.vec_tuples import VecTuple, as_numeric_vec, as_vec_tuple, vec_tuple
 
 
@@ -211,7 +211,7 @@ class Kind:
     @classmethod
     def unit(cls, value):  # a -> Kind[a, ProbType]
         "Returns the monadic unit for this kind. (For internal use)"
-        return Kind([KindBranch.make(as_numeric_vec(value), 1)])
+        return Kind([KindBranch.make(as_quant_vec(value), 1)])
 
     # @classmethod
     # @property
@@ -546,12 +546,12 @@ ELLIPSIS_MAX_LENGTH: int = 10 ** 6
 
 
 def sequence_of_values(
-        *xs: Numeric | Iterable[Numeric] | Literal[Ellipsis],   # type: ignore
+        *xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis],   # type: ignore
         flatten: Flatten = Flatten.NON_VECTORS,
         transform=identity,
         pre_transform=identity,
         parent=''
-) -> list[Numeric]:
+) -> list[Numeric | Symbolic]:
     # interface that reads values in various forms
     # individual values  1, 2, 3, 4
     # elided sequences   1, 2, ..., 10
@@ -572,6 +572,8 @@ def sequence_of_values(
             if i <= 1 or i == n - 1:
                 raise KindError(f'Argument ... to {parent or "a factory"} must be appear in the pattern a, b, ..., c.')
             a, b, c = (proto_values[i - 2], proto_values[i - 1], proto_values[i + 1])
+            if some(is_symbolic, [a, b, c]):
+                raise ConstructionError('An ellipsis ... cannot be used between symbolic quantities')
             if (a - b) * (b - c) <= 0:
                 raise KindError(f'Argument ... to {parent or "a factory"} must be appear in the pattern a, b, ..., c '
                                 f'with a < b < c or a > b > c.')
@@ -602,49 +604,238 @@ def constant(a) -> Kind:
     """
     return Kind.unit(a)
 
-def either(a, b, weight_ratio=1):
-    "A choice between two possibilities a and b with ratio of weights (a to b) of `weight_ratio`."
+def either(a, b, weight_ratio=1) -> Kind:
+    """A choice between two possibilities a and b with ratio of weights (a to b) of `weight_ratio`.
+
+    Values can be numbers, symbols, or strings. In the latter case they are converted
+    to numeric or symbolic values as appropriate. Rational values in strings (e.g., '1/7')
+    are allowed but must have no space around the '/'.
+
+    """
     ratio = as_numeric(weight_ratio)
     p_a = ratio / (1 + ratio)
-    return Kind([KindBranch.make(vs=as_numeric_vec(a), p=p_a),
-                 KindBranch.make(vs=as_numeric_vec(b), p=1 - p_a)])
+    return Kind([KindBranch.make(vs=as_quant_vec(a), p=p_a),
+                 KindBranch.make(vs=as_quant_vec(b), p=1 - p_a)])
 
-def uniform(*xs: Numeric | Iterable[Numeric] | Literal[Ellipsis]):   # type: ignore
-    "ATTN:DOC"
-    values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES, transform=as_numeric_vec)
+def uniform(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis]) -> Kind:   # type: ignore
+    """Returns a kind with equal weights on the given values.
+
+    Values can be specified in a variety of ways:
+      + As explicit arguments, e.g.,  uniform(1, 2, 3, 4)
+      + As an implied sequence, e.g., uniform(1, 2, ..., 10)
+        Here, two *numeric* values must be supplied before the ellipsis and one after;
+        the former determine the start and increment; the latter the end point.
+        Multiple implied sequences with different increments are allowed,
+        e.g., uniform(1, 2, ..., 10, 12, ... 20)
+      + As an iterable, e.g., uniform([1, 10, 20]) or uniform(irange(1,52))
+      + With a combination of methods, e.g.,
+           uniform(1, 2, [4, 3, 5], 10, 12, ..., 16)
+        in which case all the values except explicit *tuples* will be
+        flattened into a sequence of values. (Though note: all values
+        should have the same dimension.)
+
+    Values can be numbers, tuples, symbols, or strings. In the latter case they
+    are converted to numbers or symbols as appropriate.
+
+    """
+    values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES, transform=as_quant_vec)
     if len(values) == 0:
         return Kind.empty
     return Kind([KindBranch.make(vs=x, p=1) for x in values])
 
-def symmetric(*xs, around=None, weight_by=lambda dist: 1 / dist if dist > 0 else 1):
-    values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES)
+def symmetric(*xs, around=None, weight_by=lambda dist: 1 / dist if dist > 0 else 1) -> Kind:
+    """Returns a kind with the given values and weights a symmetric function of the values.
+
+    Specifically, the weights are determined by the distance of each value
+    from a specified value `around`:
+
+           weight(x) = weight_fn(distance(x, around))
+
+    If `around` is specified it is used; otherwise, the mean of the values is used.
+    The `weight_fn` defaults to 1/distance, but can specified; it should be a function
+    of one numeric parameter.
+
+    Values can be specified in a variety of ways:
+      + As explicit arguments, e.g.,  symmetric(1, 2, 3, 4)
+      + As an implied sequence, e.g., symmetric(1, 2, ..., 10)
+        Here, two *numeric* values must be supplied before the ellipsis and one after;
+        the former determine the start and increment; the latter the end point.
+        Multiple implied sequences with different increments are allowed,
+        e.g., symmetric(1, 2, ..., 10, 12, ... 20)
+      + As an iterable, e.g., symmetric([1, 10, 20]) or symmetric(irange(1,52))
+      + With a combination of methods, e.g.,
+           symmetric(1, 2, [4, 3, 5], 10, 12, ..., 16)
+        in which case all the values except explicit *tuples* will be
+        flattened into a sequence of values. (Though note: all values
+        should have the same dimension.)
+
+    Values can be numbers, tuples, or strings. In the latter case they
+    are converted to numbers. If values are tuples, then either `around`
+    should also be a tuple, or if that is not supplied, the tuples should
+    first be passed to the qvec() function to make the distance computable.
+
+    """
+    if isinstance(around, tuple):  # We expect tuple values as well
+        pre = as_numeric_vec
+        post = identity
+    else:
+        pre = identity
+        post = as_numeric_vec
+    values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES, transform=pre)
     n = len(values)
     if n == 0:
         return Kind.empty
     if around is None:
-        around = sum(values) / n
-    return Kind([KindBranch.make(vs=as_numeric_vec(x), p=as_numeric(weight_by(abs(x - around)))) for x in values])
+        around = sum(values) / n  # type: ignore
+    return Kind([KindBranch.make(vs=post(x), p=as_numeric(weight_by(abs(x - around)))) for x in values])
 
-def linear(*xs, slope=1, base=1):
-    pass
+def linear(
+        *xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis],  # type: ignore
+        first=1,
+        increment=1
+) -> Kind:
+    """Returns a kind with the specified values and weights varying linearly
 
-def geometric(*xs, r=0.5):
-    pass
+    Parameters
+    ----------
+    *xs: The values, see below.
+    first: The weight associated with the first value. (Default: 1)
+    increment: The increase in weight associated with each
+        subsequent value. (Default: 1)
 
-def weighted_by(*xs, weight_by: Callable):
+    Values can be specified in a variety of ways:
+      + As explicit arguments, e.g.,  linear(1, 2, 3, 4)
+      + As an implied sequence, e.g., linear(1, 2, ..., 10)
+        Here, two *numeric* values must be supplied before the ellipsis and one after;
+        the former determine the start and increment; the latter the end point.
+        Multiple implied sequences with different increments are allowed,
+        e.g., linear(1, 2, ..., 10, 12, ... 20)
+      + As an iterable, e.g., linear([1, 10, 20]) or linear(irange(1,52))
+      + With a combination of methods, e.g.,
+           linear(1, 2, [4, 3, 5], 10, 12, ..., 16)
+        in which case all the values except explicit *tuples* will be
+        flattened into a sequence of values. (Though note: all values
+        should have the same dimension.)
+
+    Values can be numbers, tuples, symbols, or strings. In the latter case they
+    are converted to numbers or symbols as appropriate.
+    """
+    values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES, transform=as_quant_vec)
+    weights = [as_quantity(first + k * increment) for k in range(len(values))]
+
+    return Kind([KindBranch.make(vs=x, p=w) for x, w in zip(values, weights)])
+
+def geometric(
+        *xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis],  # type: ignore
+        first=1,
+        r=0.5
+) -> Kind:
+    """Returns a kind with the specified values and weights varying geometrically
+
+    Parameters
+    ----------
+    *xs: The values, see below.
+    first: The weight associated with the first value. (Default: 1)
+    r: The the ratio between a weight and the preceding weight. (Default: 0.5)
+
+    Values can be specified in a variety of ways:
+      + As explicit arguments, e.g.,  geometric(1, 2, 3, 4)
+      + As an implied sequence, e.g., geometric(1, 2, ..., 10)
+        Here, two *numeric* values must be supplied before the ellipsis and one after;
+        the former determine the start and increment; the latter the end point.
+        Multiple implied sequences with different increments are allowed,
+        e.g., geometric(1, 2, ..., 10, 12, ... 20)
+      + As an iterable, e.g., geometric([1, 10, 20]) or geometric(irange(1,52))
+      + With a combination of methods, e.g.,
+           geometric(1, 2, [4, 3, 5], 10, 12, ..., 16)
+        in which case all the values except explicit *tuples* will be
+        flattened into a sequence of values. (Though note: all values
+        should have the same dimension.)
+
+    Values can be numbers, tuples, symbols, or strings. In the latter case they
+    are converted to numbers or symbols as appropriate.
+    """
+    values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES, transform=as_quant_vec)
+    ratio = as_quantity(r)
+    w = as_quantity(first)
+    weights = []
+    for _ in values:
+        weights.append(w)
+        w = w * ratio      # type: ignore
+    return Kind([KindBranch.make(vs=x, p=w) for x, w in zip(values, weights)])
+
+def weighted_by(*xs, weight_by: Callable) -> Kind:
+    """Returns a kind with the specified values weighted by a function
+
+    Parameters
+    ----------
+    *xs: The values, see below.
+    weight_by: A function that takes a value and returns a corresponding weight.
+
+    Values can be specified in a variety of ways:
+      + As explicit arguments, e.g.,  weighted_by(1, 2, 3, 4)
+      + As an implied sequence, e.g., weighted_by(1, 2, ..., 10)
+        Here, two *numeric* values must be supplied before the ellipsis and one after;
+        the former determine the start and increment; the latter the end point.
+        Multiple implied sequences with different increments are allowed,
+        e.g., weighted_by(1, 2, ..., 10, 12, ... 20)
+      + As an iterable, e.g., weighted_by([1, 10, 20]) or weighted_by(irange(1,52))
+      + With a combination of methods, e.g.,
+           weighted_by(1, 2, [4, 3, 5], 10, 12, ..., 16)
+        in which case all the values except explicit *tuples* will be
+        flattened into a sequence of values. (Though note: all values
+        should have the same dimension.)
+
+
+    Values and weights can be numbers, tuples, symbols, or strings.
+    In the latter case they are converted to numbers or symbols as
+    appropriate. `weight_by` must return a valid weight for all
+    specified values.
+
+    """
     values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES)
     if len(values) == 0:
         return Kind.empty
-    return Kind([KindBranch.make(vs=as_numeric_vec(x), p=as_numeric(weight_by(x))) for x in values])
+    return Kind([KindBranch.make(vs=as_quant_vec(x), p=as_quantity(weight_by(x))) for x in values])
 
-def weighted_as(*xs, weights: list[ScalarQ | Symbolic] = []):
+def weighted_as(*xs, weights: list[ScalarQ | Symbolic] = []) -> Kind:
+    """Returns a kind with the specified values weighted by given weights.
+
+    Parameters
+    ----------
+    *xs: The values, see below.
+    weights: A list of weights, one per given value. This c
+        can include
+
+    Values (and weights) can be specified in a variety of ways:
+      + As explicit arguments, e.g.,  weighted_as(1, 2, 3, 4)
+      + As an implied sequence, e.g., weighted_as(1, 2, ..., 10)
+        Here, two *numeric* values must be supplied before the ellipsis and one after;
+        the former determine the start and increment; the latter the end point.
+        Multiple implied sequences with different increments are allowed,
+        e.g., weighted_as(1, 2, ..., 10, 12, ... 20)
+      + As an iterable, e.g., weighted_as([1, 10, 20]) or weighted_as(irange(1,52))
+      + With a combination of methods, e.g.,
+           weighted_as(1, 2, [4, 3, 5], 10, 12, ..., 16)
+        in which case all the values except explicit *tuples* will be
+        flattened into a sequence of values. (Though note: all values
+        should have the same dimension.)
+
+    Values and weights can be numbers, tuples, symbols, or strings.
+    In the latter case they are converted to numbers or symbols as
+    appropriate.
+
+    """
     values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES)
     if len(values) == 0:
         return Kind.empty
-    if len(weights) < len(values):
-        weights = [*weights, *([1] * (len(values) - len(weights)))]
+
+    kweights: list[Union[Numeric, Symbolic]] = sequence_of_values(*weights, flatten=Flatten.NON_TUPLES)
+    if len(kweights) < len(values):
+        kweights = [*kweights, *([1] * (len(values) - len(kweights)))]
+
     return Kind([KindBranch.make(vs=as_quant_vec(x), p=as_quantity(w))
-                 for x, w in zip(values, weights)])
+                 for x, w in zip(values, kweights)])
 
 def arbitrary(*xs, names: list[str] = []):
     "Returns a kind with the given values and arbitrary symbolic weights."

@@ -20,8 +20,9 @@ playground_imports: dict[str, list[str]] = {
     # ATTN: Consider *not* adding the module names to globals
     'kinds': [
         'Kind', 'kind', 'unfold', 'conditional_kind',
-        'constant', 'uniform', 'either', 'symmetric',
-        'weighted_by', 'weighted_as',
+        'constant', 'uniform', 'either',
+        'symmetric', 'linear', 'geometric',
+        'weighted_by', 'weighted_as', 'arbitrary',
         'integers', 'evenly_spaced', 'bin',
         'without_replacement', 'subsets', 'permutations_of',
     ],
@@ -35,13 +36,17 @@ playground_imports: dict[str, list[str]] = {
         'Constantly', 'Fork', 'ForEach', 'IfThenElse',
         'And', 'Or', 'Not',
     ],
-    'expectations': ['E'],
+    'expectations': ['E', 'D_'],
     'frps': [
-        'FRP', 'frp', 'conditional_frp'
+        'FRP', 'frp', 'conditional_frp', 'shuffle',
     ],
+    'calculate': ['substitute', 'substitute_with', 'substitution'],
+    'quantity': ['qvec'],
+    'symbolic': ['gen_symbol', 'is_symbolic', 'symbol'],
     'utils': [
-        'clone', 'compose', 'identity', 'index_of', 'irange',
-        'values', 'dim', 'codim', 'size',
+        'clone', 'compose', 'const', 'every', 'identity',
+        'index_of', 'irange', 'lmap',
+        'values', 'dim', 'codim', 'size', 'some',
     ],
     'vec_tuples': [
         'VecTuple',

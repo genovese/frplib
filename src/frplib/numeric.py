@@ -19,7 +19,7 @@ from decimal           import Decimal, ROUND_HALF_UP, ROUND_UP
 from enum              import Enum, auto
 from fractions         import Fraction
 from typing            import cast, Literal, Union
-from typing_extensions import TypeAlias
+from typing_extensions import TypeAlias, TypeGuard
 
 from frplib.env        import environment
 from frplib.exceptions import EvaluationError
@@ -149,6 +149,9 @@ NumericD: TypeAlias = Union[int, Decimal]   # Decimal floating point numbers
 NumericF: TypeAlias = Union[int, Fraction]  # Arbitrary Precision rational numbers
 
 Numeric:  TypeAlias = NumericD  # Default underlying numeric representation
+
+def is_scalar_q(x) -> TypeGuard[Union[int, float, Fraction, Decimal, NumericQ, str]]:
+    return isinstance(x, (int, float, Fraction, Decimal, NumericQuantity, str))
 
 
 #
