@@ -22,6 +22,16 @@ bright_theme = Theme({
     "repr.attrib_value": "#000033",
 })
 
+dark_theme = Theme({
+    "repr.number": "#cccc33",
+    "repr.number_complex": "#cccc99",
+    "repr.bool_true": "#ff66cc",
+    "repr.bool_false": "#66ffcc",
+    "repr.str": "#ccff99",
+    "repr.attrib_name": "#ccffff",
+    "repr.attrib_value": "#ffffcc",
+})
+
 
 @dataclass
 class Environment:
