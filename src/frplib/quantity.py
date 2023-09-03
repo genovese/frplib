@@ -12,13 +12,13 @@ from frplib.vec_tuples import VecTuple, vec_tuple
 
 def as_quantity(
         x: ScalarQ | Symbolic = 0,
-        convert_numeric=as_nice_numeric
+        convert_numeric=as_nice_numeric  # ATTN: as_numeric instead??
 ) -> Numeric | Symbolic:
     if isinstance(x, Symbolic):
         return x
 
     if isinstance(x, str):
-        if re.match(r'\s*[-+.0-9]', x):
+        if re.match(r'\s*[-+.0-9]', x) or re.match(r'(?i)-?inf(?:inity)?', x):
             return convert_numeric(numeric_q_from_str(x))
         return symbol(x)
 

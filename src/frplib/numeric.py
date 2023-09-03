@@ -174,6 +174,9 @@ numeric_re = rf'({opt_sign})({integer_re})(?:({rat_denom})|({decimal}(?:{sci_exp
 def numeric_q_from_str(s: str) -> NumericQ:
     m = re.match(numeric_re, s.strip().replace('_', ''))
     if not m:
+        m = re.match(r'(?i)-?inf(?:inity)?', s)
+        if m:
+            return RealQuantity(value=Decimal(s))  # +/- Infinity
         raise EvaluationError(f'Could not parse string as a numeric quantity: "{s}"')
 
     sign, integer, denom, dec_exp, exp = m.groups('')

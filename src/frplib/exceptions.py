@@ -12,6 +12,10 @@ class MismatchedDomain(FrplibInternalException):
     "A value outside the expected domain was passed to a mapping."
     pass
 
+class DomainDimensionError(FrplibInternalException):
+    "A value outside the expected domain was passed to a mapping."
+    pass
+
 class ConstructionError(FrplibInternalException):
     "A problem was encountered creating an object."
     pass
