@@ -144,6 +144,12 @@ class Kind:
     def _branches(self):
         return self._canonical.__iter__()
 
+    @property
+    def weights(self):
+        "A dictionary of a kinds canonical weights by value."
+        # ATTN: wrap this in a pretty_dict from output.py
+        return {b.vs: b.p for b in self._canonical}
+
     def clone(self):
         "Kinds are immutable, so cloning it just returns itself."
         return self

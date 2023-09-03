@@ -158,6 +158,11 @@ def is_scalar_q(x) -> TypeGuard[Union[int, float, Fraction, Decimal, NumericQ, s
 # Numeric Conversion
 #
 
+REAL_ZERO = Decimal('0')
+REAL_ONE = Decimal('1')
+DECIMAL_DIG = 27  # current decimal precision used (digits)
+NICE_DIGITS = 16  # used in nice_round; must be 0 <= _ <= DECIMAL_DIG with current Decimal setup
+
 rat_denom = r'/(?:[1-9][0-9]{0,2}(?:_[0-9]{3})+|[1-9][0-9]*)'
 decimal = r'\.[0-9]*'
 sci_exp = r'[eE][-+]?(?:0|[1-9][0-9]*)'
@@ -214,15 +219,15 @@ def numeric_q(
             return qvalue.real()
         return qvalue
 
-    rvalue = RealQuantity(value=Decimal(x))
+    if isinstance(x, float):
+        val = nice_round(Decimal(x), NICE_DIGITS).normalize()
+    else:
+        val = x  # This is a Decimal
+
+    rvalue = RealQuantity(value=val)
     if exclude == NumType.REAL:
         return rvalue.rational()
     return rvalue
-
-REAL_ZERO = Decimal('0')
-REAL_ONE = Decimal('1')
-DECIMAL_DIG = 27  # current decimal precision used (digits)
-NICE_DIGITS = 16  # used in nice_round; must be 0 <= _ <= DECIMAL_DIG with current Decimal setup
 
 def nice_round(d: Decimal, dig=NICE_DIGITS) -> Decimal:
     sign, digits, exp = d.as_tuple()
