@@ -6,13 +6,14 @@ import re
 import textwrap
 
 from collections.abc   import Iterable
+from decimal           import ROUND_CEILING, ROUND_FLOOR
 from functools         import wraps
 from operator          import itemgetter
 from typing            import Callable, cast, Literal, Optional, overload, Union
 from typing_extensions import Self, TypeAlias, TypeGuard
 
 from frplib.exceptions import OperationError, StatisticError, DomainDimensionError
-from frplib.numeric    import ScalarQ, as_real
+from frplib.numeric    import REAL_ONE, ScalarQ, as_real
 from frplib.protocols  import Projection, Transformable
 from frplib.quantity   import as_quant_vec, as_quantity
 from frplib.symbolic   import Symbolic
@@ -1000,6 +1001,11 @@ Scalar = Statistic(lambda x: x[0] if is_tuple(x) else x, dim=1, strict=True,
 __ = Statistic(as_vec_tuple, dim=ANY_TUPLE, name='__', description='represents the value given to the statistic')
 _x_ = Scalar
 
+def Constantly(x) -> Statistic:
+    "A statistic factory that produces a statistic that always returns `x`."
+    xvec = as_quant_vec(x)
+    return Statistic(lambda _: xvec, dim=ANY_TUPLE, codim=len(xvec), name=f'The constant {xvec}')
+
 Sum = MonoidalStatistic(sum, unit=0, dim=0, codim=1, name='sum',
                         description='returns the sum of all the components of the given value')
 Count = MonoidalStatistic(len, unit=0, dim=0, codim=1, name='count',
@@ -1013,19 +1019,27 @@ Mean = Statistic(lambda x: sum(x) / len(x), dim=0, codim=1, name='mean',
 Abs = Statistic(abs, dim=1, codim=1, name='abs',
                 description='returns the absolute value of the given number')
 
-def Constantly(x) -> Statistic:
-    "A statistic factory that produces a statistic that always returns `x`."
-    xvec = as_quant_vec(x)
-    return Statistic(lambda _: xvec, dim=ANY_TUPLE, codim=len(xvec), name=f'The constant {xvec}')
+@statistic(dim=1, codim=1, name='floor',
+           description='returns the greatest integer <= its argument')
+def Floor(x):
+    return as_real(x).quantize(REAL_ONE, ROUND_FLOOR)
 
+@statistic(dim=1, codim=1, name='ceiling',
+           description='returns the least integer >= its argument')
+def Ceil(x):
+    return as_real(x).quantize(REAL_ONE, ROUND_CEILING)
+
+Sqrt = Statistic(lambda d: as_real(d).sqrt(), dim=1, codim=1, name='sqrt', strict=True,
+                 description='returns the square root of a scalar argument')
 Exp = Statistic(math.exp, dim=1, codim=1, name='exp', strict=True,
                 description='returns the exponential of a scalar argument')
-Log = Statistic(math.log, dim=1, codim=1, name='log', strict=True,
+Log = Statistic(lambda d: as_real(d).ln(), dim=1, codim=1, name='log', strict=True,
                 description='returns the natural logarithm of a positive scalar argument')
-Log2 = Statistic(math.log2, dim=1, codim=1, name='log', strict=True,
+Log2 = Statistic(lambda d: as_real(d).ln() / as_real(2).ln(), dim=1, codim=1, name='log', strict=True,
                  description='returns the logarithm base 2 of a positive scalar argument')
-Log10 = Statistic(math.log2, dim=1, codim=1, name='log', strict=True,
+Log10 = Statistic(lambda d: as_real(d).log10(), dim=1, codim=1, name='log', strict=True,
                   description='returns the logarithm base 10 of a positive scalar argument')
+# Can use the decimal recipes for sin and cos
 Sin = Statistic(math.sin, dim=1, codim=1, name='sin', strict=True,
                 description='returns the sine of a scalar argument')
 Cos = Statistic(math.cos, dim=1, codim=1, name='cos', strict=True,
@@ -1038,7 +1052,6 @@ Cosh = Statistic(math.cosh, dim=1, codim=1, name='cos', strict=True,
                  description='returns the hyperbolic cosine of a scalar argument')
 Tanh = Statistic(math.tanh, dim=1, codim=1, name='tan', strict=True,
                  description='returns the hyperbolic tangent of a scalar argument')
-
 
 @statistic(name='atan2', description='returns the sector correct arctangent')
 def ATan2(x, y=1):
@@ -1079,7 +1092,7 @@ def Diffs(k: int):
         return as_quant_vec(diffs)
 
     return Statistic(diffk, dim=ANY_TUPLE, name=f'diffs[{k}]',
-                     description='returns k-th order differences of its argument')
+                     description=f'returns order {k} differences of its argument')
 
 
 #
@@ -1140,33 +1153,38 @@ def Fork(stat: Statistic, *more_stats: Statistic) -> Statistic:
     return Statistic(forked, dim=dim, codim=codim,
                      name=f'fork({stat.name}, {", ".join([s.name for s in more_stats])})')
 
-# Permute    ATTN: fix up but keeping it simple for now
-def Permute(p: Iterable[int]):
+# ATTN: fix up but keeping it simple for now
+def Permute(*p: int | tuple[int, ...]):
     """A statistics factory that produces permutation statistics.
 
-    Accepts a list of (1-indexed) component indices that indicate the index
-    of the original component is in each index. For example,
-    Permute(3, 2, 1) means that the original 3rd component is first
-    and the original 1st component is third. Similarly, Permute(3, 1, 2)
-    rearranges in the order third, first, second.
+    Accepts a list of (1-indexed) component indices (either as
+    individual arguments or as a single iterable). These indices
+    indicate the index of the original component is in each index.
+    For example, Permute(3, 2, 1) means that the original 3rd
+    component is first and the original 1st component is third.
+    Similarly, Permute(3, 1, 2) rearranges in the order third,
+    first, second.
 
-    The permutation applies to any value of length bigger than the maximum
-    index. Others are kept in place if possible or swapped if necessary.
-    Hence, Permute(7, 8) moves the seventh and eighth components into
-    the first two positions, swapping the first and second into the 7th and 8th
-    positions and keeping the rest fixed.
+    The index list should contain all values 1..n exactly once for
+    some positive integer n. The permutation applies to vectors of
+    any length, keeping any values at index > n in place. Thus,
+    Permute(3,2,1) rearranges the first three components and leaves
+    any others unchanged.
 
     See PermuteWithCycles for an alternative input format.
+    (Note: Not yet available.)
 
     Examples:
 
     + Permute(4, 1, 2, 3) takes <a, b, c, d> to <d, a, b, c>
 
-    + Permute(3, 5, 7, 1) takes <a, b, c, d, e, f, g> to <c, e, g, a, b, f, d>
-
     """
-    # assert p contains all unique values from 1..n
-    p_realized = list(map(lambda k: k - 1, p))
+    # TEMP: assert p contains all unique values from 1..n
+
+    if len(p) == 1 and isinstance(p[0], tuple):
+        p_realized = list(map(lambda k: k - 1, p[0]))
+    else:
+        p_realized = list(map(lambda k: k - 1, cast(tuple[int], p)))
     p_max = max(p_realized)
     n = p_max + 1
 

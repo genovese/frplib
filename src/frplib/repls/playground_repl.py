@@ -33,6 +33,7 @@ playground_imports: dict[str, list[str]] = {
         'fork', 'chain', 'compose',
         'Id', 'Scalar', '__', 'Proj', '_x_',
         'Sum', 'Count', 'Max', 'Min', 'Mean', 'Abs',
+        'Sqrt', 'Floor', 'Ceil', 'NormalCDF',
         'Exp', 'Log', 'Log2', 'Log10',
         'Sin', 'Cos', 'Tan', 'ATan2', 'Sinh', 'Cosh', 'Tanh',
         'Diff', 'Diffs', 'Permute',

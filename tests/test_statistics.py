@@ -10,6 +10,7 @@ from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                fork, chain, compose,
                                Id, Scalar, __, Proj, _x_,
                                Sum, Count, Max, Min, Mean, Abs,
+                               Sqrt, Floor, Ceil,
                                Exp, Log, Log2, Log10,
                                Sin, Cos, Tan, ATan2, Sinh, Cosh, Tanh,
                                Diff, Diffs, Permute,
@@ -89,3 +90,15 @@ def test_builtin_statistics():
     assert Not(Proj[1] % 2 == 0)(3, 9) == vec_tuple(1)
     assert Not(Proj[1] % 2 == 0)(5, 9, 10) == vec_tuple(1)
     assert Not(Proj[1] % 2 == 0)(8, 3, 2, 1) == vec_tuple(0)
+
+    assert Permute(1, 4, 2, 3)(10, 20, 30, 40, 50, 60, 70) == vec_tuple(10, 40, 20, 30, 50, 60, 70)
+
+    assert Floor(-4.2) == vec_tuple(-5)
+    assert Ceil(-4.2) == vec_tuple(-4)
+    assert Floor(4.2) == vec_tuple(4)
+    assert Ceil(4.2) == vec_tuple(5)
+    assert Floor(0) == vec_tuple(0)
+    assert Ceil(0) == vec_tuple(0)
+
+    assert Sqrt(4) == vec_tuple(2)
+    assert Sqrt(1.44) == vec_tuple(as_quantity(1.2))
