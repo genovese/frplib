@@ -1,17 +1,65 @@
 from __future__ import annotations
 
 from importlib                     import import_module
+from importlib.resources           import files
+from pathlib                       import Path
+
 from prompt_toolkit.formatted_text import HTML, ANSI
 from prompt_toolkit.shortcuts      import print_formatted_text
 from ptpython.repl                 import PythonRepl
 from ptpython.python_input         import PythonInput
+from rich.markdown                 import Markdown
 
 from frplib.env        import environment
 from frplib.exceptions import FrplibException
 from frplib.protocols  import Renderable
 
-def info(topic: str = '') -> None:
-    print_formatted_text(HTML('<violet>This is useful information. More coming soon!</violet>'))
+
+#
+# Help System
+#
+
+def info(obj_or_topic='topics') -> None:
+    """Accesses and displays help on a variety of playground topics.
+
+    """
+    def no_help():
+        print_formatted_text(HTML('<violet>I could not find any guidance on that topic. '
+                                  'Try info() for a list of starting points.</violet>'))
+
+    topic = []
+    if not isinstance(obj_or_topic, str) and hasattr(obj_or_topic, '__info__'):
+        topic = obj_or_topic.__info__.split('::')
+    else:
+        topic = [obj_or_topic]  # Look for main level topic or search below
+
+    if topic:
+        top_level = files('frplib.data') / 'playground-help'
+
+        topic_path = top_level
+        found = True
+        for dir in topic[:-1]:
+            topic_path = topic_path / dir
+            if not topic_path.is_dir():  # Will fail if does not exist also
+                found = False
+                break
+        if found:
+            topic_path = topic_path / f'{topic[-1]}.md'
+            if not topic_path.is_file():
+                found = False
+            else:
+                help_text = topic_path.read_text()
+                environment.console.print(Markdown(help_text))
+        if not found:
+            pass  # Search for topic in manifest
+            no_help()  # Do this if search comes up empty
+    else:
+        no_help()
+
+
+#
+# Import Environment
+#
 
 playground_imports: dict[str, list[str]] = {
     # When there are submodules loaded, order from parent down
@@ -80,6 +128,11 @@ def remove_playground(globals) -> None:
                 del globals[symbol_name]
         if module_name in globals:
             del globals[module_name]
+
+
+#
+# REPL Definition
+#
 
 class PlaygroundRepl(PythonRepl):
     def show_result(self, result: object) -> None:

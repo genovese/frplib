@@ -20,6 +20,8 @@ bright_theme = Theme({
     "repr.str": "#330066",
     "repr.attrib_name": "#330000",
     "repr.attrib_value": "#000033",
+    "markdown.item.bullet": "bold magenta",
+    "markdown.item.number": "bold magenta",
 })
 
 dark_theme = Theme({
@@ -30,6 +32,8 @@ dark_theme = Theme({
     "repr.str": "#ccff99",
     "repr.attrib_name": "#ccffff",
     "repr.attrib_value": "#ffffcc",
+    "markdown.code": "bold magenta on white",
+    "markdown.code_block": "#4682b4 on white",
 })
 
 
