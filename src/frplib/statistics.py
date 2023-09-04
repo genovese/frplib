@@ -12,10 +12,11 @@ from typing            import Callable, cast, Literal, Optional, overload, Union
 from typing_extensions import Self, TypeAlias, TypeGuard
 
 from frplib.exceptions import OperationError, StatisticError, DomainDimensionError
-from frplib.numeric    import as_real, as_numeric
+from frplib.numeric    import ScalarQ, as_real
 from frplib.protocols  import Projection, Transformable
 from frplib.quantity   import as_quant_vec, as_quantity
-from frplib.utils      import identity, is_interactive, is_tuple, scalarize
+from frplib.symbolic   import Symbolic
+from frplib.utils      import is_interactive, is_tuple, scalarize
 from frplib.vec_tuples import VecTuple, as_scalar, as_scalar_strict, as_vec_tuple, vec_tuple
 
 # ATTN: conversion with as_real etc in truediv, pow to prevent accidental float conversion
@@ -48,13 +49,41 @@ ANY_TUPLE: ArityType = (0, infinity)
 # Helpers
 #
 
+def as_scalar_stat(x: ScalarQ | Symbolic):
+    "Returns a quantity guaranteed to be a scalar for use in statistical math operations."
+    return as_quantity(as_scalar_strict(x))
+
+def stat_label(s: Statistic) -> str:
+    name = s.name
+    if '__' in name:  # name == '__':
+        return name
+    return f'{name}(__)'
 
 def compose2(after: 'Statistic', before: 'Statistic') -> 'Statistic':
     if after.dim == 0 or before.codim is None or after.dim == before.codim:
         def composed(*x):
             return after(before(*x))
-        return Statistic(composed, dim=before.dim, codim=after.codim, name=f'{after.name}({before.name}(__))')
+        return Statistic(composed, dim=before.dim, codim=after.codim,
+                         name=f'{after.name}({stat_label(before)})')
     raise OperationError(f'Statistics {after.name} and {before.name} are not compatible for composition.')
+
+def combine_arities(has_arity, more) -> ArityType:
+    """Combines arities of a collection of statistics to find the widest interval consistent with all of them.
+
+    Returns a tuple (lo, hi).  If lo > hi, there is no consistent arity.
+    """
+    if has_arity is not None:
+        arity_low = has_arity.arity[0]
+        arity_high = has_arity.arity[1] if has_arity.strict_arity else infinity
+    else:
+        arity_low = 0
+        arity_high = infinity
+    for s in more:
+        arity_low = max(arity_low, s.arity[0])
+        if s.strict_arity:
+            arity_high = min(arity_high, s.arity[1])
+
+    return (arity_low, arity_high)
 
 
 #
@@ -79,34 +108,42 @@ def analyze_domain(fn: Callable) -> ArityType:
             break
     return (requires, requires + accepts)
 
-def new_tuple_safe(fn: Callable, arities: Optional[ArityType] = None) -> Callable:
+def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, strict=False) -> Callable:
     """Returns a function that can accept a single tuple or multiple individual arguments.
 
     Ensures that the returned function has an `arity` attribute set
     to the supplied or computed arity.
+
     """
     if arities is None:
         arities = analyze_domain(fn)
+    elif isinstance(arities, int):
+        arities = (arities, arities)
 
     if arities == ANY_TUPLE:
         @wraps(fn)
         def f(*x):
             if len(x) == 1 and is_tuple(x[0]):
                 return as_vec_tuple(fn(x[0]))
-            return as_vec_tuple(fn(x))
+            return as_quant_vec(fn(x))
         setattr(f, 'arity', arities)
+        setattr(f, 'strict_arity', strict)
         return f
     elif arities == (1, 1):
         @wraps(fn)
         def g(x):
             if is_tuple(x):
-                if len(x) == 1:
-                    return as_vec_tuple(fn(x[0]))
-                raise DomainDimensionError(f'A function (probably a Statistic) '
-                                           f'expects a scalar argument, but a tuple'
-                                           f' of dimension {len(x)} was given.')
-            return as_vec_tuple(fn(x))
+                nargs = len(x)
+                if nargs == 0 or (strict and nargs > 1):
+                    raise DomainDimensionError(f'A function (probably a Statistic) '
+                                               f'expects a scalar argument, but a tuple'
+                                               f' of dimension {nargs} was given.')
+                arg = x[0]
+            else:
+                arg = x
+            return as_quant_vec(fn(arg))
         setattr(g, 'arity', arities)
+        setattr(g, 'strict_arity', strict)
         return g
     elif arities[1] == infinity:
         @wraps(fn)
@@ -119,8 +156,9 @@ def new_tuple_safe(fn: Callable, arities: Optional[ArityType] = None) -> Callabl
                 raise DomainDimensionError(f'A function (probably a Statistic)'
                                            f' expects at least {arities[0]}'
                                            f' arguments but {len(args)} were given.')
-            return as_vec_tuple(fn(*args))
+            return as_quant_vec(fn(*args))
         setattr(h, 'arity', arities)
+        setattr(h, 'strict_arity', strict)
         return h
 
     @wraps(fn)
@@ -129,17 +167,24 @@ def new_tuple_safe(fn: Callable, arities: Optional[ArityType] = None) -> Callabl
             args = x[0]
         else:
             args = x
-        if len(args) < arities[0]:
+        nargs = len(args)
+        if nargs < arities[0]:
             raise DomainDimensionError(f'A function (probably a Statistic)'
                                        f' expects at least {arities[0]}'
-                                       f' arguments but {len(args)} were given.')
-        take = cast(int, min(arities[1], len(args)))  # Note: We allow extra components, implicit proj
+                                       f' arguments but {nargs} were given.')
+        if strict and nargs > arities[1]:
+            raise DomainDimensionError(f'A function (probably a Statistic)'
+                                       f' expects at most {arities[1]}'
+                                       f' arguments but {nargs} were given.')
 
-        return as_vec_tuple(fn(*tuple(args[:take])))
+        take = cast(int, min(arities[1], nargs))  # Implicit project if not strict
+
+        return as_quant_vec(fn(*tuple(args[:take])))
     setattr(ff, 'arity', arities)
+    setattr(ff, 'strict_arity', strict)
     return ff
 
-def tuple_safe(fn: Callable, arity: Optional[int] = None) -> Callable:
+def old_tuple_safe(fn: Callable, arity: Optional[int] = None) -> Callable:
     """Returns a function that can accept a single tuple or multiple individual arguments.
 
     Ensures that the returned function has an `arity` attribute set
@@ -207,28 +252,44 @@ def tuple_safe(fn: Callable, arity: Optional[int] = None) -> Callable:
 # ATTN: Also implement things like __is__ and __in__ so we can do X ^ (__ in {0, 1, 2})
 
 class Statistic:
-    "A function that operates on the output of an FRP."
+    """A transformation of an FRP or Kind.
+
+    A statistic is built from a function that operates on the values of an FRP.
+    Here, we treat only the case where the values are (vector-style) tuples
+    of arbitrary dimension.
+
+    Constructor Parameters
+    ----------------------
+
+    """
     def __init__(
             self: Self,
-            fn: Callable | 'Statistic',         # Either a Statistic or a function to be turned into one
-            dim: Optional[int] = None,          # Number of arguments the function takes; 0 means tuple expected
-            codim: Optional[int] = None,        # Dimension of the codomain; None means don't know
-            name: Optional[str] = None,         # A user-facing name for the statistic
-            description: Optional[str] = None   # A description used as a __doc__ string for the Statistic
+            fn: Callable | 'Statistic',             # Either a Statistic or a function to be turned into one
+            dim: Optional[int | ArityType] = None,  # (a, b) means fn accepts a <= n <= b args; a means (a, a)
+                                                    # infinity allowed for b; None means infer by inspection
+                                                    # 0 is taken as a shorthand for ANY_TUPLE
+            codim: Optional[int] = None,            # Dimension of the codomain; None means don't know
+            name: Optional[str] = None,             # A user-facing name for the statistic
+            description: Optional[str] = None,      # A description used as a __doc__ string for the Statistic
+            strict=False                            # If true, treat arities strictly
     ) -> None:
-        "Note: set arity to 0 to advise that it takes the whole tuple/vector; None means try to find out"
+        if dim == 0:
+            dim = ANY_TUPLE
 
         if isinstance(fn, Statistic):
+            if isinstance(dim, int):
+                dim = (dim, dim)
             self.fn: Callable = fn.fn
-            self.arity: int = dim if dim is not None else fn.arity
+            self.arity: ArityType = dim if dim is not None else fn.arity
             self.codim: Optional[int] = codim if codim is not None else fn.codim
             self._name = name or fn.name
             self.__doc__: str = self.__describe__(description or fn.description or '')
             return
 
-        f = tuple_safe(fn, dim)
+        f = tuple_safe(fn, arities=dim, strict=strict)
         self.fn = f
         self.arity = getattr(f, 'arity')
+        self.strict_arity = getattr(f, 'strict_arity')
         self.codim = codim
         self._name = name or fn.__name__ or ''
         self.__doc__ = self.__describe__(description or fn.__doc__ or '')
@@ -253,10 +314,15 @@ class Statistic:
             scalar = returns
 
         arity = ''
-        if self.arity == 0:
+        if self.arity[1] == infinity:
             arity = 'expects a tuple'
-        elif self.arity > 0:
-            arity = f'expects {self.arity} argument{"s" if self.arity > 1 else ""} (or a tuple of that length)'
+            if self.arity[0] > 0:
+                arity += f' of at least dimension {self.arity[0]}'
+        elif self.arity[0] == self.arity[1]:
+            if self.arity[0] == 0:  # This makes no sense
+                arity = 'expects an empty tuple'
+            arity = (f'expects {self.arity[0]} argument{"s" if self.arity[0] > 1 else ""}'
+                     ' (or a tuple of that dimension)')
 
         conj = ' and ' if scalar and arity else that if scalar else ''
         structure = f'{arity}{conj}{scalar}.'
@@ -277,8 +343,10 @@ class Statistic:
         return self._name
 
     @property
-    def dim(self) -> int:
+    def dim(self) -> int | ArityType:
         "Returns the dimension of the statistic, with 0 meaning it accepts an arbitrary tuple."
+        if self.arity[0] == self.arity[1]:
+            return self.arity[0]
         return self.arity
 
     @property
@@ -300,9 +368,10 @@ class Statistic:
         if isinstance(other, Statistic):
             def a_eq_b(*x):
                 return self(*x) == other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_eq_b(*x):
                 return self(*x) == f(*x)
             label = str(other)
@@ -312,15 +381,16 @@ class Statistic:
             label = str(other)
 
         # Break inheritance rules here, but it makes sense!
-        return Condition(a_eq_b, dim=0, name=f'{self.name}(__) == {label}')
+        return Condition(a_eq_b, dim=0, name=f'{stat_label(self)} == {label}')
 
     def __ne__(self, other):
         if isinstance(other, Statistic):
             def a_ne_b(*x):
                 return self(*x) != other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_ne_b(*x):
                 return self(*x) != f(*x)
             label = str(other)
@@ -330,17 +400,18 @@ class Statistic:
             label = str(other)
 
         # Break inheritance rules here, but it makes sense!
-        return Condition(a_ne_b, dim=0, name=f'{self.name}(__) != {label}')
+        return Condition(a_ne_b, dim=0, name=f'{stat_label(self)} != {label}')
 
-    ## ATTN:FIX labels for methods below, so e.g., ForEach(2*__+1) prints out nicely
+    # ATTN:FIX labels for methods below, so e.g., ForEach(2*__+1) prints out nicely
 
     def __le__(self, other):
         if isinstance(other, Statistic):
             def a_le_b(*x):
                 return self(*x) <= other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_le_b(*x):
                 return self(*x) <= f(*x)
             label = str(other)
@@ -350,15 +421,16 @@ class Statistic:
             label = str(other)
 
         # Break inheritance rules here, but it makes sense!
-        return Condition(a_le_b, dim=0, name=f'{self.name}(__) <= {label}')
+        return Condition(a_le_b, dim=0, name=f'{stat_label(self)} <= {label}')
 
     def __lt__(self, other):
         if isinstance(other, Statistic):
             def a_lt_b(*x):
                 return self(*x) < other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_lt_b(*x):
                 return self(*x) < f(*x)
             label = str(other)
@@ -368,15 +440,16 @@ class Statistic:
             label = str(other)
 
         # Break inheritance rules here, but it makes sense!
-        return Condition(a_lt_b, dim=0, name=f'{self.name}(__) < {label}')
+        return Condition(a_lt_b, dim=0, name=f'{stat_label(self)} < {label}')
 
     def __ge__(self, other):
         if isinstance(other, Statistic):
             def a_ge_b(*x):
                 return self(*x) >= other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_ge_b(*x):
                 return self(*x) >= f(*x)
             label = str(other)
@@ -386,15 +459,16 @@ class Statistic:
             label = str(other)
 
         # Break inheritance rules here, but it makes sense!
-        return Condition(a_ge_b, dim=0, name=f'{self.name}(__) >= {label}')
+        return Condition(a_ge_b, dim=0, name=f'{stat_label(self)} >= {label}')
 
     def __gt__(self, other):
         if isinstance(other, Statistic):
             def a_gt_b(*x):
                 return self(*x) > other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_gt_b(*x):
                 return self(*x) > f(*x)
             label = str(other)
@@ -404,7 +478,7 @@ class Statistic:
             label = str(other)
 
         # Break inheritance rules here, but it makes sense!
-        return Condition(a_gt_b, dim=0, name=f'{self.name}(__) > {label}')
+        return Condition(a_gt_b, dim=0, name=f'{stat_label(self)} > {label}')
 
     # Numeric Operations (still would like macros)
 
@@ -412,95 +486,102 @@ class Statistic:
         if isinstance(other, Statistic):
             def a_plus_b(*x):
                 return self(*x) + other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_plus_b(*x):
-                return self(*x) + f(*x)
+                return self(*x) + as_quant_vec(f(*x))
             label = str(other)
         else:
             def a_plus_b(*x):
-                return self(*x) + other
+                return self(*x) + as_quant_vec(other)
             label = str(other)
 
-        return Statistic(a_plus_b, dim=0, name=f'{self.name}(__) + {label}')
+        return Statistic(a_plus_b, dim=0, name=f'{stat_label(self)} + {label}')
 
     def __radd__(self, other):
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+
             def a_plus_b(*x):
-                return self(*x) + f(*x)
+                return f(*x) + as_quant_vec(self(*x))
             label = str(other)
         else:
             def a_plus_b(*x):
-                return self(*x) + other
+                return other + as_quant_vec(self(*x))
             label = str(other)
 
-        return Statistic(a_plus_b, dim=0, name=f'{label} + {self.name}(__)')
+        return Statistic(a_plus_b, dim=0, name=f'{label} + {stat_label(self)}')
 
     def __sub__(self, other):
         if isinstance(other, Statistic):
             def a_minus_b(*x):
                 return self(*x) - other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_minus_b(*x):
-                return self(*x) - f(*x)
+                return self(*x) - as_quant_vec(f(*x))
             label = str(other)
         else:
             def a_minus_b(*x):
-                return self(*x) - other
+                return self(*x) - as_quant_vec(other)
             label = str(other)
 
-        return Statistic(a_minus_b, dim=0, name=f'{self.name}(__) - {label}')
+        return Statistic(a_minus_b, dim=0, name=f'{stat_label(self)} - {label}')
 
     def __rsub__(self, other):
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+
             def a_minus_b(*x):
-                return f(*x) - self(*x)
+                return f(*x) - as_quant_vec(self(*x))
         else:
             def a_minus_b(*x):
-                return other - self(*x)
+                return other - as_quant_vec(self(*x))
 
-        return Statistic(a_minus_b, dim=0, name=f'{str(other)} - {self.name}(__)')
+        return Statistic(a_minus_b, dim=0, name=f'{str(other)} - {stat_label(self)}')
 
     def __mul__(self, other):
         if isinstance(other, Statistic):
             def a_times_b(*x):
                 return self(*x) * other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_times_b(*x):
-                return self(*x) * f(*x)
+                return self(*x) * as_scalar_stat(f(*x))
             label = str(other)
         else:
             def a_times_b(*x):
-                return self(*x) * as_real(as_scalar_strict(other))  # ATTN!
+                return self(*x) * as_scalar_stat(other)  # ATTN!
             label = str(other)
 
-        return Statistic(a_times_b, dim=0, name=f'{self.name}(__) * {label}')
+        return Statistic(a_times_b, dim=0, name=f'{stat_label(self)} * {label}')
 
     def __rmul__(self, other):
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+
             def a_times_b(*x):
-                return self(*x) * f(*x)
+                return f(*x) * as_scalar_stat(self(*x))
         else:
             def a_times_b(*x):
-                return self(*x) * as_real(as_scalar_strict(other))
+                return as_scalar_stat(other) * self(*x)
 
-        return Statistic(a_times_b, dim=0, name=f'{str(other)} * {self.name}(__)')
+        return Statistic(a_times_b, dim=0, name=f'{str(other)} * {stat_label(self)}')
 
     def __truediv__(self, other):
         if isinstance(other, Statistic):
             def a_div_b(*x):
                 return self(*x) / other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_div_b(*x):
                 return self(*x) / f(*x)
             label = str(other)
@@ -509,61 +590,65 @@ class Statistic:
                 return self(*x) / as_real(as_scalar_strict(other))
             label = str(other)
 
-        return Statistic(a_div_b, dim=0, name=f'{self.name}(__) / {label}')
+        return Statistic(a_div_b, dim=0, name=f'{stat_label(self)} / {label}')
 
     def __rtruediv__(self, other):
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+
             def a_div_b(*x):
-                return f(*x) / self(*x)
+                return as_quantity(f(*x)) / self(*x)
         else:
             def a_div_b(*x):
-                return other / as_real(as_scalar_strict(self(*x)))
+                return as_quantity(other) / as_quantity(as_scalar_strict(self(*x)))  # type: ignore
 
-        return Statistic(a_div_b, dim=0, name=f'{str(other)} / {self.name}(__)')
+        return Statistic(a_div_b, dim=0, name=f'{str(other)} / {stat_label(self)}')
 
     def __floordiv__(self, other):
         if isinstance(other, Statistic):
             def a_div_b(*x):
                 return self(*x) // other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_div_b(*x):
-                return self(*x) // f(*x)
+                return self(*x) // as_scalar_stat(f(*x))
             label = str(other)
         else:
             def a_div_b(*x):
-                return self(*x) // other
+                return self(*x) // as_scalar_stat(other)
             label = str(other)
 
-        return Statistic(a_div_b, dim=0, name=f'{self.name}(__) // {label}')
+        return Statistic(a_div_b, dim=0, name=f'{stat_label(self)} // {label}')
 
     def __rfloordiv__(self, other):
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+
             def a_div_b(*x):
-                return f(*x) // self(*x)
+                return f(*x) // as_scalar_stat(self(*x))
         else:
             def a_div_b(*x):
-                return other // self(*x)
+                return other // as_scalar_stat(self(*x))
 
-        return Statistic(a_div_b, dim=0, name=f'{str(other)} // {self.name}(__)')
+        return Statistic(a_div_b, dim=0, name=f'{str(other)} // {stat_label(self)}')
 
     def __mod__(self, other):
         if isinstance(other, Statistic):
             def a_mod_b(*x):
                 return self(*x) % other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_mod_b(*x):
-                return self(*x) % f(*x)
+                return self(*x) % as_scalar_stat(f(*x))
             label = str(other)
         elif self.codim == 1:
             def a_mod_b(*x):
                 try:
-                    return scalarize(self(*x)) % other
+                    return scalarize(self(*x)) % as_quantity(other)
                 except Exception as e:
                     raise OperationError(f'Could not compute {self.name} % {other}: {str(e)}')
             label = str(other)
@@ -571,67 +656,72 @@ class Statistic:
             def a_mod_b(*x):
                 val = self(*x)
                 if len(val) != 1:
-                    raise OperationError(f'Statistic {self.name} is not a scalar but % requires it; try using Scalar explicitly.')
+                    raise OperationError(f'Statistic {self.name} is not a scalar but % requires it; '
+                                         'try using Proj or Scalar explicitly.')
                 try:
-                    return scalarize(self(*x)) % other
+                    return scalarize(self(*x)) % as_quantity(other)
                 except Exception as e:
                     raise OperationError(f'Could not compute {self.name} % {other}: {str(e)}')
             label = str(other)
-        return Statistic(a_mod_b, dim=0, name=f'{self.name}(__) % {label}')
+        return Statistic(a_mod_b, dim=0, name=f'{stat_label(self)} % {label}')
 
     def __rmod__(self, other):
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+
             def a_mod_b(*x):
-                return f(*x) % self(*x)
+                return as_quantity(f(*x)) % scalarize(self(*x))
         else:
             def a_mod_b(*x):
-                return other % self(*x)
+                return as_quantity(other) % scalarize(self(*x))
 
-        return Statistic(a_mod_b, dim=0, name=f'{str(other)} % {self.name}(__)')
+        return Statistic(a_mod_b, dim=0, name=f'{str(other)} % {stat_label(self)}')
 
     def __pow__(self, other):
         if isinstance(other, Statistic):
             def a_pow_b(*x):
                 return self(*x) ** other(*x)
-            label = f'{other.name}(__)'
+            label = stat_label(other)
         elif callable(other):
             f = tuple_safe(other)
+
             def a_pow_b(*x):
-                return self(*x) ** f(*x)
+                return self(*x) ** as_quantity(f(*x))
             label = str(other)
         else:
             def a_pow_b(*x):
-                return self(*x) ** as_numeric(other)
+                return self(*x) ** as_quantity(other)
             label = str(other)
 
-        return Statistic(a_pow_b, dim=0, name=f'{self.name}(__) ** {label}')
+        return Statistic(a_pow_b, dim=0, name=f'{stat_label(self)} ** {label}')
 
     def __rpow__(self, other):
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+
             def a_pow_b(*x):
-                return f(*x) ** self(*x)
+                return as_quantity(f(*x)) ** self(*x)
         else:
             def a_pow_b(*x):
-                return as_numeric(other) ** self(*x)
+                return as_quantity(other) ** self(*x)
 
-        return Statistic(a_pow_b, dim=0, name=f'{str(other)} ** {self.name}(__)')
+        return Statistic(a_pow_b, dim=0, name=f'{str(other)} ** {stat_label(self)}')
 
     def __and__(self, other):
         if isinstance(other, Statistic):
             def a_and_b(*x):
                 return self(*x) and other(*x)
-            label = f'{self.name}(__) and {other.name}'
+            label = f'{stat_label(self)} and {stat_label(other)}'
         elif callable(other):
             f = tuple_safe(other)
+
             def a_and_b(*x):
                 return self(*x) and f(*x)
-            label = f'{self.name}(__) and {str(other)}'
+            label = f'{stat_label(self)} and {str(other)}'
         else:
             def a_and_b(*x):
                 return self(*x) and other
-            label = f'{self.name}(__) and {str(other)}'
+            label = f'{stat_label(self)} and {str(other)}'
 
         return Statistic(a_and_b, dim=0, name=label)
 
@@ -639,12 +729,13 @@ class Statistic:
         if isinstance(other, Statistic):
             def a_or_b(*x):
                 return self(*x) or other(*x)
-            label = f'{self.name}(__) or {other.name}(__)'
+            label = f'{stat_label(self)} or {stat_label(other)}'
         elif callable(other):
             f = tuple_safe(other)
+
             def a_or_b(*x):
                 return self(*x) or f(*x)
-            label = f'{self.name}(__) or {str(other)}'
+            label = f'{stat_label(self)} or {str(other)}'
         else:
             def a_or_b(*x):
                 return self(*x) or other
@@ -657,15 +748,18 @@ def is_statistic(x) -> TypeGuard[Statistic]:
     return isinstance(x, Statistic)
 
 class MonoidalStatistic(Statistic):
-    def __init__(self,
-                 fn: Callable | 'Statistic',        # Either a Statistic or a function to be turned into one
-                 unit,                              # The unit of the monoid
-                 dim: Optional[int] = None,       # Number of arguments the function takes; 0 means tuple expected
-                 codim: Optional[int] = None,       # Dimension of the codomain; None means don't know
-                 name: Optional[str] = None,        # A user-facing name for the statistic
-                 description: Optional[str] = None  # A description used as a __doc__ string for the Statistic
-                ) -> None:
-        super().__init__(fn, dim, codim, name, description)
+    def __init__(
+            self,
+            fn: Callable | 'Statistic',             # Either a Statistic or a function to be turned into one
+            unit,                                   # The unit of the monoid
+            dim: Optional[int | ArityType] = None,  # (a, b) means fn accepts a <= n <= b args; a means (a, a)
+                                                    # infinity allowed for b; None means infer by inspection
+            codim: Optional[int] = None,            # Dimension of the codomain; None means don't know
+            name: Optional[str] = None,             # A user-facing name for the statistic
+            description: Optional[str] = None,      # A description used as a __doc__ string for the Statistic
+            strict=False                            # If true, then strictly enforce dim upper bound
+    ) -> None:
+        super().__init__(fn, dim, codim, name, description, strict=strict)
         self.unit = unit
 
     def __call__(self, *args):
@@ -674,12 +768,13 @@ class MonoidalStatistic(Statistic):
         return super().__call__(*args)
 
 class ProjectionStatistic(Statistic, Projection):
-    def __init__(self,
-                 # ATTN: Don't need this here, just adapt project
-                 fn: Callable | 'Statistic',         # Either a Statistic or a function to be turned into one ATTN: No need for fn here!
-                 onto: Iterable[int] | slice | Self, # 1-indexed projection indices
-                 name: Optional[str] = None          # A user-facing name for the statistic
-                ) -> None:
+    def __init__(
+            self,
+            # ATTN: Don't need this here, just adapt project; ATTN: No need for fn here!
+            fn: Callable | 'Statistic',          # Either a Statistic or a function to be turned into one
+            onto: Iterable[int] | slice | Self,  # 1-indexed projection indices
+            name: Optional[str] = None           # A user-facing name for the statistic
+    ) -> None:
         codim = None
         dim = 0
         if isinstance(onto, ProjectionStatistic):
@@ -697,10 +792,11 @@ class ProjectionStatistic(Statistic, Projection):
         elif isinstance(onto, slice):
             indices = onto
             has_step = indices.step is None
-            label = f'{indices.start or ""}:{indices.stop or ""}{":" if has_step else ""}{indices.step if has_step else ""}'
+            label = (f'{indices.start or ""}:{indices.stop or ""}{":" if has_step else ""}'
+                     f'{indices.step if has_step else ""}')
             # ATTN: Already converted in project; need to merge this
-            #if indices.start == 0 or indices.stop == 0:
-            #    raise StatisticError('Projection indices are 1-indexed and must be non-zero')
+            # if indices.start == 0 or indices.stop == 0:
+            #     raise StatisticError('Projection indices are 1-indexed and must be non-zero')
 
         description = textwrap.wrap(f'''A statistic that projects any value of dimension >= {dim or 1}
                                         to extract the {codim} components with indices {label}.''')
@@ -712,8 +808,9 @@ class ProjectionStatistic(Statistic, Projection):
     def subspace(self):
         return self._components
 
-    #ATTN: Make project() below a method here
-    #ATTN?? Add minimum_dim property that specifies minimum compatible dimension; e.g., Project[3] -> 3, Project[2:-1] -> 2, Project[1,3,5] -> 5
+    # ATTN: Make project() below a method here
+    # ATTN?? Add minimum_dim property that specifies minimum compatible dimension;
+    # e.g., Project[3] -> 3, Project[2:-1] -> 2, Project[1,3,5] -> 5
 
 def _ibool(x) -> Literal[0, 1]:
     return 1 if bool(x) else 0
@@ -727,21 +824,23 @@ class Condition(Statistic):
     """
     def __init__(
             self,
-            predicate: Callable | 'Statistic',  # Either a Statistic or a function to be turned into one
-            dim: Optional[int] = None,          # Number of arguments the function takes; 0 means tuple expected
-            name: Optional[str] = None,         # A user-facing name for the statistic
-            description: Optional[str] = None   # A description used as a __doc__ string for the Statistic
+            predicate: Callable | 'Statistic',      # Either a Statistic or a function to be turned into one
+            dim: Optional[int | ArityType] = None,  # (a, b) means fn accepts a <= n <= b args; a means (a, a)
+                                                    # infinity allowed for b; None means infer by inspection
+            name: Optional[str] = None,             # A user-facing name for the statistic
+            description: Optional[str] = None,      # A description used as a __doc__ string for the Statistic
+            strict=False                            # If true, then strictly enforce dim upper bound
     ) -> None:
         super().__init__(predicate, dim, 1, name, description)
         self.__doc__ = self.__describe__(description or predicate.__doc__ or '', 'returns a 0-1 (boolean) value')
 
-    def __call__(self, *args) -> Literal[0, 1] | Statistic:
+    def __call__(self, *args) -> tuple[Literal[0, 1], ...] | Statistic:
         if len(args) == 1 and isinstance(args[0], Transformable):
             return args[0].transform(self)
         if isinstance(args[0], Statistic):
             return Condition(compose2(self, args[0]))
         result = super().__call__(*args)
-        return _ibool(as_scalar(result))
+        return as_vec_tuple(_ibool(as_scalar(result)))  # type: ignore
         # if is_vec_tuple(result):
         #     return result.map(_ibool)
         # return as_vec_tuple(result).map(_ibool)
@@ -754,11 +853,13 @@ class Condition(Statistic):
 def statistic(
         maybe_fn: Optional[Callable] = None,  # If supplied, return Statistic, else a decorator
         *,
-        name: Optional[str] = None,         # A user-facing name for the statistic
-        dim: Optional[int] = None,          # Number of arguments the function takes; 0 means tuple expected
-        codim: Optional[int] = None,        # Dimension of the codomain; None means don't know
-        description: Optional[str] = None,  # A description used as a __doc__ string for the Statistic
-        monoidal=None                       # If not None, the unit for a Monoidal Statistic
+        name: Optional[str] = None,             # A user-facing name for the statistic
+        dim: Optional[int | ArityType] = None,  # (a, b) means fn accepts a <= n <= b args; a means (a, a)
+                                                # infinity allowed for b; None means infer by inspection
+        codim: Optional[int] = None,            # Dimension of the codomain; None means don't know
+        description: Optional[str] = None,      # A description used as a __doc__ string for the Statistic
+        monoidal=None,                          # If not None, the unit for a Monoidal Statistic
+        strict=False                            # If true, then strictly enforce dim upper bound
 ) -> Statistic | Callable[[Callable], Statistic]:
     """
     Statistics factory and decorator. Converts a function into a Statistic.
@@ -767,23 +868,27 @@ def statistic(
 
     """
     if maybe_fn and monoidal is None:
-        return Statistic(maybe_fn, dim, codim, name, description)
+        return Statistic(maybe_fn, dim, codim, name, description, strict=strict)
     elif maybe_fn:
-        return MonoidalStatistic(maybe_fn, monoidal, dim, codim, name, description)
+        return MonoidalStatistic(maybe_fn, monoidal, dim, codim, name, description, strict=strict)
 
     if monoidal is None:
         def decorator(fn: Callable) -> Statistic:     # Function to be converted to a statistic
-            return Statistic(fn, dim, codim, name, description)
+            return Statistic(fn, dim, codim, name, description, strict=strict)
     else:
         def decorator(fn: Callable) -> Statistic:     # Function to be converted to a statistic
-            return MonoidalStatistic(fn, monoidal, dim, codim, name, description)
+            return MonoidalStatistic(fn, monoidal, dim, codim, name, description, strict=strict)
     return decorator
 
 def scalar_statistic(
-        name: Optional[str] = None,         # A user-facing name for the statistic
-        dim: Optional[int] = None,          # Number of arguments the function takes; 0 means tuple expected
-        description: Optional[str] = None,  # A description used as a __doc__ string for the Statistic
-        monoidal=None                     # If not None, the unit of a Monoidal Statistic
+        maybe_fn: Optional[Callable] = None,  # If supplied, return Statistic, else a decorator
+        *,
+        name: Optional[str] = None,             # A user-facing name for the statistic
+        dim: Optional[int | ArityType] = None,  # (a, b) means fn accepts a <= n <= b args; a means (a, a)
+                                                # infinity allowed for b; None means infer by inspection
+        description: Optional[str] = None,      # A description used as a __doc__ string for the Statistic
+        monoidal=None,                          # If not None, the unit of a Monoidal Statistic
+        strict=False                            # If true, then strictly enforce dim upper bound
 ):
     """
     Statistics factory and decorator. Converts a function into a Statistic that returns a scalar.
@@ -791,9 +896,8 @@ def scalar_statistic(
     Can take the function as a first argument or be used as a decorator on a def.
 
     """
-    def decorator(fn: Callable) -> Statistic:     # Function to be converted to a statistic
-        return Statistic(fn, dim, 1, name, description)
-    return decorator
+    return statistic(maybe_fn, name=name, dim=dim, codim=1,
+                     description=description, monoidal=monoidal, strict=strict)
 
 def condition(
         maybe_predicate: Optional[Callable] = None,  # If supplied, return Condition, else a decorator
@@ -802,7 +906,7 @@ def condition(
         dim: Optional[int] = None,          # Number of arguments the function takes; 0 means tuple expected
         codim: Optional[int] = None,        # Dimension of the codomain; None means don't know
         description: Optional[str] = None,  # A description used as a __doc__ string for the Statistic
-        monoidal=None                     # If not None, the unit for a Monoidal Statistic
+        strict=False                        # If true, then strictly enforce dim upper bound
 ) -> Condition | Callable[[Callable], Condition]:
     """
     Statistics factory and decorator. Converts a predicate into a Condition statistic.
@@ -811,10 +915,10 @@ def condition(
 
     """
     if maybe_predicate:
-        return Condition(maybe_predicate, dim, name, description)
+        return Condition(maybe_predicate, dim, name, description, strict=strict)
 
     def decorator(predicate: Callable) -> Condition:     # Function to be converted to a statistic
-        return Condition(predicate, dim, name, description)
+        return Condition(predicate, dim, name, description, strict=strict)
     return decorator
 
 
@@ -823,32 +927,58 @@ def condition(
 #
 
 def fork(*statistics: Statistic) -> Statistic:
-    arities = {stat.arity for stat in statistics}
+    """Statistic combinator. Produces a new statistic that combines others statistics' results in a tuple.
+
+    This is equivalent to the Fork combinator.
+    """
+    # ATTN: Only one of fork and Fork are needed
+    d = len(statistics)
+    if d == 0:
+        StatisticError('The fork combinator requires at least one and preferably two statistics, none given.')
+    if d == 1:
+        return statistics[0]
+
+    arity_lo, arity_hi = combine_arities(None, statistics)  # Arities must all be consistent
+
+    if arity_lo > arity_hi:
+        raise DomainDimensionError(f'fork must be called on statistics of consistent dimension,'
+                                   f' found min {arity_lo} > max {arity_hi}.')
+    dim = (arity_lo, arity_hi)
+    codim: Optional[int] = 0
+    if all([s.codim is not None and s.codim > 0 for s in statistics]):
+        codim = sum(s.codim for s in statistics)  # type: ignore
+    if codim == 0:
+        codim = None
 
     def forked(*x):
-        return VecTuple([stat(*x) for stat in statistics])
-    names = [stat.name for stat in statistics]
-    return Statistic(forked, dim=next(iter(arities)) if len(arities) == 1 else 0,
-                     name=f'fork({", ".join(names)})',
-                     description=f'returns a tuple of the results of ({", ".join(names)})')
+        returns = []
+        for s in statistics:
+            returns.extend(s(*x))
+        return as_quant_vec(returns)
+    names = ", ".join([s.name for s in statistics])
+    return Statistic(forked, dim=dim, codim=codim,
+                     name=f'fork({names})',
+                     description=f'returns a tuple of the results of ({names})')
 
 def chain(*statistics: Statistic) -> Statistic:
-    "Compose statistics in pipeline order: (f ; g)(x) = g(f(x)), read 'f then g'."
-    # ATTN: check arities compatible etc
+    "Statistic combinator. Compose statistics in pipeline order: (f ; g)(x) = g(f(x)), read 'f then g'."
     def chained(*x):
         state = x
         for stat in statistics:
             state = stat(*state)
         return state
+
+    # ATTN: check arities compatible etc
     arity = statistics[0].arity if len(statistics) > 0 else None
     names = ", ".join([stat.name for stat in statistics])
     return Statistic(chained, arity, name=f'chain({names})')
 
 def compose(*statistics: Statistic) -> Statistic:
-    "Compose statistics in mathematical order: (f o g)(x) = f(g(x)), read 'f after g'."
-    # ATTN: check dims and codims etc
+    "Statistic Combinator. Compose statistics in mathematical order: (f o g)(x) = f(g(x)), read 'f after g'."
     rev_statistics = list(statistics)
     rev_statistics.reverse()
+
+    # ATTN: check dims and codims etc
 
     def composed(*x):
         state = x
@@ -864,9 +994,10 @@ def compose(*statistics: Statistic) -> Statistic:
 # Commonly Used Statistics
 #
 
-Id = Statistic(identity, dim=0, name='identity', description='returns the value given as is')
-Scalar = Statistic(lambda x: x[0] if is_tuple(x) else x, dim=1, name='scalar', description='represents a scalar value')
-__ = Id  # ATTN  Make this act like both Id and Scalar
+Id = Statistic(as_vec_tuple, dim=ANY_TUPLE, name='identity', description='returns the value given as is')
+Scalar = Statistic(lambda x: x[0] if is_tuple(x) else x, dim=1, strict=True,
+                   name='scalar', description='represents a scalar value')
+__ = Statistic(as_vec_tuple, dim=ANY_TUPLE, name='__', description='represents the value given to the statistic')
 _x_ = Scalar
 
 Sum = MonoidalStatistic(sum, unit=0, dim=0, codim=1, name='sum',
@@ -885,26 +1016,43 @@ Abs = Statistic(abs, dim=1, codim=1, name='abs',
 def Constantly(x) -> Statistic:
     "A statistic factory that produces a statistic that always returns `x`."
     xvec = as_quant_vec(x)
-    return Statistic(lambda _: xvec, dim=0, codim=len(xvec), name=f'The constant {xvec}')
+    return Statistic(lambda _: xvec, dim=ANY_TUPLE, codim=len(xvec), name=f'The constant {xvec}')
 
-Sin = Statistic(math.sin, dim=1, codim=1, name='sin',
-                description='returns the sine of a scalar argument')
-Cos = Statistic(math.cos, dim=1, codim=1, name='cos',
-                description='returns the cosine of a scalar argument')
-Tan = Statistic(math.tan, dim=1, codim=1, name='tan',
-                description='returns the tangent of a scalar argument')
-Exp = Statistic(math.exp, dim=1, codim=1, name='exp',
+Exp = Statistic(math.exp, dim=1, codim=1, name='exp', strict=True,
                 description='returns the exponential of a scalar argument')
-Log = Statistic(math.log, dim=1, codim=1, name='log',
+Log = Statistic(math.log, dim=1, codim=1, name='log', strict=True,
                 description='returns the natural logarithm of a positive scalar argument')
-Log2 = Statistic(math.log2, dim=1, codim=1, name='log',
+Log2 = Statistic(math.log2, dim=1, codim=1, name='log', strict=True,
                  description='returns the logarithm base 2 of a positive scalar argument')
-Log10 = Statistic(math.log2, dim=1, codim=1, name='log',
+Log10 = Statistic(math.log2, dim=1, codim=1, name='log', strict=True,
                   description='returns the logarithm base 10 of a positive scalar argument')
+Sin = Statistic(math.sin, dim=1, codim=1, name='sin', strict=True,
+                description='returns the sine of a scalar argument')
+Cos = Statistic(math.cos, dim=1, codim=1, name='cos', strict=True,
+                description='returns the cosine of a scalar argument')
+Tan = Statistic(math.tan, dim=1, codim=1, name='tan', strict=True,
+                description='returns the tangent of a scalar argument')
+Sinh = Statistic(math.sinh, dim=1, codim=1, name='sin', strict=True,
+                 description='returns the hyperbolic sine of a scalar argument')
+Cosh = Statistic(math.cosh, dim=1, codim=1, name='cos', strict=True,
+                 description='returns the hyperbolic cosine of a scalar argument')
+Tanh = Statistic(math.tanh, dim=1, codim=1, name='tan', strict=True,
+                 description='returns the hyperbolic tangent of a scalar argument')
 
 
-@statistic(name='diff', dim=0, description='returns tuple of first differences of its argument')
-def Diff(*xs):
+@statistic(name='atan2', description='returns the sector correct arctangent')
+def ATan2(x, y=1):
+    return as_quantity(math.atan2(x, y))
+
+@statistic(name='Phi', strict=True,
+           description='returns the cumulative distribution function of the standard Normal distribution')
+def NormalCDF(x):
+    'Cumulative distribution function for the standard normal distribution'
+    return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
+
+
+@statistic(name='diff', dim=ANY_TUPLE, description='returns tuple of first differences of its argument')
+def Diff(xs):
     n = len(xs)
     if n < 2:
         return vec_tuple()
@@ -916,7 +1064,7 @@ def Diff(*xs):
 def Diffs(k: int):
     "Statistics factory. Produces a statistic to compute `k`-th order diffs of its argument"
 
-    def diffk(*xs):
+    def diffk(xs):
         n = len(xs)
         if n < k + 1:
             return vec_tuple()
@@ -930,7 +1078,7 @@ def Diffs(k: int):
                 diffs.append(target[i] - target[i - 1])
         return as_quant_vec(diffs)
 
-    return Statistic(diffk, dim=0, name=f'diffs[{k}]',
+    return Statistic(diffk, dim=ANY_TUPLE, name=f'diffs[{k}]',
                      description='returns k-th order differences of its argument')
 
 
@@ -939,18 +1087,21 @@ def Diffs(k: int):
 #
 
 def ForEach(s: Statistic) -> Statistic:
-    "Statistics combinator. Produces a statistic that applies another statistic to each component of its argument."
+    """Statistics combinator. Produces a statistic that applies another statistic to each component of its argument.
+
+    This is typically applied to scalar statistics, where each application corresponds to one component,
+    but it accepts higher codim statistics. In this case, the tuples produced by the statistics
+    are concatenated in the result tuple.
+    """
     def foreach(*x):
         if len(x) > 0 and is_tuple(x[0]):
             x = x[0]
-        return tuple([s(xi) for xi in x])
-    return Statistic(foreach, dim=0, name=f'applies {s.name} to every component of input value')
+        result = []
+        for xi in x:
+            result.extend(s(xi))
+        return as_quant_vec(result)
+    return Statistic(foreach, dim=ANY_TUPLE, name=f'applies {s.name} to every component of input value')
 
-
-# #
-# # ATTN: Need better handling of dim, arity, codim.  arity=0, etc. is fine while dim is the minimum dimension allowed
-# # codim=0 means returns a tuple whose equals its input length; codim=n means returns an n-tuple, codim=None is unknown
-# #
 def Fork(stat: Statistic, *more_stats: Statistic) -> Statistic:
     """Statistics combinator. Produces a statistic that combines the values of other statistics into a tuple.
 
@@ -965,19 +1116,28 @@ def Fork(stat: Statistic, *more_stats: Statistic) -> Statistic:
             the tuple <x1,x2,...,xn,x1,x2,...,xn>
 
     """
-    # Arities must all be the same
-    if stat.arity != 0 and any([s.arity != 0 and s.arity != stat.arity for s in more_stats]):  # ATTN!: Statistics need to distinguish arity from minimum dim, need two properties
-        raise ValueError('Fork must be called on statistics with the same dimension')
-    codim = 0
+    if len(more_stats) == 0:
+        return stat
+
+    arity_lo, arity_hi = combine_arities(stat, more_stats)  # Arities must all be consistent
+
+    if arity_lo > arity_hi:
+        raise DomainDimensionError(f'Fork must be called on statistics of consistent dimension,'
+                                   f' found min {arity_lo} > max {arity_hi}.')
+    dim = (arity_lo, arity_hi)
+    codim: Optional[int] = 0
     if stat.codim is not None and stat.codim > 0 and all([s.codim is not None and s.codim > 0 for s in more_stats]):
         codim = stat.codim + sum(s.codim for s in more_stats)  # type: ignore
+    if codim == 0:
+        codim = None
 
     def forked(*x):
-        returns = list(stat(x))
+        returns = []
+        returns.extend(stat(*x))
         for s in more_stats:
-            returns.extend(s(x))
-        return returns
-    return Statistic(forked, dim=stat.arity, codim=codim,
+            returns.extend(s(*x))
+        return as_quant_vec(returns)
+    return Statistic(forked, dim=dim, codim=codim,
                      name=f'fork({stat.name}, {", ".join([s.name for s in more_stats])})')
 
 # Permute    ATTN: fix up but keeping it simple for now
@@ -1008,21 +1168,32 @@ def Permute(p: Iterable[int]):
     # assert p contains all unique values from 1..n
     p_realized = list(map(lambda k: k - 1, p))
     p_max = max(p_realized)
+    n = p_max + 1
 
-    pos = list(range(0, p_max + 1))
-    perm = list(range(0, p_max + 1))
-    for i, k in enumerate(p_realized):
-        perm[i] = k
-        pos[i], pos[k] = pos[k], pos[i]
+    # pos = list(range(n))
+    # iperm = list(range(n))
+    # perm = list(range(n))
+    # print('---', pos)
+    # for i, k in enumerate(p_realized):
+    #     pi = pos[i]
+    #     perm[i] = k
+    #     pos[i] = pos[k]
+    #     pos[k] = i
+    #     print('+++', k, i, pos)
+    # perm = [pos[i] for i in range(n)]
+    # print('>>>', perm, pos)
 
-    # ATTN
+    # # ATTN
     # Old
-    perm = list(map(lambda k: k - 1, p_realized))
-    n = len(perm)
+    perm = p_realized
+    assert n == len(perm)  # TEMP
 
-    @statistic(name='Permutation', dim=0)   # ATTN
+    @statistic(name='Permutation', dim=ANY_TUPLE)
     def permute(value):
-        return VecTuple(value[perm[i]] if i < n else value[i] for i in range(n))
+        m = len(value)
+        if m < n:
+            raise StatisticError(f'Permutation of {n} items applied to tuple of dimension {m} < {n}.')
+        return VecTuple(value[perm[i]] if i < n else value[i] for i in range(m))
     return permute
 
 def IfThenElse(
@@ -1034,7 +1205,10 @@ def IfThenElse(
 
     Parameters
     ----------
-    `cond` :: A condition or any scalar statistic; it's value will be interpreted by ordinary python boolean rules.
+    `cond` :: A condition or any scalar statistic; it's value will be interpreted by
+        ordinary python boolean rules. To avoid, accidentally getting a truthy value
+        because a tuple of dimension > 1 is returned, this statistic should return
+        a scalar value only.
     `t` :: A statistic to apply if `cond` returns a truthy value
     `f` :: A statistic to apply if `cond` returns a falsy value.
 
@@ -1047,13 +1221,17 @@ def IfThenElse(
         t = Constantly(t)
     if not is_statistic(f):
         f = Constantly(f)
-    # ATTN: arity conditions need to be more nuanced
-    # if cond.arity != t.arity or t.arity != f.arity or t.codim != f.codim:
+
+    arity_lo, arity_hi = combine_arities(cond, [t, f])
+    if arity_lo > arity_hi:
+        raise DomainDimensionError(f'IfThenElse must be called on statistics of consistent dimension,'
+                                   f' found min {arity_lo} > max {arity_hi}.')
+
     if t.codim is not None and f.codim is not None and t.codim != f.codim:
-        raise StatisticError('True and False statistics for IfElse must have matching dim and codim')
+        raise StatisticError('True and False statistics for IfElse must have matching codims')
 
     def ifelse(*x):
-        if cond(*x):
+        if as_scalar_strict(cond(*x)):
             return t(*x)
         else:
             return f(*x)
@@ -1061,50 +1239,99 @@ def IfThenElse(
                      name=f'returns {t.name} if {cond.name} is true else returns {f.name}')
 
 def Not(s: Statistic) -> Condition:
-    "Statistics combinator. "
+    """Statistics combinator. Resulting statistic takes the logical Not of the given statistic.
+
+    Returns a Condition which produces a 0 or 1 for False or True.
+
+    """
     # ATTN: require s.codim == 1
     return Condition(lambda *x: 1 - s(*x), dim=s.arity, name=f'not({s.name})',
                      description=f'returns the logical not of {s.name}')
 
-# def And(s1: Statistic, s2: Statistic) -> Statistic:
-#     #ATTN: require si.codim == 1 and s1.arity == s2.arity
-#     return Statistic(lambda *x: s1(*x) and s2(*x), dim=s1.arity, codim=1, name=f'Logical And of {s1.name} and {s2.name}')
-#
-# def Or(s1: Statistic, s2: Statistic) -> Statistic:
-#     #ATTN: require si.codim == 1 and s1.arity == s2.arity
-#     return Statistic(lambda *x: s1(*x) or s2(*x), dim=s1.arity, codim=1, name=f'Logical Or of {s1.name} and {s2.name}')
-
 def And(*stats: Statistic) -> Condition:
-    #ATTN: require si.codim == 1 and s1.arity == s2.arity
+    """Statistic combinator. Resulting statistic takes the (short-circuiting) logical And of all the given statistics.
+
+    Returns a Condition which produces a 0 or 1 for False or True.
+
+    """
+    arity_lo, arity_hi = combine_arities(None, stats)
+    if arity_lo > arity_hi:
+        raise DomainDimensionError(f'And must be called on statistics of consistent dimension,'
+                                   f' found min {arity_lo} > max {arity_hi}.')
+    # ATTN: require si.codim == 1
+
     def and_of(*x):
         val = True
         for s in stats:
-            val = val and s(*x)
+            val = val and bool(as_scalar_stat(s(*x)))
             if not val:
                 break
         return val
     labels = ["'" + s.name + "'" for s in stats]
-    return Condition(and_of, dim=max(s.arity for s in stats), name=f'({" and ".join(labels)})', description=f'returns the logical and of {", ".join(labels)}')
+    return Condition(and_of, dim=(arity_lo, arity_hi),
+                     name=f'({" and ".join(labels)})',
+                     description=f'returns the logical and of {", ".join(labels)}')
 
 def Or(*stats: Statistic) -> Condition:
-    #ATTN: require si.codim == 1 and s1.arity == s2.arity
-    def and_of(*x):
+    """Statistic combinator. Resulting statistic takes the (short-circuiting) logical Or of all the given statistics.
+
+    Returns a Condition which produces a 0 or 1 for False or True.
+
+    """
+    arity_lo, arity_hi = combine_arities(None, stats)
+    if arity_lo > arity_hi:
+        raise DomainDimensionError(f'Or must be called on statistics of consistent dimension,'
+                                   f' found min {arity_lo} > max {arity_hi}.')
+    # ATTN: require si.codim == 1
+
+    def or_of(*x):
         val = False
         for s in stats:
-            val = val or s(*x)
+            val = val or bool(as_scalar_stat(s(*x)))
             if val:
                 break
         return val
     labels = ["'" + s.name + "'" for s in stats]
-    return Condition(and_of, dim=max(s.arity for s in stats), name=f'({" or ".join(labels)})', description=f'returns the logical or of {", ".join(labels)}')
+    return Condition(or_of, dim=(arity_lo, arity_hi),
+                     name=f'({" or ".join(labels)})',
+                     description=f'returns the logical or of {", ".join(labels)}')
+
+def Xor(*stats: Statistic) -> Condition:
+    """Statistic combinator. Logical exclusive or of one or more statistics.
+
+    Returns a Condition which produces a 0 or 1 for False or True.
+
+    The resulting statistic takes the logical Exclusive-Or of all the given statistics.
+    Since this requires that exactly one statistic give a truthy value it is not
+    short circuiting.
+
+    """
+    arity_lo, arity_hi = combine_arities(None, stats)
+    if arity_lo > arity_hi:
+        raise DomainDimensionError(f'Xor must be called on statistics of consistent dimension,'
+                                   f' found min {arity_lo} > max {arity_hi}.')
+    # ATTN: require si.codim == 1
+
+    def xor_of(*x):
+        val = False
+        for s in stats:
+            result = bool(as_scalar_stat(s(*x)))
+            if val and result:
+                return False
+            val = result
+        return val
+    labels = ["'" + s.name + "'" for s in stats]
+    return Condition(xor_of, dim=(arity_lo, arity_hi),
+                     name=f'({" xor ".join(labels)})',
+                     description=f'returns the logical exclusieve-or of {", ".join(labels)}')
 
 top = Condition(lambda _x: True, name='top', description='returns true for any value')
 
 bottom = Condition(lambda _x: False, name='bottom', description='returns false for any value')
 
 
-## ATTN: These should really be methods of ProjectionStatistic
-## There should be no need for a callable argment in that constructor.
+# ATTN: These should really be methods of ProjectionStatistic
+# There should be no need for a callable argment in that constructor.
 @overload
 def project(*__indices: int) -> ProjectionStatistic:
     ...

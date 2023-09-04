@@ -36,7 +36,7 @@ def extend(x, k, scalar_only=False):
     if isinstance(x, (int, float, Fraction, Decimal, Symbolic)):
         return VecTuple([x] * k)
     if not scalar_only and isinstance(x, (tuple, list)) and len(x) == 1:
-        return VecTuple(x * k)
+        return VecTuple([*x] * k)
     return x
 
 def from_scalar(x):
@@ -46,14 +46,14 @@ def from_scalar(x):
     return x
 
 def as_scalar(x) -> T | None:
-    if isinstance(x, (int, float, Fraction, Decimal, Symbolic)):  # Allow Quantity here
+    if isinstance(x, (int, float, Fraction, Decimal, Symbolic)):
         return cast(T, x)
     elif isinstance(x, tuple) and len(x) == 1:
         return cast(T, x[0])
     return None
 
 def as_scalar_strict(x) -> T:
-    if isinstance(x, (int, float, Fraction, Decimal, Symbolic)):  # Allow Quantity here
+    if isinstance(x, (int, float, Fraction, Decimal, Symbolic, str)):
         return cast(T, x)
     elif isinstance(x, tuple) and len(x) == 1:
         return cast(T, x[0])
