@@ -13,7 +13,9 @@ from typing            import Callable, cast, Literal, Optional, overload, Union
 from typing_extensions import Self, TypeAlias, TypeGuard
 
 from frplib.exceptions import OperationError, StatisticError, DomainDimensionError
-from frplib.numeric    import REAL_ONE, ScalarQ, as_real
+from frplib.numeric    import (REAL_ONE, ScalarQ, as_real, numeric_sqrt, numeric_exp,
+                               numeric_ln, numeric_log10, numeric_log2)
+
 from frplib.protocols  import Projection, Transformable
 from frplib.quantity   import as_quant_vec, as_quantity
 from frplib.symbolic   import Symbolic
@@ -850,6 +852,12 @@ class Condition(Statistic):
         #     return result.map(_ibool)
         # return as_vec_tuple(result).map(_ibool)
 
+    def bool_eval(self, *args) -> bool:
+        result = self(*args)
+        if isinstance(result, tuple):
+            return bool(result[0])
+        raise StatisticError(f'Attempt to check an unevaluated Condition/Statistic {result.name}')
+
 
 #
 # Statistic decorator for easily creating a statistic out of a function
@@ -1033,15 +1041,15 @@ def Floor(x):
 def Ceil(x):
     return as_real(x).quantize(REAL_ONE, ROUND_CEILING)
 
-Sqrt = Statistic(lambda d: as_real(d).sqrt(), dim=1, codim=1, name='sqrt', strict=True,
+Sqrt = Statistic(numeric_sqrt, dim=1, codim=1, name='sqrt', strict=True,
                  description='returns the square root of a scalar argument')
-Exp = Statistic(math.exp, dim=1, codim=1, name='exp', strict=True,
+Exp = Statistic(numeric_exp, dim=1, codim=1, name='exp', strict=True,
                 description='returns the exponential of a scalar argument')
-Log = Statistic(lambda d: as_real(d).ln(), dim=1, codim=1, name='log', strict=True,
+Log = Statistic(numeric_ln, dim=1, codim=1, name='log', strict=True,
                 description='returns the natural logarithm of a positive scalar argument')
-Log2 = Statistic(lambda d: as_real(d).ln() / as_real(2).ln(), dim=1, codim=1, name='log', strict=True,
+Log2 = Statistic(numeric_log2, dim=1, codim=1, name='log', strict=True,
                  description='returns the logarithm base 2 of a positive scalar argument')
-Log10 = Statistic(lambda d: as_real(d).log10(), dim=1, codim=1, name='log', strict=True,
+Log10 = Statistic(numeric_log10, dim=1, codim=1, name='log', strict=True,
                   description='returns the logarithm base 10 of a positive scalar argument')
 # Can use the decimal recipes for sin and cos
 Sin = Statistic(math.sin, dim=1, codim=1, name='sin', strict=True,

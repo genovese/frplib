@@ -265,6 +265,27 @@ def as_nice_numeric(x: ScalarQ = RealQuantity(), digits=NICE_DIGITS) -> Numeric:
 
 
 #
+# Specialized Calculations
+#
+
+def numeric_sqrt(x: Numeric) -> Numeric:
+    return as_real(x).sqrt()
+
+def numeric_exp(x: Numeric) -> Numeric:
+    return as_real(x).exp()
+
+def numeric_ln(x: Numeric) -> Numeric:
+    return as_real(x).ln()
+
+def numeric_log10(x: Numeric) -> Numeric:
+    return as_real(x).log10()
+
+def numeric_log2(x: Numeric) -> Numeric:
+    c = as_real(2).ln()
+    return as_real(x).ln() / c
+
+
+#
 # Friendly Decimals
 #
 # This type behaves well at the repl, but to keep things light weight

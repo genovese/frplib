@@ -7,13 +7,13 @@ from decimal           import Decimal
 from fractions         import Fraction
 from functools         import reduce
 from operator          import add, mul, sub
-from typing            import cast, Type, TypeVar
+from typing            import cast, Type, TypeVar, Union
 from typing_extensions import Self, TypeGuard
 
 from frplib.exceptions import OperationError, NumericConversionError
-from frplib.numeric    import NumericF, NumericD, NumericB     # ATTN: Numeric+Symbolic+SupportsVec
+from frplib.numeric    import Numeric, NumericF, NumericD, NumericB, numeric_sqrt  # ATTN: Numeric+Symbolic+SupportsVec
 from frplib.numeric    import as_numeric as scalar_as_numeric
-from frplib.symbolic   import Symbolic
+from frplib.symbolic   import Symbolic, symbolic_sqrt
 
 # SupportsVec  mixin can allow Symbolic and VecTuple automatically,   __plus__  __scalar_mul__
 # SupportsNumeric protocol __numeric__ with numeric conversion.
@@ -24,7 +24,7 @@ from frplib.symbolic   import Symbolic
 #
 
 # A VecTuple should contain entirely interoperable types
-T = TypeVar('T', NumericF, NumericD, NumericB, Symbolic)
+T = TypeVar('T', NumericF, NumericD, NumericB, Union[Numeric, Symbolic])
 
 
 #
@@ -53,7 +53,7 @@ def as_scalar(x) -> T | None:
     return None
 
 def as_scalar_strict(x) -> T:
-    if isinstance(x, (int, float, Fraction, Decimal, Symbolic, str)):
+    if isinstance(x, (int, float, Fraction, Decimal, Symbolic, str, bool)):
         return cast(T, x)
     elif isinstance(x, tuple) and len(x) == 1:
         return cast(T, x[0])
@@ -77,6 +77,10 @@ class VecTuple(tuple[T, ...]):
 
     def map(self, fn) -> 'VecTuple[T]':
         return self.__class__(map(fn, self))
+
+    @property
+    def dim(self):
+        return len(self)
 
     @classmethod
     def show(cls, vtuple: 'VecTuple[T]', scalarize=True) -> str:
@@ -190,11 +194,16 @@ class VecTuple(tuple[T, ...]):
             return NotImplemented
         return reduce(add, map(mul, self, other), cast(T, 0))
 
-    def __abs__(self) -> float:
+    def __abs__(self):
         sq_norm = self @ self
         if isinstance(sq_norm, Symbolic):
             raise NotImplementedError('Symbolic function application not yet implemented')
-        return math.sqrt(self @ self)
+        dot_prod = self @ self
+        if isinstance(dot_prod, Symbolic):
+            return symbolic_sqrt(dot_prod)
+        elif isinstance(dot_prod, (int, Decimal)):
+            return numeric_sqrt(dot_prod)
+        return math.sqrt(dot_prod)
 
     def __getitem__(self, key):
         x = super().__getitem__(key)

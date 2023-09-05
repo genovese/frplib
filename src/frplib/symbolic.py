@@ -856,6 +856,8 @@ def symbolic(numerator: Union[Symbolic, str], denominator: Union[Symbolic, Liter
         return as_real(numerator.coef / denominator.coef)
 
     return simplify(SymbolicMultiRatio(numerator, denominator))
+
+
 #
 # Symbol constructors
 #
@@ -871,3 +873,11 @@ def symbol(var: str) -> SymbolicMulti:
 
 def is_symbolic(obj) -> TypeGuard[SymbolicMulti | SymbolicMultiSum | SymbolicMultiRatio]:
     return isinstance(obj, (SymbolicMulti, SymbolicMultiSum, SymbolicMultiRatio))
+
+
+#
+# Calculation Routines (may be subsumed by SymbolicFn)
+#
+
+def symbolic_sqrt(x: Symbolic) -> Symbolic:
+    raise ConstructionError(f'Symbolic square root not yet implemented: {str(x)}')

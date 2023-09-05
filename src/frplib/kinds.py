@@ -22,12 +22,12 @@ from frplib.kind_trees import (KindBranch,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
 from frplib.numeric    import Numeric, ScalarQ, as_numeric
 from frplib.protocols  import Projection
-from frplib.quantity   import as_quantity, as_quant_vec, as_real_quantity, show_quantities, show_qtuples
-from frplib.statistics import Statistic
+from frplib.quantity   import as_quantity, as_quant_vec, show_quantities, show_qtuples
+from frplib.statistics import Statistic, Condition
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol
-from frplib.utils      import (compose, const, ensure_tuple, identity,
+from frplib.utils      import (compose, const, identity,
                                is_interactive, is_tuple, lmap, some)
-from frplib.vec_tuples import VecTuple, as_numeric_vec, as_vec_tuple, vec_tuple
+from frplib.vec_tuples import VecTuple, as_numeric_vec, as_scalar_strict, as_vec_tuple, vec_tuple
 
 
 #
@@ -35,7 +35,8 @@ from frplib.vec_tuples import VecTuple, as_numeric_vec, as_vec_tuple, vec_tuple
 #
 
 CanonicalKind: TypeAlias = list['KindBranch']
-ValueType: TypeAlias = VecTuple[Numeric]  # ATTN
+QuantityType: TypeAlias = Union[Numeric, Symbolic]
+ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 
 
 #
@@ -47,19 +48,62 @@ ValueType: TypeAlias = VecTuple[Numeric]  # ATTN
 # Helpers
 #
 
+def dict_as_value_map(d: dict, values: set | None = None) -> Callable:
+    """Converts a dictionary keyed by values into a function that accepts values.
+
+    The keys in the dictionary can be scalars or regular tuples for convenience,
+    but the function always accepts vec_tuples only.
+
+    If `values` is a supplied, it should be a set specifying the domain.
+    In this case, the input dictionary `d` is checked that it has a
+    value for each possible input.
+
+    In any case, all the values in `d` should have the same dimension
+    whether they be Kinds, Statistics, conditional Kinds, VecTuples,
+    or even conditional FRPs.  The latter case can lead to excess computation
+    if the FRP is lazy and so should be avoided.
+
+    Returns a function on the specified domain.
+
+    """
+    if values is not None:
+        d_keys = {as_vec_tuple(vs) for vs in d.keys()}
+        if d_keys < values:   # superset of values is ok
+            raise KindError('All specified values must be present to convert a dictionary to a value function.\n'
+                            'This likely occurred when creating a conditional kind to take a mixture.')
+
+        value_dims = {k.dim for k in d.values()}
+        if len(value_dims) != 1:
+            raise KindError('When converting a dictionary to a value function, all values must '
+                            'map to a quantity of the same dimension. This likely occurred when '
+                            'creating a conditional kind to take a mixture.')
+    scalar_keys = [vs for vs in d.keys() if not is_tuple(vs) and (vs,) not in d]
+    if len(scalar_keys) > 0:
+        d = d | {vec_tuple(vs): d[vs] for vs in scalar_keys}
+
+    def d_mapping(*vs):
+        if len(vs) == 1 and is_tuple(vs[0]):
+            return d[vs[0]]
+        return d[vs]
+
+    return d_mapping
+
 # ATTN: this should probably become static methods; see Conditional Kinds.
-# ATTN: eliminate ensure_tuple in favor of as_vec_tuple
 def value_map(f, kind=None):  # ATTN: make in coming maps tuple safe; add dimension hint even if no kind
     # We require that all kinds returned by f are the same dimension
     # But do not check if None is passed explicitly for kind
     if callable(f):
-        if kind is not None and len(set([f(ensure_tuple(vs)).dim for vs in kind.value_set])) != 1:
-            raise KindError('All values for a transform or mixture must be '
-                            'associated with a kind of the same dimension')
+        # ATTN: second clause requires a conditional kind; this is fragile
+        if kind is not None:
+            dim_image = set([f(as_vec_tuple(vs)).dim for vs in kind.value_set])
+            if len(dim_image) != 1:
+                raise KindError('All values for a transform or mixture must be '
+                                'associated with a kind of the same dimension')
         return f
     elif isinstance(f, dict):
         if kind is not None:
-            if {ensure_tuple(vs) for vs in f.keys()} < kind.value_set:   # superset of values ok
+            overlapping = {as_vec_tuple(vs) for vs in f.keys()} & kind.value_set
+            if overlapping < kind.value_set:   # superset of values ok
                 raise KindError('All values for the kind must be present in a mixture')
             if len({k.dim for k in f.values()}) != 1:
                 raise KindError('All values for a mixture must be associated with a kind of the same dimension')
@@ -252,7 +296,13 @@ class Kind:
         Returns a new mixture kind that combines the mixer and targets.
 
         """
-        f = value_map(cond_kind, self)
+        if isinstance(cond_kind, ConditionalKind):
+            well_defined = cond_kind.well_defined_on(self.value_set)
+            if well_defined is not True:
+                raise KindError(well_defined)
+            f = cond_kind
+        else:
+            f = value_map(cond_kind, self)
 
         def join_values(vs):
             new_tree = f(vs)._canonical
@@ -318,10 +368,17 @@ class Kind:
         using hypothetical information about one kind and a contingent relationship between
         them to compute another kind.
         """
-        if cond_kind is None:  # ATTN: None not a possible return value of value_map  at the moment
-            raise KindError('Conditioning on this kind requires a valid and '
-                            'matching mapping of values to kinds of the same dimension')
-        return self.bind(value_map(cond_kind, self))
+        if isinstance(cond_kind, ConditionalKind):
+            well_defined = cond_kind.well_defined_on(self.value_set)
+            if well_defined is not True:
+                raise KindError(well_defined)
+        else:
+            try:
+                cond_kind = value_map(cond_kind, self)
+            except Exception:
+                raise KindError('Conditioning on this kind requires a valid and '
+                                'matching mapping of values to kinds of the same dimension')
+        return self.bind(cond_kind)
 
     def expectation(self):
         """Computes the expectation of this kind. Scalar expectations are unwrapped. (Internal use.)
@@ -376,10 +433,7 @@ class Kind:
 
     def __rfloordiv__(self, other):
         "Conditioning on self; other is a conditional distribution."
-        conditional_dist = value_map(other, self)
-        if conditional_dist is None:  # ATTN: None no longer returned, think about managing this
-            return NotImplemented
-        return self.bind(conditional_dist)
+        return self.conditioned_on(other)
 
     def __rshift__(self, f_mapping):
         "Mixes FRP with FRPs given for each value"
@@ -432,7 +486,17 @@ class Kind:
 
     def __or__(self, predicate):  # Self -> ValueMap[ValueType, bool] -> Kind[ValueType, ProbType]
         "Applies a conditional filter to FRP"
-        keep = value_map(predicate)
+        if isinstance(predicate, Condition):
+            def keep(value):
+                return predicate.bool_eval(value)
+        elif isinstance(predicate, Statistic):
+            def keep(value):
+                result = predicate(value)
+                return bool(as_scalar_strict(result))
+        else:
+            def keep(value):
+                result = value_map(predicate)(value)   # ATTN: Why value_map here? Allows dict as condition
+                return bool(as_scalar_strict(result))
         return Kind([branch for branch in self._canonical if keep(branch.vs)])
 
     def sample1(self):
@@ -963,7 +1027,18 @@ class ConditionalKind:
             mapping = const(mapping)
 
         if isinstance(mapping, dict):
-            self._mapping: dict[ValueType, Kind] = {as_numeric_vec(k): v for k, v in mapping.items()}
+            self._mapping: dict[ValueType, Kind] = {as_quant_vec(k): v for k, v in mapping.items()}
+            maybe_codims = set()
+            for k, v in self._mapping.items():
+                if self._dim is None:
+                    self._dim = v.dim
+                maybe_codims.add(k.dim)
+                if self._dim != v.dim:
+                    raise ConstructionError('The Kinds produced by a conditional Kind are not all '
+                                            f'of the same dimension: {self._dim} != {v.dim}')
+            # Infer the codim if necessary and possible; we allow extra keys in the dict
+            if self._codim is None and len(maybe_codims) == 1:
+                self._codim = len(maybe_codims)
 
             def fn(*args) -> Kind:
                 if len(args) == 0:
@@ -972,20 +1047,17 @@ class ConditionalKind:
                     if self._codim and len(args[0]) != self._codim:
                         raise MismatchedDomain(f'A value of dimension {len(args[0])} passed to a'
                                                f' conditional Kind of mismatched codim {self._codim}.')
-                    value = as_numeric_vec(args[0])   # ATTN: VecTuple better here?
+                    value = as_quant_vec(args[0])   # ATTN: VecTuple better here?
                 elif self._codim and len(args) != self._codim:
                     raise MismatchedDomain(f'A value of dimension {len(args)} passed to a '
                                            f'conditional Kind of mismatched codim {self._codim}.')
                 else:
-                    value = as_numeric_vec(args)
+                    value = as_quant_vec(args)
                 if value not in self._mapping:
                     raise MismatchedDomain(f'Value {value} not in domain of conditional Kind.')
                 return self._mapping[value]
 
             self._fn: Callable[..., Kind] = fn
-
-            if self._dim and any(v.dim != self._dim for _, v in self._mapping.items()):
-                raise ConstructionError('The Kinds produced by a conditional Kind are not all of the same dimension')
         elif callable(mapping):         # Check to please mypy
             self._mapping = {}
             self._is_dict = False
@@ -998,12 +1070,12 @@ class ConditionalKind:
                     if self._codim and len(args[0]) != self._codim:
                         raise MismatchedDomain(f'A value of dimension {len(args[0])} passed to a'
                                                f' conditional Kind of mismatched codim {self._codim}.')
-                    value = as_numeric_vec(args[0])
+                    value = as_quant_vec(args[0])
                 elif self._codim and len(args) != self._codim:
                     raise MismatchedDomain(f'A value of dimension {len(args)} passed to a '
                                            f'conditional Kind of mismatched codim {self._codim}.')
                 else:
-                    value = as_numeric_vec(args)
+                    value = as_quant_vec(args)
                 if self._domain and value not in self._domain:
                     raise MismatchedDomain(f'Value {value} not in domain of conditional Kind.')
 
@@ -1013,7 +1085,7 @@ class ConditionalKind:
                     result = mapping(value)
                 except Exception as e:
                     raise MismatchedDomain(f'encountered a problem passing {value} to a conditional Kind: {str(e)}')
-                self._mapping[value] = result   # Cache, fn shold be pure
+                self._mapping[value] = result   # Cache, fn should be pure
                 return result
 
             self._fn = fn
@@ -1060,6 +1132,23 @@ class ConditionalKind:
         setattr(fn, 'domain', self._domain)
 
         return fn
+
+    def well_defined_on(self, values) -> Union[bool, str]:
+        if self._is_dict:
+            val_set = set(values)
+            overlap = self._mapping.keys() & val_set
+            if overlap < val_set:   # superset of values is ok
+                return (f'A conditional kind is not defined on all the values requested of it: '
+                        f'missing {val_set - overlap}')
+
+            value_dims = {k.dim for k in self._mapping.values()}
+            if len(value_dims) != 1:
+                return f'A conditional kind returns kinds of differing dimensions: {value_dims}'
+        else:
+            value_dims = set([self(as_vec_tuple(vs)).dim for vs in values])
+            if len(value_dims) != 1:
+                return f'A conditional kind returns kinds of differing dimensions: {value_dims}'
+        return True
 
     def __str__(self) -> str:
         pad = ': '

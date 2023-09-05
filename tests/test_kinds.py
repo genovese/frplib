@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from frplib.kinds      import (kind, constant, either, uniform,
+from frplib.exceptions import KindError
+from frplib.kinds      import (kind, conditional_kind,
+                               constant, either, uniform,
                                symmetric, linear, geometric,
                                weighted_by, weighted_as, arbitrary,
                                integers, evenly_spaced, bin,
@@ -53,3 +55,48 @@ def test_kinds_factories():
     w = weighted_as(a, 2 * a, 3 * a, weights=[1, 2, 4]).weights
     assert lmap(str, values_of(w)) == ['<a>', '<2 a>', '<3 a>']
     assert weights_of(w) == pytest.approx([as_quantity('1/7'), as_quantity('2/7'), as_quantity('4/7')])
+
+def test_mixtures():
+    k0 = either(10, 20)
+    m0 = {10: either(4, 8, 99), 20: either(8, 4, 99)}
+    m1 = conditional_kind(m0)
+    me1 = {10: either(4, 8, 99), 30: either(8, 4, 99)}
+    me2 = {10: either(4, 8, 99), (20, 30): either(8, 4, 99)}
+    mec1 = conditional_kind(me1)
+    mec2 = conditional_kind(me2)
+
+    mix = (k0 >> m1).weights
+    assert weights_of(mix) == pytest.approx([as_quantity('0.495'),
+                                             as_quantity('0.005'),
+                                             as_quantity('0.005'),
+                                             as_quantity('0.495')])
+
+    assert values_of(mix) == {vec_tuple(10, 4),
+                              vec_tuple(10, 8),
+                              vec_tuple(20, 4),
+                              vec_tuple(20, 8),
+                              }
+
+    mix = (k0 >> m0).weights
+    assert weights_of(mix) == pytest.approx([as_quantity('0.495'),
+                                             as_quantity('0.005'),
+                                             as_quantity('0.005'),
+                                             as_quantity('0.495')])
+
+    assert values_of(mix) == {vec_tuple(10, 4),
+                              vec_tuple(10, 8),
+                              vec_tuple(20, 4),
+                              vec_tuple(20, 8),
+                              }
+
+    with pytest.raises(KindError):
+        k0 >> me1
+
+    with pytest.raises(KindError):
+        k0 >> me2
+
+    with pytest.raises(KindError):
+        k0 >> mec1
+
+    with pytest.raises(KindError):
+        k0 >> mec2
