@@ -34,7 +34,6 @@ from frplib.vec_tuples import VecTuple, as_numeric_vec, as_vec_tuple, vec_tuple
 # Types (ATTN)
 #
 
-
 CanonicalKind: TypeAlias = list['KindBranch']
 ValueType: TypeAlias = VecTuple[Numeric]  # ATTN
 
@@ -49,6 +48,7 @@ ValueType: TypeAlias = VecTuple[Numeric]  # ATTN
 #
 
 # ATTN: this should probably become static methods; see Conditional Kinds.
+# ATTN: eliminate ensure_tuple in favor of as_vec_tuple
 def value_map(f, kind=None):  # ATTN: make in coming maps tuple safe; add dimension hint even if no kind
     # We require that all kinds returned by f are the same dimension
     # But do not check if None is passed explicitly for kind
@@ -293,20 +293,19 @@ class Kind:
         by the statistic, which are equivalent.
 
         """
-        # Handle statistics case carefully; this all needs a retune
-        # Check wrapping, dims/codims etc.
-        # This is temporary
         if isinstance(statistic, Statistic):
-            if statistic.dim == 0 or statistic.dim == self.dim or self.dim == 0:
+            lo, hi = statistic.dim
+            if self.dim >= lo and self.dim <= hi:
                 f = statistic
-            else:
+            else:  # Dimensions don't match, try it anyway?  (ATTN)
                 try:
                     statistic(self._canonical[0].vs)
                     f = statistic
                 except Exception:
-                    raise KindError(f'Statistic {statistic.name} is incompatible with this kind.')
+                    raise KindError(f'Statistic {statistic.name} is incompatible with this kind: '
+                                    f'acceptable dimension [{lo},{hi}] but kind dimension {self.dim}.')
         else:
-            f = compose(ensure_tuple, value_map(statistic))  # ATTN!
+            f = compose(as_vec_tuple, value_map(statistic))  # ATTN!
         return self.map(f)
 
     def conditioned_on(self, cond_kind):
@@ -542,10 +541,13 @@ class Flatten(Enum):
     NON_VECTORS = auto()
     EVERYTHING = auto()
 
+def _is_sequence(x):
+    return isinstance(x, Iterable) and not isinstance(x, str)
+
 flatteners: dict[Flatten, Callable] = {
-    Flatten.NON_TUPLES: lambda x: x if isinstance(x, Iterable) and not isinstance(x, tuple) else [x],
-    Flatten.NON_VECTORS: lambda x: x if isinstance(x, Iterable) and not isinstance(x, VecTuple) else [x],
-    Flatten.EVERYTHING: lambda x: x if isinstance(x, Iterable) else [x],
+    Flatten.NON_TUPLES: lambda x: x if _is_sequence(x) and not isinstance(x, tuple) else [x],
+    Flatten.NON_VECTORS: lambda x: x if _is_sequence(x) and not isinstance(x, VecTuple) else [x],
+    Flatten.EVERYTHING: lambda x: x if _is_sequence(x) else [x],
 }
 
 ELLIPSIS_MAX_LENGTH: int = 10 ** 6

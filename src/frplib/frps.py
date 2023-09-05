@@ -186,7 +186,8 @@ class TransformExpression(FrpExpression):
                     label = self._transform.name   # type: ignore
                 else:
                     label = str(self._transform)
-                raise MismatchedDomain(f'Statistic {label} is incompatible with this FRP.')
+                raise MismatchedDomain(f'Statistic {label} is incompatible with this FRP,'
+                                       f'could not evaluate it on the FRPs value.')
         return self._cached_value
 
     def kind(self) -> Kind:
@@ -924,18 +925,18 @@ class FRP:
         "Applies a transform/Statistic to an FRP"
         # ATTN! Handle actual statistic here; error checking etc.
         if isinstance(f_mapping, Statistic):
-            if (f_mapping.dim != 0 and self.is_kinded() and
-               f_mapping.dim != self.dim and self.dim != 0):
-                raise MismatchedDomain(f'Statistic {f_mapping.name} is incompatible with this FRP.')
+            if self.is_kinded():
+                fdim_lo, fdim_hi = f_mapping.dim
+                if self.dim < fdim_lo or self.dim > fdim_hi:
+                    raise MismatchedDomain(f'Statistic {f_mapping.name} is incompatible with this FRP: '
+                                           f'acceptable dimension [{fdim_lo},{fdim_hi}] but FRP dimension {self.dim}.')
             elif self._value is not None:  # Should we just get the value here or risk an error? ATTN
                 try:
                     f_mapping(self._value)
                 except Exception:
-                    raise MismatchedDomain(f'Statistic {f_mapping.name} is incompatible with this FRP.')
-                else:
-                    stat: Callable = f_mapping
-            else:  # What else can we do, we just don't know if it's not kinded
-                stat = f_mapping
+                    raise MismatchedDomain(f'Statistic {f_mapping.name} is incompatible with this FRP: '
+                                           f'could not evaluate it on the FRPs value.')
+            stat: Callable = f_mapping
         else:
             stat = tuple_safe(f_mapping)
         if self.is_kinded():
@@ -988,10 +989,11 @@ class FRP:
 
         # Marginalize
         def marginalize(value):
-            return tuple(map(lambda i: value[i - 1] if i > 0 else value[i], indices))
+            return as_vec_tuple(map(lambda i: value[i - 1] if i > 0 else value[i], indices))
 
         if self.is_kinded():
-            return FRP(self.kind.map(marginalize))
+            stat = Statistic(marginalize, dim=0, codim=len(indices))
+            return stat(self)
 
         assert self._expr is not None
         expr = TransformExpression(marginalize, self._expr)

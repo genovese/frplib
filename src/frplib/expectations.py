@@ -11,6 +11,7 @@ from frplib.quantity   import show_qtuple
 from frplib.statistics import Statistic
 from frplib.vec_tuples import VecTuple, as_vec_tuple
 
+
 class Expectation(VecTuple):
     def __init__(self, contents: Iterable):
         self.label = ''
@@ -52,7 +53,7 @@ def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
             elif isinstance(x, SupportsApproxExpectation):
                 expect = x.approximate_expectation(tolerance)
                 label = (f'Computing approximation (tolerance {tolerance}) '
-                         f'as exact calculation may be costly: {str(e)}\n')
+                         f'as exact calculation may be costly')  # ': {str(e)}\n'
             else:
                 raise e
         expect = Expectation(as_vec_tuple(expect))

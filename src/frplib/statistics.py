@@ -61,7 +61,8 @@ def stat_label(s: Statistic) -> str:
     return f'{name}(__)'
 
 def compose2(after: 'Statistic', before: 'Statistic') -> 'Statistic':
-    if after.dim == 0 or before.codim is None or after.dim == before.codim:
+    lo, hi = after.dim
+    if before.codim is None or (before.codim >= lo and before.codim <= hi):
         def composed(*x):
             return after(before(*x))
         return Statistic(composed, dim=before.dim, codim=after.codim,
@@ -118,6 +119,9 @@ def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, stric
     """
     if arities is None:
         arities = analyze_domain(fn)
+        if arities == (1, 1):  # Inferred scalar
+            # Cannot distinguish these two cases, prefer the more expansive version
+            arities = ANY_TUPLE
     elif isinstance(arities, int):
         arities = (arities, arities)
 
@@ -344,10 +348,10 @@ class Statistic:
         return self._name
 
     @property
-    def dim(self) -> int | ArityType:
-        "Returns the dimension of the statistic, with 0 meaning it accepts an arbitrary tuple."
-        if self.arity[0] == self.arity[1]:
-            return self.arity[0]
+    def dim(self) -> ArityType:
+        "Returns the dimension of the statistic, a tuple representing a closed interval (lo, hi)."
+        # if self.arity[0] == self.arity[1]:
+        #     return self.arity[0]
         return self.arity
 
     @property

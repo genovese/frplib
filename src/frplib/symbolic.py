@@ -4,9 +4,10 @@ import re
 
 from abc               import ABC
 from collections       import defaultdict
+from collections.abc   import Generator
 from decimal           import Decimal
 from operator          import add
-from typing            import Callable, cast, Literal, Generator, Union  # ATTN: collections.abc.Generator ok for 3.9?
+from typing            import cast, Literal, Union
 from typing_extensions import TypeGuard
 
 from frplib.exceptions import ConstructionError
