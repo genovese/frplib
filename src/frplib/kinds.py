@@ -837,7 +837,7 @@ def geometric(
     return Kind([KindBranch.make(vs=x, p=w) for x, w in zip(values, weights)])
 
 def weighted_by(*xs, weight_by: Callable) -> Kind:
-    """Returns a kind with the specified values weighted by a function
+    """Returns a kind with the specified values weighted by a function of those values.
 
     Parameters
     ----------
@@ -920,6 +920,15 @@ def arbitrary(*xs, names: list[str] = []):
     return Kind([KindBranch.make(vs=x, p=sym) for x, sym in zip(values, syms)])
 
 def integers(start, stop=None, step: int = 1, weight_fn=lambda _: 1):
+    """Kind of an FRP whose values consist of integers from `start` to `stop` by `step`.
+
+    If `stop` is None, then the values go from 0 to `tart`. Otherwise, the values
+    go from `start` up to but not including `stop`.
+
+    The `weight_fn` argument (default the constant 1) should be a function; it is
+    applied to each integer to determine the weights.
+
+    """
     if stop is None:
         stop = start
         start = 0
@@ -928,6 +937,15 @@ def integers(start, stop=None, step: int = 1, weight_fn=lambda _: 1):
     return Kind([KindBranch.make(vs=as_numeric_vec(x), p=weight_fn(x)) for x in range(start, stop, step)])
 
 def evenly_spaced(start, stop=None, num: int = 2, weight_by=lambda _: 1):
+    """Kind of an FRP whose values consist of evenly spaced numbers from `start` to `stop`.
+
+    If `stop` is None, then the values go from 0 to `tart`. Otherwise, the values
+    go from `start` up to but not including `stop`.
+
+    The `weight_fn` argument (default the constant 1) should be a function; it is
+    applied to each integer to determine the weights.
+
+    """
     if stop is None:
         stop = start
         start = 0
@@ -944,14 +962,23 @@ def without_replacement(n: int, xs: Iterable) -> Kind:
     return Kind([KindBranch.make(vs=comb, p=1) for comb in combinations(xs, n)])
 
 def subsets(xs: Collection) -> Kind:
+    "Kind of an FRP whose values are subsets of a given collection."
     return without_replacement(len(xs), xs)
 
 def permutations_of(xs: Collection, r=None) -> Kind:
+    "Kind of an FRP whose values are permutations of a given collection."
     return Kind([KindBranch.make(vs=pi, p=1) for pi in permutations(xs, r)])
 
 # ATTN: lower does not need to be lower just any bin boundary (but watch the floor below)
 def bin(scalar_kind, lower, width):
-    ""
+    """Returns a kind similar to that given but with values binned in specified intervals.
+
+    The bins are intervals of width `width` starting at `lower`.  So, for instance,
+    `lower` to `lower` + `width`, and so on.
+
+    The given kind should be a scalar kind, or an error is raised.
+
+    """
     if scalar_kind.dim > 1:
         raise KindError(f'Binning of non-scalar kinds (here of dimension {scalar_kind.dim} not yet supported')
     values: dict[tuple, Numeric] = {}
