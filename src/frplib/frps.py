@@ -726,7 +726,9 @@ class FRP:
             self._value = None
 
     @classmethod
-    def sample(cls, n: int, frp: 'FRP', summary=True) -> FrpDemoSummary | FrpDemo:
+    def sample(cls, n: int, frp: 'FRP | Kind', summary=True) -> FrpDemoSummary | FrpDemo:
+        if isinstance(frp, Kind):
+            return _sample_from_kind(n, frp, summary)
         if frp._kind is not None:
             return _sample_from_kind(n, frp._kind, summary)
         assert frp._expr is not None
