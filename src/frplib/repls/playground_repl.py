@@ -28,10 +28,15 @@ def info(obj_or_topic='topics') -> None:
                                   'Try info() for a list of starting points.</violet>'))
 
     topic = []
-    if not isinstance(obj_or_topic, str) and hasattr(obj_or_topic, '__info__'):
-        topic = obj_or_topic.__info__.split('::')
+    if not isinstance(obj_or_topic, str):
+        if hasattr(obj_or_topic, '__info__'):
+            topic = obj_or_topic.__info__.split('::')
+        else:
+            help(obj_or_topic)
+            return
     else:
-        topic = [obj_or_topic]  # Look for main level topic or search below
+        # Look for main level topic or search below
+        topic = obj_or_topic.split('::')
 
     if topic:
         top_level = files('frplib.data') / 'playground-help'
@@ -49,7 +54,9 @@ def info(obj_or_topic='topics') -> None:
                 found = False
             else:
                 help_text = topic_path.read_text()
-                environment.console.print(Markdown(help_text))
+                # Rich behaving oddly here
+                code_theme = 'monokai' if environment.dark_mode else 'slate'
+                environment.console.print(Markdown(help_text, code_theme=code_theme))
         if not found:
             pass  # Search for topic in manifest
             no_help()  # Do this if search comes up empty
@@ -93,7 +100,7 @@ playground_imports: dict[str, list[str]] = {
         'FRP', 'frp', 'conditional_frp', 'shuffle',
     ],
     'calculate': ['substitute', 'substitute_with', 'substitution'],
-    'quantity': ['qvec'],
+    'quantity': ['as_quantity', 'qvec'],
     'symbolic': ['gen_symbol', 'is_symbolic', 'symbol'],
     'utils': [
         'clone', 'compose', 'const', 'every', 'identity',
