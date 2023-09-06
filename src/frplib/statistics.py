@@ -6,7 +6,7 @@ import re
 import textwrap
 
 from collections.abc   import Iterable
-from decimal           import ROUND_CEILING, ROUND_FLOOR
+from decimal           import Decimal, ROUND_CEILING, ROUND_FLOOR
 from functools         import wraps
 from operator          import itemgetter
 from typing            import Callable, cast, Literal, Optional, overload, Union
@@ -856,6 +856,8 @@ class Condition(Statistic):
         result = self(*args)
         if isinstance(result, tuple):
             return bool(result[0])
+        elif isinstance(result, (bool, int, Decimal, str)):
+            return bool(result)
         raise StatisticError(f'Attempt to check an unevaluated Condition/Statistic {result.name}')
 
 

@@ -46,7 +46,7 @@ def from_scalar(x):
     return x
 
 def as_scalar(x) -> T | None:
-    if isinstance(x, (int, float, Fraction, Decimal, Symbolic)):
+    if isinstance(x, (int, float, Fraction, Decimal, Symbolic, bool)):
         return cast(T, x)
     elif isinstance(x, tuple) and len(x) == 1:
         return cast(T, x[0])

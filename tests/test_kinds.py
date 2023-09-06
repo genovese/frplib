@@ -10,11 +10,11 @@ from frplib.kinds      import (kind, conditional_kind,
                                integers, evenly_spaced, bin,
                                subsets, permutations_of,
                                )
-from frplib.numeric    import as_real, as_nice_numeric
 from frplib.quantity   import as_quantity
+from frplib.statistics import Proj
 from frplib.symbolic   import symbol
-from frplib.utils      import lmap, every
-from frplib.vec_tuples import as_vec_tuple, vec_tuple
+from frplib.utils      import lmap
+from frplib.vec_tuples import vec_tuple
 
 
 def values_of(u):
@@ -100,3 +100,28 @@ def test_mixtures():
 
     with pytest.raises(KindError):
         k0 >> mec2
+
+    k1 = k0 >> m1 | (Proj[2] == 8)
+    assert weights_of(k1.weights) == pytest.approx([as_quantity('0.01'), as_quantity('0.99')])
+    assert values_of(k1.weights) == {vec_tuple(10, 8), vec_tuple(20, 8)}
+
+    has_disease = either(0, 1, 999)     # No disease has higher weight
+    test_by_status = conditional_kind({
+        vec_tuple(0): either(0, 1, 99),     # No disease, negative has high weight
+        vec_tuple(1): either(0, 1, '1/19')  # Yes disease, positive higher weight
+    })
+
+    dStatus_and_tResult = has_disease >> test_by_status
+    Disease_Status = Proj[1]
+    Test_Result = Proj[2]
+
+    has_disease_updated = (dStatus_and_tResult | (Test_Result == 1))[Disease_Status]
+
+    w = dStatus_and_tResult.weights
+    assert values_of(w) == { vec_tuple(0, 0), vec_tuple(0, 1), vec_tuple(1, 0), vec_tuple(1, 1) }
+    assert weights_of(w) == pytest.approx([as_quantity(v)
+                                           for v in ['98901/100000', '999/100000', '1/20000', '19/20000']])
+
+    w = has_disease_updated.weights
+    assert values_of(w) == { vec_tuple(0), vec_tuple(1) }
+    assert weights_of(w) == pytest.approx([as_quantity(v) for v in ['999/1094', '95/1094']])

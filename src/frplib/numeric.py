@@ -151,7 +151,7 @@ NumericF: TypeAlias = Union[int, Fraction]  # Arbitrary Precision rational numbe
 Numeric:  TypeAlias = NumericD  # Default underlying numeric representation
 
 def is_scalar_q(x) -> TypeGuard[Union[int, float, Fraction, Decimal, NumericQ, str]]:
-    return isinstance(x, (int, float, Fraction, Decimal, NumericQuantity, str))
+    return isinstance(x, (int, float, Fraction, Decimal, NumericQuantity, str, bool))  # bool auto cast to int
 
 
 #
