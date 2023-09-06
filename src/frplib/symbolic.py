@@ -881,3 +881,11 @@ def is_symbolic(obj) -> TypeGuard[SymbolicMulti | SymbolicMultiSum | SymbolicMul
 
 def symbolic_sqrt(x: Symbolic) -> Symbolic:
     raise ConstructionError(f'Symbolic square root not yet implemented: {str(x)}')
+
+
+#
+# Info tags
+#
+
+setattr(symbol, '__info__', 'utilities::symbols')
+setattr(gen_symbol, '__info__', 'utilities::symbols')

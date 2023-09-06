@@ -241,3 +241,23 @@ def some(func, iterable):
 def is_interactive() -> bool:
     "Checks if frp is running as an interactive app."
     return environment.is_interactive or hasattr(sys, 'ps1') or bool(sys.flags.interactive)
+
+
+#
+# Info tags
+#
+
+setattr(clone, '__info__', 'utilities')
+setattr(dim, '__info__', 'utilities')
+setattr(codim, '__info__', 'utilities')
+setattr(size, '__info__', 'utilities')
+setattr(values, '__info__', 'utilities')
+setattr(identity, '__info__', 'utilities')
+setattr(const, '__info__', 'utilities')
+setattr(compose, '__info__', 'utilities')
+setattr(irange, '__info__', 'utilities::irange')
+setattr(index_of, '__info__', 'utilities::index_of')
+setattr(every, '__info__', 'utilities')
+setattr(some, '__info__', 'utilities')
+setattr(lmap, '__info__', 'utilities')
+setattr(is_tuple, '__info__', 'utilities')

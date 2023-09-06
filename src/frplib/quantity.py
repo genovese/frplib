@@ -104,3 +104,11 @@ def show_qtuple(
         return show_quantity(tup[0])
     components = [show_quantity(x) for x in tup]
     return f'<{", ".join(components)}>'
+
+
+#
+# Info tags
+#
+
+setattr(qvec, '__info__', 'utilities')
+setattr(as_quantity, '__info__', 'utilities')

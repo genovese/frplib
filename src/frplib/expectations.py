@@ -74,3 +74,11 @@ def D_(X: FRP | Kind):
         # ATTN: Check compatibility here
         return E(psi(X))
     return probe
+
+
+#
+# Info tags
+#
+
+setattr(E, '__info__', 'actions')
+setattr(D_, '__info__', 'actions')

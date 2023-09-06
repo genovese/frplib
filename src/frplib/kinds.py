@@ -1251,3 +1251,27 @@ def show_labeled(kind, label, width=None):
 
 def tbl(mix, pad=': '):
     print( '\n\n'.join([show_labeled(mix[k], str(k) + pad) for k in mix]))
+
+
+#
+# Info tags
+#
+
+setattr(kind, '__info__', 'kind-factories::kind')
+setattr(conditional_kind, '__info__', 'kind-factories')
+setattr(constant, '__info__', 'kind-factories::constant')
+setattr(uniform, '__info__', 'kind-factories::uniform')
+setattr(either, '__info__', 'kind-factories::either')
+setattr(weighted_as, '__info__', 'kind-factories::weighted_as')
+setattr(weighted_by, '__info__', 'kind-factories')
+setattr(symmetric, '__info__', 'kind-factories')
+setattr(linear, '__info__', 'kind-factories')
+setattr(geometric, '__info__', 'kind-factories')
+setattr(arbitrary, '__info__', 'kind-factories')
+setattr(integers, '__info__', 'kind-factories')
+setattr(evenly_spaced, '__info__', 'kind-factories')
+setattr(without_replacement, '__info__', 'kind-factories')
+setattr(subsets, '__info__', 'kind-factories')
+setattr(permutations_of, '__info__', 'kind-factories')
+setattr(bin, '__info__', 'kind-combinators::bin')
+setattr(unfold, '__info__', 'actions')

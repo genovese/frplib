@@ -1139,3 +1139,12 @@ def join_values(values: Iterable[ValueType]) -> ValueType:
     for value in values:
         combined.extend(list(value))
     return VecTuple(combined)
+
+
+#
+# Info tags
+#
+
+setattr(frp, '__info__', 'frp-factories')
+setattr(conditional_frp, '__info__', 'frp-factories')
+setattr(shuffle, '__info__', 'frp-factories')

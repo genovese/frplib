@@ -1448,3 +1448,52 @@ class ProjectionFactory:
         return project(*indices_or_tuple)
 
 Proj = ProjectionFactory()
+
+
+#
+# Info tags
+#
+
+setattr(statistic, '__info__', 'statistic-factories')
+setattr(scalar_statistic, '__info__', 'statistic-factories')
+setattr(condition, '__info__', 'statistic-factories')
+setattr(Constantly, '__info__', 'statistic-factories')
+setattr(Permute, '__info__', 'statistic-factories')
+setattr(Proj, '__info__', 'statistic-factories::projections')
+
+
+setattr(__, '__info__', 'statistic-builtins')
+setattr(Id, '__info__', 'statistic-builtins')
+setattr(Scalar, '__info__', 'statistic-builtins')
+
+setattr(Sum, '__info__', 'statistic-builtins')
+setattr(Count, '__info__', 'statistic-builtins')
+setattr(Min, '__info__', 'statistic-builtins')
+setattr(Max, '__info__', 'statistic-builtins')
+setattr(Mean, '__info__', 'statistic-builtins')
+setattr(Diff, '__info__', 'statistic-builtins')
+setattr(Diffs, '__info__', 'statistic-builtins')
+setattr(Abs, '__info__', 'statistic-builtins')
+setattr(Sqrt, '__info__', 'statistic-builtins')
+setattr(Floor, '__info__', 'statistic-builtins')
+setattr(Ceil, '__info__', 'statistic-builtins')
+setattr(Exp, '__info__', 'statistic-builtins')
+setattr(Log, '__info__', 'statistic-builtins')
+setattr(Log2, '__info__', 'statistic-builtins')
+setattr(Log10, '__info__', 'statistic-builtins')
+setattr(Sin, '__info__', 'statistic-builtins')
+setattr(Cos, '__info__', 'statistic-builtins')
+setattr(Tan, '__info__', 'statistic-builtins')
+setattr(ATan2, '__info__', 'statistic-builtins')
+setattr(Sinh, '__info__', 'statistic-builtins')
+setattr(Cosh, '__info__', 'statistic-builtins')
+setattr(Tanh, '__info__', 'statistic-builtins')
+setattr(NormalCDF, '__info__', 'statistic-builtins')
+
+setattr(Fork, '__info__', 'statistic-combinators')
+setattr(ForEach, '__info__', 'statistic-combinators')
+setattr(IfThenElse, '__info__', 'statistic-combinators')
+setattr(And, '__info__', 'statistic-combinators')
+setattr(Or, '__info__', 'statistic-combinators')
+setattr(Not, '__info__', 'statistic-combinators')
+setattr(Xor, '__info__', 'statistic-combinators')

@@ -44,3 +44,12 @@ def substitution(quantity, **kw):
 
     """
     return substitute(quantity, kw)
+
+
+#
+# Info tags
+#
+
+setattr(substitute, '__info__', 'utilities::symbols')
+setattr(substitute_with, '__info__', 'utilities::symbols')
+setattr(substitution, '__info__', 'utilities::symbols')
