@@ -19,7 +19,7 @@ from frplib.protocols  import Renderable
 # Help System
 #
 
-def info(obj_or_topic='topics') -> None:
+def info(obj_or_topic='topics', pager=False) -> None:
     """Accesses and displays help on a variety of playground topics.
 
     """
@@ -56,7 +56,12 @@ def info(obj_or_topic='topics') -> None:
                 help_text = topic_path.read_text()
                 # Rich behaving oddly here
                 code_theme = 'monokai' if environment.dark_mode else 'slate'
-                environment.console.print(Markdown(help_text, code_theme=code_theme))
+                info_text = Markdown(help_text, code_theme=code_theme)
+                if pager:
+                    with environment.console.pager():
+                        environment.console.print(info_text)
+                else:
+                    environment.console.print(info_text)
         if not found:
             pass  # Search for topic in manifest
             no_help()  # Do this if search comes up empty
