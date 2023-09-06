@@ -22,6 +22,7 @@ bright_theme = Theme({
     "repr.attrib_value": "#000033",
     "markdown.item.bullet": "bold magenta",
     "markdown.item.number": "bold magenta",
+    "markdown.code": "bold red on #cccccc",
 })
 
 dark_theme = Theme({
