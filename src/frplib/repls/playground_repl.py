@@ -79,7 +79,8 @@ playground_imports: dict[str, list[str]] = {
     # as we are adding both to globals()
     # ATTN: Consider *not* adding the module names to globals
     'kinds': [
-        'Kind', 'kind', 'unfold', 'conditional_kind',
+        'Kind', 'ConditionalKind',
+        'kind', 'unfold', 'conditional_kind',
         'constant', 'uniform', 'either',
         'symmetric', 'linear', 'geometric',
         'weighted_by', 'weighted_as', 'arbitrary',

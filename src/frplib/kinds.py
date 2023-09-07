@@ -20,7 +20,7 @@ from frplib.exceptions import ConstructionError, KindError, MismatchedDomain
 from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
-from frplib.numeric    import Numeric, ScalarQ, as_numeric, as_real
+from frplib.numeric    import Numeric, ScalarQ, as_numeric, as_real, numeric_log2
 from frplib.protocols  import Projection
 from frplib.quantity   import as_quantity, as_quant_vec, show_quantities, show_qtuples
 from frplib.statistics import Statistic, Condition
@@ -416,6 +416,17 @@ class Kind:
             for i, v in enumerate(branch.vs):
                 ex[i] += branch.p * v
         return ex[0] if self.dim == 1 else as_vec_tuple(ex)
+
+    def log_likelihood(self, data: Iterable[ValueType | ScalarQ]) -> QuantityType:
+        weights = self.weights
+        log_likelihood = as_real('0')
+        try:
+            for datum in data:
+                xi = as_quant_vec(datum)
+                log_likelihood += numeric_log2(weights[xi])
+        except Exception as e:
+            raise KindError(f'Could not compute log likelihood for kind: {str(e)}')
+        return log_likelihood
 
     # Overloads
 
