@@ -17,6 +17,7 @@ patterns of weights on specified values.
 + `either` :: a kind with two possible values and with a specified weight ratio
 + `weighted_as` :: a kind with the specified values weighted by given weights
 + `weighted_by` :: a kind with the specified values weighted by a function of those values
++ `weighted_pairs` :: a kind specified by a sequence of (value, weight) pairs
 + `symmetric` :: a kind with weights on values determined by a symmetric function around a specified value
 + `linear` :: a kind with the specified values and weights varying linearly
 + `geometric` :: a kind with the specified values and weights varying geometrically

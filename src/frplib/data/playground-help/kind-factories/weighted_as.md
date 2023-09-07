@@ -16,10 +16,13 @@ Values (and weights) can be specified in a variety of ways:
     in which case all the values except explicit *tuples* will be
     flattened into a sequence of values. (Though note: all values
     should have the same dimension.)
+  + As a single argument that is a dictionary mapping values to weights.
+    (Scalar values will be wrapped in an appropriate vector tuple.)
 
-Values and weights can be numbers, tuples, symbols, or strings.
-In the latter case they are converted to numbers or symbols as
-appropriate.
+Value and weights can be numbers, tuples, symbols, or strings
+and are converted into quantities of the appropriate type.
+In the latter case they are converted to numbers or symbols 
+depending on the contents of the string.
 
 If the supplied weights vector is shorter than the list of values,
 the weights will be extended by repeated 1s. If the weights list

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc   import Iterable
+from functools         import wraps
 
 from frplib.exceptions import ComplexExpectationWarning
 from frplib.frps       import FRP, ConditionalFRP
@@ -41,7 +42,18 @@ def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
 
     """
     if isinstance(x, (ConditionalKind, ConditionalFRP)):
-        return x.expectation()
+        f = x.expectation()
+
+        @wraps(f)
+        def c_expectation(*xs):
+            return Expectation(as_vec_tuple(f(*xs)))
+        if getattr(f, 'dim') is not None:
+            label = f'dimension {getattr(f, "dim")} values'
+        else:
+            label = 'values'
+        setattr(c_expectation, '__frplib_repr__',
+                lambda: f'A conditional expectation as a function of {label}.')
+        return c_expectation
 
     if isinstance(x, SupportsExpectation):
         label = ''

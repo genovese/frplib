@@ -1129,7 +1129,7 @@ def ForEach(s: Statistic) -> Statistic:
         return as_quant_vec(result)
     return Statistic(foreach, dim=ANY_TUPLE, name=f'applies {s.name} to every component of input value')
 
-def Fork(stat: Statistic, *more_stats: Statistic) -> Statistic:
+def Fork(stat: Statistic | ScalarQ, *other_stats: Statistic | ScalarQ) -> Statistic:
     """Statistics combinator. Produces a statistic that combines the values of other statistics into a tuple.
 
     If a statistic has codim > 1, the results are spliced into the tuple resulting from Fork.
@@ -1143,6 +1143,11 @@ def Fork(stat: Statistic, *more_stats: Statistic) -> Statistic:
             the tuple <x1,x2,...,xn,x1,x2,...,xn>
 
     """
+    # Treat constants like statistics
+    if not isinstance(stat, Statistic):
+        stat = Constantly(as_quantity(stat))
+    more_stats = [s if isinstance(s, Statistic) else Constantly(as_quantity(s)) for s in other_stats]
+
     if len(more_stats) == 0:
         return stat
 

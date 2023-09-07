@@ -20,7 +20,7 @@ from frplib.exceptions import ConstructionError, KindError, MismatchedDomain
 from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
-from frplib.numeric    import Numeric, ScalarQ, as_numeric
+from frplib.numeric    import Numeric, ScalarQ, as_numeric, as_real
 from frplib.protocols  import Projection
 from frplib.quantity   import as_quantity, as_quant_vec, show_quantities, show_qtuples
 from frplib.statistics import Statistic, Condition
@@ -118,6 +118,8 @@ def value_map(f, kind=None):  # ATTN: make in coming maps tuple safe; add dimens
 
 def normalize_branches(canonical) -> list[KindBranch]:
     seen: dict[tuple, KindBranch] = {}
+    # ATTN: refactor to make one pass so canonical can be a general iterable without losing it
+    # Store as a list initially?  (We need two passes over the final list regardless regardless.)
     total = sum(map(lambda b: b.p, canonical))
     for branch in canonical:
         if branch.vs in seen:
@@ -125,6 +127,20 @@ def normalize_branches(canonical) -> list[KindBranch]:
         else:
             seen[branch.vs] = KindBranch.make(vs=branch.vs, p=branch.p / total)
     return sorted(seen.values(), key=lambda b: b.vs)
+
+def new_normalize_branches(canonical) -> list[KindBranch]:
+    # NOTE: This allows canonical to be a general iterable
+    seen: dict[tuple, QuantityType] = {}
+    total: QuantityType = 0
+    for branch in canonical:
+        if branch.vs in seen:
+            seen[branch.vs] = seen[branch.vs] + branch.p
+        else:
+            seen[branch.vs] = branch.p
+        total += branch.p
+
+    return sorted((KindBranch.make(vs=value, p=weight / total) for value, weight in seen.items()),  # type: ignore
+                  key=lambda b: b.vs)
 
 class EmptyKindDescriptor:
     def __get__(self, obj, objtype=None):
@@ -337,10 +353,17 @@ class Kind:
         return Kind([combine_product(brA, brB) for brA, brB in product(self._canonical, r_kind._canonical)])
 
     def transform(self, statistic):
-        """Kind Combinator: Transforms this kind by a statistic. Returns a new kind.
+        """Kind Combinator: Transforms this kind by a statistic, returning the transformed kind.
 
-        This is often more easily handled by the ^ operator, or by direct composition
-        by the statistic, which are equivalent.
+        Here, `statistic` is typically a Statistic object, though it
+        can be a more general mapping or dictionary. It must have
+        compatible dimension with this kind and be defined for all
+        values of this kind.
+
+        This is often more easily handled by the ^ operator, or by
+        direct composition by the statistic, which are equivalent.
+        The ^ notation is intended to evoke an arrow signifying the
+        flow of data from the kind through the transform.
 
         """
         if isinstance(statistic, Statistic):
@@ -361,12 +384,15 @@ class Kind:
     def conditioned_on(self, cond_kind):
         """Kind Combinator: computes the kind of the target conditioned on the mixer (this kind).
 
-        This is usually more clearly handled with the // operator, which takes mixer // target.
+        This is usually more clearly handled with the // operator,
+        which takes mixer // target.
 
-        This is related to, but distinct from, a mixture in that it produces the kind
-        of the target, marginalizing out this kind. Conditioning is the operation of
-        using hypothetical information about one kind and a contingent relationship between
-        them to compute another kind.
+        This is related to, but distinct from, a mixture in that it
+        produces the kind of the target, marginalizing out the mixer
+        (this kind). Conditioning is the operation of using
+        hypothetical information about one kind and a contingent
+        relationship between them to compute another kind.
+
         """
         if isinstance(cond_kind, ConditionalKind):
             well_defined = cond_kind.well_defined_on(self.value_set)
@@ -432,16 +458,55 @@ class Kind:
         return Kind([combine_product(obranches) for obranches in product(self._canonical, repeat=n)])
 
     def __rfloordiv__(self, other):
+        """Kind Combinator: computes the kind of the target conditioned on the mixer.
+
+        This as the form  ckind // mixer  where mixer is a kind (this one) and
+        ckind is a conditional kind mapping values of the mixer to new kinds.
+
+        This is equivalent to, but more efficient than,
+
+              Proj[(mixer.dim + 1):](mixer >> ckind)
+
+        That is, this produces the kind of the target marginalizing
+        out the mixer's value. This is the operation of
+        **Conditioning**: using hypothetical information about one
+        kind and a contingent relationship between them to compute
+        another kind.
+
+        """
+
         "Conditioning on self; other is a conditional distribution."
         return self.conditioned_on(other)
 
-    def __rshift__(self, f_mapping):
-        "Mixes FRP with FRPs given for each value"
-        return self.mixture(f_mapping)
+    def __rshift__(self, cond_kind):
+        """Returns a mixture kind with this kind as the mixer and `cond_kind` giving the targets.
 
-    def __xor__(self, f_mapping):
-        "Applies a transform to an FRP"
-        return self.transform(f_mapping)
+        Here, `cond_kind` is typically a conditional kind, though it
+        can be a suitable function or dictionary. It must give a
+        kind of common dimension for every value of this kind.
+
+        The resulting kind has values concatenating the values of
+        mixer and target. See also the // (.conditioned_on)
+        operator, which is related. In particular, m // k is like k
+        >> m without the values from k in the resulting kind.
+
+        """
+        return self.mixture(cond_kind)
+
+    def __xor__(self, statistic):
+        """Applies a statistic or other function to a kind and returns a transformed kind.
+
+        The ^ notation is intended to evoke an arrow signifying the flow of data
+        from the kind through the transform.
+
+        Here, `statistic` is typically a Statistic object, though it
+        can be a more general mapping or dictionary. It must have
+        compatible dimension with this kind and be defined for all
+        values of this kind. When it is an actual Statistic,
+        statistic(k) and k ^ statistic are equivalent.
+
+        """
+        return self.transform(statistic)
 
     # Need a protocol for ProjectionStatistic to satisfy to avoid circularity
     @overload
@@ -453,6 +518,12 @@ class Kind:
         ...
 
     def marginal(self, *index_spec) -> 'Kind':
+        """Computes the marginalized kind, projecting on the given indices.
+
+        This is usually handled in the playground with the Proj factory
+        or by direct indexing of the kind. 
+        
+        """
         dim = self.dim
 
         # Unify inputs
@@ -485,7 +556,7 @@ class Kind:
             return NotImplemented
 
     def __or__(self, predicate):  # Self -> ValueMap[ValueType, bool] -> Kind[ValueType, ProbType]
-        "Applies a conditional filter to FRP"
+        "Applies a conditional filter to a kind."
         if isinstance(predicate, Condition):
             def keep(value):
                 return predicate.bool_eval(value)
@@ -595,6 +666,16 @@ def unfold(k: Kind) -> UnfoldedKind:  # ATTN: Return an object that prints this 
     scan, _ = unfold_scan(labelled, wd, sep)
 
     return UnfoldedKind(unfolded, unfolded_str(scan, wd))
+
+def clean(k: Kind, tolerance=as_real('1e-16')) -> Kind:
+    """Returns a new kind that eliminates from `k` any branches with numerically negligible weights.
+
+    Weights < `tolerance` are assumed to be effectively zero and eliminated
+    in the returned kind.
+
+    """
+    # ATTN: new_normalize_branches above with _canonical=True can make this more efficient
+    return Kind([b for b in k._branches if b.p >= tolerance])
 
 
 # Sequence argument interface
@@ -898,6 +979,12 @@ def weighted_as(*xs, weights: list[ScalarQ | Symbolic] = []) -> Kind:
     appropriate.
 
     """
+    if len(xs) == 1 and isinstance(xs[0], dict):
+        # value: weight given in a dictionary
+        val_wgt_map = xs[0]
+        return Kind([KindBranch.make(vs=as_quant_vec(v), p=as_quantity(w))
+                     for v, w in val_wgt_map.items()])
+
     values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES)
     if len(values) == 0:
         return Kind.empty
@@ -908,6 +995,22 @@ def weighted_as(*xs, weights: list[ScalarQ | Symbolic] = []) -> Kind:
 
     return Kind([KindBranch.make(vs=as_quant_vec(x), p=as_quantity(w))
                  for x, w in zip(values, kweights)])
+
+def weighted_pairs(xs: Iterable[tuple[ValueType | ScalarQ, ScalarQ]]) -> Kind:
+    """Returns a kind specified by a sequence of (value, weight) pairs.
+
+    Parameters
+    ----------
+    xs: An iterable of pairs of the form (value, weight).
+
+    Values will be converted to quantitative vectors and weights
+    to quantities. both can contain numbers, symbols, or strings.
+    Repeated values will have their weights combined.
+
+    """
+    return Kind([KindBranch.make(vs=as_quant_vec(v), p=as_quantity(w))
+                 for v, w in xs])
+
 
 def arbitrary(*xs, names: list[str] = []):
     "Returns a kind with the given values and arbitrary symbolic weights."
@@ -1264,6 +1367,7 @@ setattr(uniform, '__info__', 'kind-factories::uniform')
 setattr(either, '__info__', 'kind-factories::either')
 setattr(weighted_as, '__info__', 'kind-factories::weighted_as')
 setattr(weighted_by, '__info__', 'kind-factories')
+setattr(weighted_pairs, '__info__', 'kind-factories')
 setattr(symmetric, '__info__', 'kind-factories')
 setattr(linear, '__info__', 'kind-factories')
 setattr(geometric, '__info__', 'kind-factories')

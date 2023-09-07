@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import sys
 
-from collections.abc   import Iterable
+from collections       import defaultdict
+from collections.abc   import Iterable, Hashable
 from functools         import reduce
-from typing            import Callable, Generator, TypeVar
+from typing            import Callable, Generator, TypeVar, Union
 from typing_extensions import Any, TypeGuard
 
 from frplib.env        import environment
@@ -181,6 +182,24 @@ def index_of(value, xs, not_found=-1, *, start=0, stop=sys.maxsize):
             if i >= start and i < stop and v == value:
                 return i
         return not_found
+
+def frequencies(xs: Iterable[Hashable], counts_only=False) -> Union[dict[Hashable, int], tuple[int, ...]]:
+    """Computes frequencies of the values in some iterable collection.
+
+    If counts_only is False, returns a dictionary mapping the values to their counts.
+    Otherwise, returns a tuple of counts in decreasing order.
+
+    The items in the collection should be hashable.
+
+    """
+    freqs: dict[Hashable, int] = defaultdict(int)
+
+    for x in xs:
+        freqs[x] += 1
+
+    if counts_only:
+        return tuple(sorted(freqs.values(), reverse=True))
+    return freqs
 
 
 #
