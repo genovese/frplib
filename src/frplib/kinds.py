@@ -20,7 +20,8 @@ from frplib.exceptions import ConstructionError, KindError, MismatchedDomain
 from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
-from frplib.numeric    import Numeric, ScalarQ, as_numeric, as_real, numeric_log2
+from frplib.numeric    import Numeric, ScalarQ, as_nice_numeric, as_numeric, as_real, numeric_log2
+from frplib.output     import RichString
 from frplib.protocols  import Projection
 from frplib.quantity   import as_quantity, as_quant_vec, show_quantities, show_qtuples
 from frplib.statistics import Statistic, Condition, infinity, compose2
@@ -279,10 +280,30 @@ class Kind:
         "Returns the monadic unit for this kind. (For internal use)"
         return Kind([KindBranch.make(as_quant_vec(value), 1)])
 
-    # @classmethod
-    # @property
-    # def empty( cls ):
-    #     return Kind([])
+    @classmethod
+    def compare(cls, kind1, kind2) -> str:
+        "Compares two kinds and returns a diagnostic message about the differences, if any."
+        TOLERANCE = as_real('1e-16')
+
+        vals1 = kind1.value_set
+        vals2 = kind2.value_set
+
+        if vals1 != vals2:
+            return RichString(f'The two kinds [bold red]differ[/]. '
+                              f'The first has distinct values [red]{set(map(str, vals1 - vals2))}[/] and '
+                              f'the second has distinct values [red]{set(map(str, vals2 - vals1))}[/].')
+
+        w1 = kind1.weights
+        w2 = kind2.weights
+
+        for v in vals1:
+            if as_nice_numeric(as_real(w1[v] - w2[v]).copy_abs()) >= TOLERANCE:
+                return RichString(f'The two kinds [bold red]differ[/] in their weights, '
+                                  f'e.g., at value [bold]{v}[/], the weights are [red]{w1[v]}[/] and [red]{w2[v]}[/].')
+
+        return RichString('The two kinds are the [bold green]same[/] within numerical precision.')
+
+    # The empty kind is a class datum; use a descriptor to please Python 3.10+
     empty = EmptyKindDescriptor()
 
     @staticmethod

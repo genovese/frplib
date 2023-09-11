@@ -110,3 +110,7 @@ class TitledRichFacade:
         if environment.ascii_only:
             return str(self)
         return Panel(str(self), expand=False, box=box.SQUARE)
+
+class RichString(str):
+    def __frplib_repr__(self):
+        return str(self)
