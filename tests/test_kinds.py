@@ -3,13 +3,14 @@ from __future__ import annotations
 import pytest
 
 from frplib.exceptions import KindError
-from frplib.kinds      import (kind, conditional_kind,
+from frplib.kinds      import (Kind, kind, conditional_kind,
                                constant, either, uniform,
                                symmetric, linear, geometric,
                                weighted_by, weighted_as, arbitrary,
                                integers, evenly_spaced, bin,
                                subsets, permutations_of,
                                )
+from frplib.numeric    import numeric_log2
 from frplib.quantity   import as_quantity
 from frplib.statistics import Proj, Sum, Min
 from frplib.symbolic   import symbol
@@ -138,3 +139,17 @@ def test_tagged_kinds():
 
     list(k2.weights.values()) == [as_quantity('1/4'), as_quantity('1/2'), as_quantity('1/4')]
     list(k2.weights.keys()) == [vec_tuple(6), vec_tuple(8), vec_tuple(9)]
+
+def test_comparisons():
+    assert 'same' in Kind.compare(uniform(1, 2), either(1, 2))
+    assert 'differ' in Kind.compare(uniform(1, 2), either(1, 3))
+    assert 'differ' in Kind.compare(uniform(1, 2), weighted_as(1, 2, weights=[0.999, 1.001]))
+
+    assert Kind.equal(uniform(1, 2), either(1, 2))
+    assert not Kind.equal(uniform(1, 2), either(1, 3))
+    assert not Kind.equal(uniform(1, 2), weighted_as(1, 2, weights=[0.999, 1.001]))
+
+    assert Kind.divergence(uniform(0, 2), uniform(0, 2)) == 0
+    assert Kind.divergence(uniform(0, 2), weighted_as(1, 2, weights=[0.999, 1.001])) == as_quantity('Infinity')
+    assert Kind.divergence(uniform(1, 2), weighted_as(1, 2, weights=['1/4', '3/4'])) == \
+        pytest.approx(as_quantity('1/2') - numeric_log2('1.5') / 2)

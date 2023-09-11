@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses       import dataclass
+from decimal           import Decimal
 from typing            import Literal
 from typing_extensions import Any
 
@@ -10,7 +11,7 @@ from rich              import box
 from rich.panel        import Panel
 
 from frplib.env        import environment
-
+from frplib.numeric    import as_nice_numeric
 
 #
 # Rendered Output
@@ -114,3 +115,7 @@ class TitledRichFacade:
 class RichString(str):
     def __frplib_repr__(self):
         return str(self)
+
+class RichReal(Decimal):
+    def __frplib_repr__(self):
+        return str(as_nice_numeric(self))

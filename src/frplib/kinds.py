@@ -21,10 +21,10 @@ from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
 from frplib.numeric    import Numeric, ScalarQ, as_nice_numeric, as_numeric, as_real, numeric_log2
-from frplib.output     import RichString
+from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection
 from frplib.quantity   import as_quantity, as_quant_vec, show_quantities, show_qtuples
-from frplib.statistics import Statistic, Condition, infinity, compose2
+from frplib.statistics import Statistic, Condition, compose2
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol
 from frplib.utils      import (compose, const, identity,
                                is_interactive, is_tuple, lmap, some)
@@ -281,9 +281,20 @@ class Kind:
         return Kind([KindBranch.make(as_quant_vec(value), 1)])
 
     @classmethod
-    def compare(cls, kind1, kind2) -> str:
-        "Compares two kinds and returns a diagnostic message about the differences, if any."
-        TOLERANCE = as_real('1e-16')
+    def compare(cls, kind1: Kind, kind2: Kind, tolerance: ScalarQ = '1e-16') -> str:
+        """Compares two kinds and returns a diagnostic message about the differences, if any.
+
+        Parameters:
+          kind1, kind2 :: the kinds to compare
+          tolerance[='1e-16'] :: numerical tolerance for comparing weights
+
+        Returns a (rich) string that prints nicely at the repl.
+
+        """
+        if not isinstance(kind1, Kind) or not isinstance(kind2, Kind):
+            raise KindError('Kind.compare requires two arguments that are kinds.')
+
+        tol = as_real(tolerance)
 
         vals1 = kind1.value_set
         vals2 = kind2.value_set
@@ -297,11 +308,77 @@ class Kind:
         w2 = kind2.weights
 
         for v in vals1:
-            if as_nice_numeric(as_real(w1[v] - w2[v]).copy_abs()) >= TOLERANCE:
+            if as_nice_numeric(as_real(w1[v] - w2[v]).copy_abs()) >= tol:
                 return RichString(f'The two kinds [bold red]differ[/] in their weights, '
                                   f'e.g., at value [bold]{v}[/], the weights are [red]{w1[v]}[/] and [red]{w2[v]}[/].')
 
         return RichString('The two kinds are the [bold green]same[/] within numerical precision.')
+
+    @classmethod
+    def equal(cls, kind1, kind2, tolerance: ScalarQ = '1e-16') -> bool:
+        """Compares two kinds and returns True if they are equal within numerical tolerance.
+
+        Parameters:
+          kind1, kind2 :: the kinds to compare
+          tolerance[='1e-16'] :: numerical tolerance for comparing weights
+
+        Returns True if the kinds are the same (within tolerance), else False.
+
+        """
+        if not isinstance(kind1, Kind) or not isinstance(kind2, Kind):
+            raise KindError('Kind.equal requires two arguments that are kinds.')
+
+        if kind1.dim != kind2.dim or kind1.size != kind2.size:
+            return False
+
+        tol = as_real(tolerance)
+
+        vals1 = kind1.value_set
+        vals2 = kind2.value_set
+
+        if vals1 != vals2:
+            return False
+
+        w1 = kind1.weights
+        w2 = kind2.weights
+
+        for v in vals1:
+            if as_nice_numeric(as_real(w1[v] - w2[v]).copy_abs()) >= tol:
+                return False
+
+        return True
+
+    @classmethod
+    def divergence(cls, kind1, kind2) -> Numeric:
+        """Returns the Kullback-Leibler divergence of kind1 against kind2.
+
+        Parameters:
+          kind1, kind2 :: the kinds to compare
+
+        Returns infinity if the kinds have different values, otherwise returns
+            -sum_v w_1(v) log_2 w_2(v)/w_1(v)
+        where the sum is over the common values of the two kinds.
+
+        """
+        if not isinstance(kind1, Kind) or not isinstance(kind2, Kind):
+            raise KindError('Kind.divergence requires two arguments that are kinds.')
+
+        if kind1.dim != kind2.dim or kind1.size != kind2.size:
+            return RichReal(as_real('Infinity'))
+
+        vals1 = kind1.value_set
+        vals2 = kind2.value_set
+
+        if vals1 != vals2:
+            return RichReal(as_real('Infinity'))
+
+        w1 = kind1.weights
+        w2 = kind2.weights
+
+        div = as_real('0')
+        for v in vals1:
+            div -= w1[v] * numeric_log2(w2[v] / w1[v])
+        return RichReal(div)
 
     # The empty kind is a class datum; use a descriptor to please Python 3.10+
     empty = EmptyKindDescriptor()
@@ -694,7 +771,7 @@ class TaggedKind(Kind):
         if self.dim < lo or self.dim > hi:
             raise MismatchedDomain(f'Statistic {stat.name} is incompatible with this Kind, '
                                    f'which has dimension {self.dim} out of expected range '
-                                   f'[{lo}, {"infinity" if hi == infinity else hi}].')
+                                   f'[{lo}, {"infinity" if hi == math.inf else hi}].')
 
     def __or__(self, condition):
         return self._original.__or__(condition).transform(self._stat)
