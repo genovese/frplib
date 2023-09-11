@@ -6,6 +6,7 @@ from abc               import ABC
 from collections       import defaultdict
 from collections.abc   import Generator
 from decimal           import Decimal
+from functools         import reduce
 from operator          import add
 from typing            import cast, Literal, Union
 from typing_extensions import TypeGuard
@@ -31,6 +32,85 @@ def is_zero(x: Numeric):  # Move to Numeric, should it take ScalarQ?
 
 def show_coef(x: ScalarQ) -> str:
     return show_numeric(as_numeric(x), max_denom=1)
+
+def purify(x: Symbolic) -> Symbolic | Numeric:
+    pv = x.pure_value()
+    if pv is not None:
+        return pv
+    return x
+
+def common_term_rf(acc: dict[str, int] | None, multi: SymbolicMulti) -> dict[str, int]:
+    """Reducing function that extracts common multi terms from a multi sum. Coefs excluded.
+
+    Apply this to a SymbolicMultiSum x with reduce(common_term_rf, x). This returns
+    a term object for a SymbolicMulti with the variables and their powers represented.
+    An empty object corresponds to a constant, i.e., no nontrivial common term.
+
+    """
+    if acc is None:
+        acc = multi.term.copy()
+        return acc
+    acc_prime = defaultdict(int)
+    for var in acc:
+        if var in multi.term:
+            acc_prime[var] = min(acc[var], multi.term[var])
+    return acc_prime
+
+def common_term(sym_sum: SymbolicMultiSum) -> tuple[SymbolicMulti, SymbolicMultiSum]:
+    "Extracts a common term (if any) from sum and return (term, adjusted sum)."
+    term = reduce(common_term_rf, sym_sum.terms, None)
+    assert term is not None
+
+    if len(term) == 0:
+        return (symbolic_one, sym_sum)
+
+    common = SymbolicMulti.from_terms(term, sym_sum.coef)
+    adj_terms = []
+    for oterm in sym_sum.terms:
+        adj, _, _ = multis_divide(oterm, common)
+        adj_terms.append(adj / sym_sum.coef)
+    adj_sum = SymbolicMultiSum(adj_terms)
+
+    return (common, adj_sum)
+
+def multis_divide(
+        multi_num: SymbolicMulti,
+        multi_den: SymbolicMulti
+) -> tuple[SymbolicMulti, SymbolicMulti, bool]:
+    """
+    Returns None if the terms do not divide, or (1, denominator) or (numerator, 1)
+    if they do, where the non-1 term is the non-canceled remaining term.
+
+    """
+    dpv = multi_den.pure_value()
+    if dpv is not None:
+        return (multi_num / dpv, symbolic_one, False)
+
+    npv = multi_num.pure_value()
+    if npv is not None:
+        return (symbolic_one, multi_den / npv, False)
+
+    if (multi_den.term.keys() <= multi_num.term.keys() or
+       multi_num.term.keys() < multi_den.term.keys()):
+        num = multi_num.term.copy()
+        den = multi_den.term.copy()
+
+        for k in multi_num.term.keys() & multi_den.term.keys():
+            if den[k] <= num[k]:
+                num[k] -= den[k]
+                del den[k]
+            else:
+                den[k] -= num[k]
+                del num[k]
+
+        return (SymbolicMulti.from_terms(num, multi_num.coef),
+                SymbolicMulti.from_terms(den, multi_den.coef),
+                True)
+
+    return (multi_num, multi_den, False)
+
+def factor_quadratic(multisum: SymbolicMultiSum):
+    pass
 
 
 #
@@ -93,7 +173,7 @@ class SymbolicMulti(Symbolic):
         self.coef = as_numeric(coef)
 
         order = 0
-        sig = show_coef(self.coef)
+        sig = '1'  # show_coef(self.coef)
         multi: dict[str, int] = defaultdict(int)
         if not is_zero(self.coef):
             for var, pow in zip(vars, powers):
@@ -150,6 +230,9 @@ class SymbolicMulti(Symbolic):
         if len(multi) == 0:
             return coef
         return SymbolicMulti.from_terms(multi, coef)
+
+    def reset_coef(self, new_coef):
+        return SymbolicMulti.from_terms(self.term, new_coef)
 
     @property
     def signature(self) -> str:
@@ -318,7 +401,9 @@ symbolic_one = SymbolicMulti.pure(1)
 #
 
 class SymbolicMultiSum(Symbolic):
-    "A sum of symbolic multinomial terms sum_i c_i a_i1^k_1 a_i2^k_2 ... a_in^k_n."
+    """A sum of symbolic multinomial terms sum_i c_i a_i1^k_1 a_i2^k_2 ... a_in^k_n.
+
+    """
     def __init__(self, multis: list[SymbolicMulti]) -> None:
         terms = self.combine_terms(multis)
         if not terms:
@@ -328,7 +413,7 @@ class SymbolicMultiSum(Symbolic):
             self.key = '0'
             self.as_str: str | None = '0'
         elif len(terms) == 1 and terms[0].is_pure():
-            self.terms = []
+            self.terms = [terms[0]]
             self.coef = terms[0].pure_value()
             self.order = 0
             self.key = '1'
@@ -353,7 +438,7 @@ class SymbolicMultiSum(Symbolic):
         return str(self)
 
     def is_pure(self) -> bool:
-        return len(self.terms) == 0
+        return len(self.terms) == 1 and self.terms[0].is_pure()
 
     def is_single(self) -> bool:
         return len(self.terms) == 1
@@ -390,7 +475,7 @@ class SymbolicMultiSum(Symbolic):
         for term in terms:
             k = term.signature
             if k in combined:
-                combined[k] = SymbolicMulti.from_terms(term.term, combined[k].coef + term.coef)
+                combined[k] = term.reset_coef(combined[k].coef + term.coef)
             else:
                 combined[k] = term
         return [v for v in combined.values() if not is_zero(v.coef)]
@@ -483,12 +568,12 @@ class SymbolicMultiSum(Symbolic):
         if isinstance(other, (int, float, Decimal)):   # is_scalar_q(other):
             nother = as_numeric(other)
             if is_zero(nother):
-                return 0
+                return SymbolicMultiSum.singleton(symbolic_zero)
             if nother == 1:
                 return self
             pv = self.pure_value()
             if pv is not None:
-                return nother * pv
+                return SymbolicMultiSum.singleton(SymbolicMulti.pure(nother * pv))
             return SymbolicMultiSum([as_real(nother) * x for x in self.terms])
 
         pv = self.pure_value()
@@ -503,7 +588,7 @@ class SymbolicMultiSum(Symbolic):
     def __pow__(self, n):
         if isinstance(n, int):
             if n == 0:
-                return 1
+                return SymbolicMultiSum.singleton(symbolic_one)
             if n == 1:
                 return self
             if n % 2 == 0:
@@ -622,7 +707,8 @@ class SymbolicMultiRatio(Symbolic):
 
         if isinstance(other, SymbolicMultiRatio):
             if self.denominator.key_of == other.denominator.key_of:
-                return simplify(SymbolicMultiRatio(self.numerator + other.numerator, self.denominator))
+                r = self.denominator.coef / other.denominator.coef
+                return simplify(SymbolicMultiRatio(self.numerator + r * other.numerator, self.denominator))
 
             numer = self.numerator * other.denominator + self.denominator * other.numerator
             denom = self.denominator * other.denominator
@@ -707,7 +793,7 @@ class SymbolicMultiRatio(Symbolic):
                 return symbolic_zero
             numer = as_real(other) * self.numerator
             denom = self.denominator
-            return simplify(SymbolicMultiRatio(numer, denom))
+            return simplify(symbolic(numer, denom))
 
         if isinstance(other, SymbolicMultiSum):
             numer = other * self.numerator
@@ -786,7 +872,10 @@ def simplify(a: Symbolic | Numeric) -> Union[Symbolic, Numeric]:
     if apv is not None:
         return as_numeric(apv)
 
-    if isinstance(a, (SymbolicMulti, SymbolicMultiSum)):
+    if isinstance(a, SymbolicMulti):
+        return a
+
+    if isinstance(a, SymbolicMultiSum):
         return a
 
     assert isinstance(a, SymbolicMultiRatio)
@@ -800,11 +889,27 @@ def simplify(a: Symbolic | Numeric) -> Union[Symbolic, Numeric]:
     if dpv is not None:
         return a.numerator / as_real(dpv)
 
-    if a.numerator.key_of == a.denominator.key_of:
-        return as_real(a.numerator.coef / a.denominator.coef)
+    # We have a rational with neither term pure
+    # First try to extract and cancel common terms
+    common_num, adj_num = common_term(a.numerator)
+    common_den, adj_den = common_term(a.denominator)
+    simple_num, simple_den, changed = multis_divide(common_num, common_den)
+
+    if adj_num.key_of == adj_den.key_of:
+        ratio = as_real(adj_num.coef / adj_den.coef)
+        return purify(simple_num) * ratio / purify(simple_den)   # type: ignore
+
+    if not changed:
+        return a
+
+    return (purify(simple_num) / purify(simple_den)) * (adj_num / adj_den)   # type: ignore
 
     # Other simplification rules?
-    return a
+
+    # if a.numerator.key_of == a.denominator.key_of:
+    #     return as_real(a.numerator.coef / a.denominator.coef)
+
+    # return a
 
 
 #
