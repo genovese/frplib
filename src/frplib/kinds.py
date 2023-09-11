@@ -23,7 +23,7 @@ from frplib.kind_trees import (KindBranch,
 from frplib.numeric    import Numeric, ScalarQ, as_numeric, as_real, numeric_log2
 from frplib.protocols  import Projection
 from frplib.quantity   import as_quantity, as_quant_vec, show_quantities, show_qtuples
-from frplib.statistics import Statistic, Condition
+from frplib.statistics import Statistic, Condition, infinity, compose2
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol
 from frplib.utils      import (compose, const, identity,
                                is_interactive, is_tuple, lmap, some)
@@ -519,6 +519,12 @@ class Kind:
         """
         return self.transform(statistic)
 
+    def __rmatmul__(self, statistic):
+        "Returns a transformed kind with the original kind as context for conditionals."
+        if isinstance(statistic, Statistic):
+            return TaggedKind(self, statistic)
+        return NotImplemented
+
     # Need a protocol for ProjectionStatistic to satisfy to avoid circularity
     @overload
     def marginal(self, *__indices: int) -> 'Kind':
@@ -532,8 +538,8 @@ class Kind:
         """Computes the marginalized kind, projecting on the given indices.
 
         This is usually handled in the playground with the Proj factory
-        or by direct indexing of the kind. 
-        
+        or by direct indexing of the kind.
+
         """
         dim = self.dim
 
@@ -645,6 +651,41 @@ class Kind:
 
     def repr_internal(self) -> str:
         return f'Kind({repr(self._canonical)})'
+
+
+# Tagged kinds for context in conditionals
+#
+# phi@k acts exactly like phi(k) except in a conditional, where
+#    phi@k | (s(k) == v)
+# is like
+#    (k * phi(k) | (s(Proj[:(d+1)](__)) == v))[(d+1):]
+# but simpler
+#
+
+class TaggedKind(Kind):
+    def __init__(self, createFrom, stat: Statistic):
+        original = Kind(createFrom)
+        super().__init__(original.transform(stat))
+        self._original = original
+        self._stat = stat
+
+        lo, hi = stat.dim
+        if self.dim < lo or self.dim > hi:
+            raise MismatchedDomain(f'Statistic {stat.name} is incompatible with this Kind, '
+                                   f'which has dimension {self.dim} out of expected range '
+                                   f'[{lo}, {"infinity" if hi == infinity else hi}].')
+
+    def __or__(self, condition):
+        return self._original.__or__(condition).transform(self._stat)
+
+    def transform(self, statistic):
+        # maybe some checks here
+        new_stat = compose2(statistic, self._stat)
+        return TaggedKind(self._original, new_stat)
+
+    def _untagged(self):
+        return (self._stat, self._original)
+
 
 # Utilities
 

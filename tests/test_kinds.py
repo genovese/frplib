@@ -11,7 +11,7 @@ from frplib.kinds      import (kind, conditional_kind,
                                subsets, permutations_of,
                                )
 from frplib.quantity   import as_quantity
-from frplib.statistics import Proj
+from frplib.statistics import Proj, Sum, Min
 from frplib.symbolic   import symbol
 from frplib.utils      import lmap
 from frplib.vec_tuples import vec_tuple
@@ -118,10 +118,23 @@ def test_mixtures():
     has_disease_updated = (dStatus_and_tResult | (Test_Result == 1))[Disease_Status]
 
     w = dStatus_and_tResult.weights
-    assert values_of(w) == { vec_tuple(0, 0), vec_tuple(0, 1), vec_tuple(1, 0), vec_tuple(1, 1) }
+    assert values_of(w) == {vec_tuple(0, 0), vec_tuple(0, 1), vec_tuple(1, 0), vec_tuple(1, 1)}
     assert weights_of(w) == pytest.approx([as_quantity(v)
                                            for v in ['98901/100000', '999/100000', '1/20000', '19/20000']])
 
     w = has_disease_updated.weights
     assert values_of(w) == { vec_tuple(0), vec_tuple(1) }
     assert weights_of(w) == pytest.approx([as_quantity(v) for v in ['999/1094', '95/1094']])
+
+def test_tagged_kinds():
+    k = either(0, 1) * either(2, 3) * either(4, 5)
+
+    k1 = Sum @ k | (Proj[2] == 2)
+
+    list(k1.weights.values()) == [as_quantity('1/4'), as_quantity('1/2'), as_quantity('1/4')]
+    list(k1.weights.keys()) == [vec_tuple(6), vec_tuple(7), vec_tuple(8)]
+
+    k2 = Min @ k | (Proj[2] == 2)
+
+    list(k2.weights.values()) == [as_quantity('1/4'), as_quantity('1/2'), as_quantity('1/4')]
+    list(k2.weights.keys()) == [vec_tuple(6), vec_tuple(8), vec_tuple(9)]

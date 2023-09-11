@@ -21,7 +21,7 @@ from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
 from frplib.numeric    import Numeric, show_tuple, as_real
 from frplib.protocols  import Projection, SupportsExpectation
 from frplib.quantity   import as_quant_vec
-from frplib.statistics import Statistic, tuple_safe
+from frplib.statistics import Statistic, compose2, infinity, tuple_safe
 from frplib.utils      import scalarize
 from frplib.vec_tuples import VecTuple, as_scalar, as_vec_tuple, vec_tuple
 
@@ -802,7 +802,7 @@ class FRP:
 
     def __str__(self) -> str:
         if self._kind == Kind.empty:
-            return 'The empty FRP of dimension 0 with value <>'
+            return 'The empty FRP with value <>'
         if self._kind is not None:
             return (f'An FRP with value {show_tuple(self.value, max_denom=10)}')
         return f'An FRP with value {show_tuple(self.value, max_denom=10)}. (It may be slow to evaluate its kind.)'
@@ -1043,6 +1043,11 @@ class FRP:
 
         return conditional
 
+    def __rmatmul__(self, statistic):
+        "Returns a transformed FRP with the original FRP as context for conditionals."
+        if isinstance(statistic, Statistic):
+            return TaggedFRP(self, statistic)
+        return NotImplemented
 
 #
 # Constructors
@@ -1064,7 +1069,42 @@ def frp(spec) -> FRP:
     try:
         return FRP(spec)
     except Exception as e:
-        raise FrpError(f'I could not create an Frp from {any}: {str(e)}')
+        raise FrpError(f'I could not create an Frp from {spec}: {str(e)}')
+
+
+#
+# Tagged FRPs for context in conditionals
+#
+# phi@X acts exactly like phi(X) except in a conditional, where
+#    phi@X | (s(X) == v)
+# is like
+#    (X * phi(X) | (s(Proj[:(d+1)](__)) == v))[(d+1):]
+# but simpler
+#
+
+class TaggedFRP(FRP):
+    def __init__(self, createFrom, stat: Statistic):
+        original = frp(createFrom)
+        super().__init__(original.transform(stat))
+        self._original = original
+        self._stat = stat
+
+        lo, hi = stat.dim
+        if self.dim < lo or self.dim > hi:
+            raise MismatchedDomain(f'Statistic {stat.name} is incompatible with this Kind, '
+                                   f'which has dimension {self.dim} out of expected range '
+                                   f'[{lo}, {"infinity" if hi == infinity else hi}].')
+
+    def __or__(self, condition):
+        return self._original.__or__(condition).transform(self._stat)
+
+    def transform(self, statistic):
+        # maybe some checks here
+        new_stat = compose2(statistic, self._stat)
+        return TaggedFRP(self._original, new_stat)
+
+    def _untagged(self):
+        return (self._stat, self._original)
 
 
 #

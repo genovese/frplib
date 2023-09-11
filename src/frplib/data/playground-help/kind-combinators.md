@@ -13,6 +13,12 @@
   `k >> m ^ Project[-m.dim, -m.dim+1,...,-1]`. This reflects the common operation of *conditioning*,
   with the focus on the conditional kind `m`; it extracts the kind produced by `m` after
   averaging over the possible values of `k`.
++ `@` - evaluate a statistic at a kind with context
+   `psi @ k` is equivalent to `psi(k)` except that in a conditional expression
+   of the form `psi@k | c` the condition `c` receives the full kind `k` as input
+   rather than the value of `psi(k)`. This makes some conditional expressions
+   more convenient to enter. If `k` has dimension d, this is equivalent to
+   `(k * psi(k)) | c(Proj[:(d+1)]))[(d+1):]`, which is decidedly less friendly.
 
 ## Special Functions
 
