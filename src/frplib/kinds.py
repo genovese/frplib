@@ -817,15 +817,19 @@ def unfold(k: Kind) -> UnfoldedKind:  # ATTN: Return an object that prints this 
 
     return UnfoldedKind(unfolded, unfolded_str(scan, wd))
 
-def clean(k: Kind, tolerance=as_real('1e-16')) -> Kind:
+def clean(k: Kind, tolerance: ScalarQ = '1e-16') -> Kind:
     """Returns a new kind that eliminates from `k` any branches with numerically negligible weights.
 
     Weights < `tolerance` are assumed to be effectively zero and eliminated
     in the returned kind.
 
+    Parameter `tolerance` can be any scalar quantity, including a string representing
+    a decimal number or rational (no space around /).
+
     """
     # ATTN: new_normalize_branches above with _canonical=True can make this more efficient
-    return Kind([b for b in k._branches if b.p >= tolerance])
+    tol = as_real(tolerance)
+    return Kind([b for b in k._branches if b.p >= tol])
 
 
 # Sequence argument interface

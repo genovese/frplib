@@ -393,7 +393,8 @@ def show_values(
     digits = digit_shift - int(nround(size, REAL_ONE, ROUND_UP))
     mask = Decimal('1.' + ('0' * digits)) if digits > 0 else REAL_ONE
 
-    return [str(nround(x, mask)) for x in real_xs]
+    return [str(nice_round(x, 5)) for x in real_xs]
+    # return [str(nround(x, mask)) for x in real_xs]
 
 def show_tuples(
         tups: Iterable[tuple],
