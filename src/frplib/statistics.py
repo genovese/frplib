@@ -1172,6 +1172,10 @@ def Fork(stat: Statistic | ScalarQ, *other_stats: Statistic | ScalarQ) -> Statis
     return Statistic(forked, dim=dim, codim=codim,
                      name=f'fork({stat.name}, {", ".join([s.name for s in more_stats])})')
 
+def MFork(stat: MonoidalStatistic | ScalarQ, *other_stats: MonoidalStatistic | ScalarQ) -> MonoidalStatistic:
+    "Like Fork, but takes and returns Monoidal Statistics."
+    return cast(MonoidalStatistic, Fork(stat, *other_stats))
+
 # ATTN: fix up but keeping it simple for now
 def Permute(*p: int | tuple[int, ...]):
     """A statistics factory that produces permutation statistics.
