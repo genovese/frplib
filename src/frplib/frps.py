@@ -6,7 +6,7 @@ import random
 from abc               import ABC, abstractmethod
 from collections       import defaultdict
 from collections.abc   import Iterable
-from typing            import Callable, cast, overload
+from typing            import Callable, cast, overload, Union
 from typing_extensions import Self, Any, TypeAlias
 
 from rich.table        import Table
@@ -22,11 +22,14 @@ from frplib.numeric    import Numeric, show_tuple, as_real
 from frplib.protocols  import Projection, SupportsExpectation
 from frplib.quantity   import as_quant_vec
 from frplib.statistics import Statistic, compose2, infinity, tuple_safe
+from frplib.symbolic   import Symbolic
 from frplib.utils      import scalarize
 from frplib.vec_tuples import VecTuple, as_scalar, as_vec_tuple, vec_tuple
 
 
-ValueType: TypeAlias = VecTuple[Numeric]  # ATTN
+# ValueType: TypeAlias = VecTuple[Numeric]  # ATTN
+QuantityType: TypeAlias = Union[Numeric, Symbolic]
+ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 
 
 #
