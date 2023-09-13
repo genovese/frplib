@@ -346,7 +346,7 @@ class MixtureExpression(FrpExpression):
         if self._cached_value is None:
             mixer_value = self._mixer.value()
             target_frp = self._target(mixer_value)
-            self._cached_value = target_frp.value
+            self._cached_value = join_values([mixer_value, target_frp.value])
         return self._cached_value
 
     def kind(self) -> Kind:
