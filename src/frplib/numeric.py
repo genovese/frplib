@@ -309,7 +309,7 @@ class RealValue(Decimal):
 # ATTN: Move these to environment as settable options, the first two
 DEC_DENOMINATOR_LIMIT: int = 10**9
 MAX_DENOMINATOR_EXC = 50
-EXCLUDE_DENOMINATOR = {10, 25, 50, 100, 125, 250, 500, 1000}
+EXCLUDE_DENOMINATOR = {10, 20, 25, 50, 100, 125, 250, 500, 1000}
 ROUND_MASK = Decimal('1.000000000')
 
 def nroundx(x: Numeric, mask=ROUND_MASK, rounding=ROUND_HALF_UP) -> Decimal:
