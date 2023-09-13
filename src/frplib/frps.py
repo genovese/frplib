@@ -683,6 +683,56 @@ class ConditionalFRP:
         else:
             return f'ConditionalFRP({repr(self._fn)}{label})'
 
+    # FRP operations lifted to Conditional FRPs
+
+    def transform(self, statistic):
+        if not isinstance(statistic, Statistic):
+            raise FrpError('A conditional FRP can be transformed only by a Statistic.'
+                           ' Consider passing this tranform to `conditional_frp` first.')
+        lo, hi = statistic.dim
+        if self._dim is not None and (self._dim < lo or self._dim > hi):
+            raise FrpError(f'Statistic {statistic.name} is incompatible with this FRP: '
+                           f'acceptable dimension [{lo},{hi}] but kind dimension {self._dim}.')
+        if self._is_dict:
+            return ConditionalFRP({k: statistic(v) for k, v in self._mapping.items()})
+
+        if self._dim is not None:
+            def transformed(*value):
+                return statistic(self._fn(*value))
+        else:  # We have not vetted the dimension, so apply with care
+            def transformed(*value):
+                try:
+                    return statistic(self._fn(*value))
+                except Exception:
+                    raise FrpError(f'Statistic {statistic.name} appears incompatible with this FRP.')
+
+        return ConditionalFRP(transformed)
+
+    def __xor__(self, statistic):
+        return self.transform(statistic)
+
+    def __rshift__(self, cfrp):
+        if not isinstance(cfrp, ConditionalFRP):
+            return NotImplemented
+        if self._is_dict:
+            return ConditionalFRP({given: frp >> cfrp for given, frp in self._mapping.items()})
+
+        def mixed(*given):
+            self(*given) >> cfrp
+        return ConditionalKind(mixed)
+
+    def __mul__(self, cfrp):
+        if not isinstance(cfrp, ConditionalFRP):
+            return NotImplemented
+        if self._is_dict and cfrp._is_dict:
+            intersecting = self._mapping.keys() & cfrp._mapping.keys()
+            return ConditionalFRP({given: self._mapping[given] * cfrp._mapping[given] for given in intersecting})
+
+        def mixed(*given):
+            self(*given) * cfrp(*given)
+        return ConditionalFRP(mixed)
+
+
 def conditional_frp(mapping, *, codim=None, dim=None, domain=None) -> ConditionalFRP:
     """Converts a mapping from values to FRPs into a conditional FRP.
 

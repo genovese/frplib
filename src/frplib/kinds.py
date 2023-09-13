@@ -1481,6 +1481,55 @@ class ConditionalKind:
         else:
             return f'ConditionalKind({repr(self._fn)}{label})'
 
+    # Kind operations lifted to Conditional Kinds
+
+    def transform(self, statistic):
+        if not isinstance(statistic, Statistic):
+            raise KindError('A conditional kind can be transformed only by a Statistic.'
+                            ' Consider passing this tranform to `conditional_kind` first.')
+        lo, hi = statistic.dim
+        if self._dim is not None and (self._dim < lo or self._dim > hi):
+            raise KindError(f'Statistic {statistic.name} is incompatible with this kind: '
+                            f'acceptable dimension [{lo},{hi}] but kind dimension {self._dim}.')
+        if self._is_dict:
+            return ConditionalKind({k: statistic(v) for k, v in self._mapping.items()})
+
+        if self._dim is not None:
+            def transformed(*value):
+                return statistic(self._fn(*value))
+        else:  # We have not vetted the dimension, so apply with care
+            def transformed(*value):
+                try:
+                    return statistic(self._fn(*value))
+                except Exception:
+                    raise KindError(f'Statistic {statistic.name} appears incompatible with this kind.')
+
+        return ConditionalKind(transformed)
+
+    def __xor__(self, statistic):
+        return self.transform(statistic)
+
+    def __rshift__(self, ckind):
+        if not isinstance(ckind, ConditionalKind):
+            return NotImplemented
+        if self._is_dict:
+            return ConditionalKind({given: kind >> ckind for given, kind in self._mapping.items()})
+
+        def mixed(*given):
+            self(*given) >> ckind
+        return ConditionalKind(mixed)
+
+    def __mul__(self, ckind):
+        if not isinstance(ckind, ConditionalKind):
+            return NotImplemented
+        if self._is_dict and ckind._is_dict:
+            intersecting = self._mapping.keys() & ckind._mapping.keys()
+            return ConditionalKind({given: self._mapping[given] * ckind._mapping[given] for given in intersecting})
+
+        def mixed(*given):
+            self(*given) * ckind(*given)
+        return ConditionalKind(mixed)
+
 
 def conditional_kind(
         mapping: Callable[[ValueType], Kind] | dict[ValueType, Kind] | Kind | None = None,
