@@ -1326,7 +1326,7 @@ class ConditionalKind:
                                             f'of the same dimension: {self._dim} != {v.dim}')
             # Infer the codim if necessary and possible; we allow extra keys in the dict
             if self._codim is None and len(maybe_codims) == 1:
-                self._codim = len(maybe_codims)
+                self._codim = list(maybe_codims)[0]
 
             def fn(*args) -> Kind:
                 if len(args) == 0:
