@@ -515,7 +515,7 @@ class SymbolicMultiSum(Symbolic):
 
     def __rsub__(self, other):
         if isinstance(other, (int, float, Decimal)):   # is_scalar_q(other):
-            terms = [SymbolicMulti.pure(-other)]
+            terms = [SymbolicMulti.pure(other)]
             terms.extend(-1 * term for term in self.terms)
             return SymbolicMultiSum(terms)
 
