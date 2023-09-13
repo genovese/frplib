@@ -638,7 +638,7 @@ class ConditionalFRP:
         # if dict put out a table of values and FRP summaries
         # if callable, put out what information we have
         tbl = '\n'.join('  {value:<16s}  {frp:<s}'.format(value=str(k), frp=str(v))
-                        for k, v in self._mapping.items())
+                        for k, v in sorted(self._mapping.items(), key=lambda item: item[0]))
         label = ''
         dlabel = ''
         if self._codim:
