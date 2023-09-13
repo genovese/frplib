@@ -1300,11 +1300,11 @@ class ConditionalKind:
             self,
             mapping: Callable[[ValueType], Kind] | dict[ValueType, Kind] | Kind,
             *,
-            codim: int | None = None,
+            codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,
             domain: Iterable[ValueType] | None = None
     ) -> None:
-        # These are optional hints, useful for checking compatibility
+        # These are optional hints, useful for checking compatibility (codim=1 is significant though)
         self._codim = codim
         self._dim = dim
         self._domain = set(domain) if domain is not None else None
@@ -1370,7 +1370,10 @@ class ConditionalKind:
                 if value in self._mapping:
                     return self._mapping[value]
                 try:
-                    result = mapping(value)
+                    if self._codim == 1:  # pass a scalar
+                        result = mapping(value[0])
+                    else:
+                        result = mapping(value)
                 except Exception as e:
                     raise MismatchedDomain(f'encountered a problem passing {value} to a conditional Kind: {str(e)}')
                 self._mapping[value] = result   # Cache, fn should be pure

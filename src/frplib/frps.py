@@ -470,11 +470,11 @@ class ConditionalFRP:
             self,
             mapping: Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | ConditionalKind,
             *,
-            codim: int | None = None,
+            codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,
             domain: Iterable[ValueType] | None = None
     ) -> None:
-        # These are optional hints, useful for checking compatibility
+        # These are optional hints, useful for checking compatibility (codim=1 is significant though)
         self._codim = codim
         self._dim = dim
         self._domain: set | None = set(domain) if domain else None
@@ -534,7 +534,10 @@ class ConditionalFRP:
                 if value in self._mapping:
                     return self._mapping[value]
                 try:
-                    result = mapping(value)
+                    if self._codim == 1:  # pass a scalar
+                        result = mapping(value[0])
+                    else:
+                        result = mapping(value)
                 except Exception as e:
                     raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP: {str(e)}')
                 self._mapping[value] = result   # Cache to ensure we get the same FRP every time with value
