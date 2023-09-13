@@ -900,16 +900,20 @@ def sequence_of_values(
 
 void: Kind = Kind.empty
 
-def constant(a) -> Kind:
+def constant(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis]) -> Kind:  # type: ignore
     """Kind Factory: returns the kind of a constant FRP with the specified value.
 
-    Parameters:
-      `a`: any numeric value
+    Accepts any collection of symbolic or numeric values or
+    iterables thereof and flattens this into a quantitative tuple
+    which will be the single value `v` of the returned kind.
 
-    Returns the kind <> --- <a>.
+    Returns the kind <> --- <v>.
 
     """
-    return Kind.unit(a)
+    if len(xs) == 0:
+        return Kind.empty
+    value = as_quant_vec(sequence_of_values(*xs, flatten=Flatten.EVERYTHING))
+    return Kind.unit(value)
 
 def either(a, b, weight_ratio=1) -> Kind:
     """A choice between two possibilities a and b with ratio of weights (a to b) of `weight_ratio`.
