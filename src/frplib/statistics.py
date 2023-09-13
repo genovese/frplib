@@ -1500,6 +1500,7 @@ setattr(Tanh, '__info__', 'statistic-builtins')
 setattr(NormalCDF, '__info__', 'statistic-builtins')
 
 setattr(Fork, '__info__', 'statistic-combinators')
+setattr(MFork, '__info__', 'statistic-combinators')
 setattr(ForEach, '__info__', 'statistic-combinators')
 setattr(IfThenElse, '__info__', 'statistic-combinators')
 setattr(And, '__info__', 'statistic-combinators')

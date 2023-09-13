@@ -24,7 +24,7 @@ from frplib.numeric    import Numeric, ScalarQ, as_nice_numeric, as_numeric, as_
 from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection
 from frplib.quantity   import as_quantity, as_quant_vec, show_quantities, show_qtuples
-from frplib.statistics import Statistic, Condition, compose2
+from frplib.statistics import Condition, MonoidalStatistic, Statistic, compose2
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol
 from frplib.utils      import (compose, const, identity,
                                is_interactive, is_tuple, lmap, some)
@@ -831,6 +831,32 @@ def clean(k: Kind, tolerance: ScalarQ = '1e-16') -> Kind:
     tol = as_real(tolerance)
     return Kind([b for b in k._branches if b.p >= tol])
 
+def fast_mixture_pow(mstat: MonoidalStatistic, k: Kind, n: int) -> Kind:
+    """Efficiently computes the kind mstat(k ** n) for monoidal statistic `mstat`.
+
+    Parameters
+    ----------
+    `mstat` :: An arbitrary monoidal statistic. If this is not monoidal, the computed
+        kind may not be valid.
+    `k` :: An arbitrary kind
+    `n` :: A natural number
+
+    Returns the kind mstat(k ** n) without computing k ** n directly.
+
+    """
+    if n < 0:
+        raise KindError(f'fast_mixture_pow requires a non-negative power, given {n}.')
+    if n == 0:
+        return Kind.empty
+    if n == 1:
+        return k
+
+    kn2 = fast_mixture_pow(mstat, k, (n // 2))
+
+    if n % 2 == 0:
+        return mstat(kn2 * kn2)
+    return mstat(k * mstat(kn2 * kn2))
+
 
 # Sequence argument interface
 
@@ -1219,7 +1245,14 @@ def evenly_spaced(start, stop=None, num: int = 2, weight_by=lambda _: 1):
                  for i in range(num) if (x := start + i * step) is not None])
 
 def without_replacement(n: int, xs: Iterable) -> Kind:
-    "Kind of an FRP that samples n items from a set without replacement."
+    """Kind of an FRP that samples n items from a set without replacement.
+
+    The values of this kind do not distinguish between different orders
+    of the sample. To get the kind of samples with order do
+
+        permutations_of // without_replacement(n, xs)
+
+    """
     return Kind([KindBranch.make(vs=comb, p=1) for comb in combinations(xs, n)])
 
 def subsets(xs: Collection) -> Kind:
@@ -1589,3 +1622,5 @@ setattr(subsets, '__info__', 'kind-factories')
 setattr(permutations_of, '__info__', 'kind-factories')
 setattr(bin, '__info__', 'kind-combinators::bin')
 setattr(unfold, '__info__', 'actions')
+setattr(clean, '__info__', 'actions')
+setattr(fast_mixture_pow, '__info__', 'kind-combinators::fast_mixture_pow')

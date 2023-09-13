@@ -24,6 +24,7 @@
 
 + `bin` :: a kind that bins the values of another kind
 
++ `fast_mixture_pow` :: efficiently computes `stat(a_kind ** n)` for some statistics.
 ## Sub-topics
 
-+ `bin`
++ `bin`, `fast_mixture_pow`

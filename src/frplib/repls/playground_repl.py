@@ -80,7 +80,8 @@ playground_imports: dict[str, list[str]] = {
     # ATTN: Consider *not* adding the module names to globals
     'kinds': [
         'Kind', 'ConditionalKind',
-        'kind', 'conditional_kind', 'unfold', 'clean',
+        'kind', 'conditional_kind',
+        'unfold', 'clean', 'fast_mixture_pow',
         'constant', 'uniform', 'either',
         'symmetric', 'linear', 'geometric',
         'weighted_by', 'weighted_as', 'arbitrary',
@@ -98,7 +99,7 @@ playground_imports: dict[str, list[str]] = {
         'Exp', 'Log', 'Log2', 'Log10',
         'Sin', 'Cos', 'Tan', 'ATan2', 'Sinh', 'Cosh', 'Tanh',
         'Diff', 'Diffs', 'Permute',
-        'Constantly', 'Fork', 'ForEach', 'IfThenElse',
+        'Constantly', 'Fork', 'MFork', 'ForEach', 'IfThenElse',
         'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
     ],
     'expectations': ['E', 'D_'],

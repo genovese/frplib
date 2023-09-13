@@ -10,6 +10,10 @@ them into a new statistic.
 + `Fork` (also `fork`) :: `Fork(s1, s2, s3)` takes an input value v
     and produces the tuple `<s1(v), s2(v), s3(v)>`.
 
++ `MFork` is exactly like `Fork` but is designed to accept only
+   monoidal statistics. It's primary use is in the construction
+   of fast mixture powers. (See topic `kind-combinators::fast_mixture_pow`.)
+
 + `IfThenElse` :: takes three statistics, the first typically a condition.
    If the first is true, apply the second; else apply the third.
 
