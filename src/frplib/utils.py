@@ -10,6 +10,8 @@ from typing_extensions import Any, TypeGuard
 
 from frplib.env        import environment
 from frplib.exceptions import ConstructionError, OperationError
+from frplib.protocols  import Renderable
+
 #
 # Generic
 #
@@ -260,6 +262,31 @@ def some(func, iterable):
 def is_interactive() -> bool:
     "Checks if frp is running as an interactive app."
     return environment.is_interactive or hasattr(sys, 'ps1') or bool(sys.flags.interactive)
+
+# ATTN: This needs work but is still useful
+def show(x, *, print_it=True, indent=0, render=True):
+    "Shows nested objects in the REPL in a more presentable fashion."
+    if render and isinstance(x, Renderable):
+        out = x.__frplib_repr__()
+    elif isinstance(x, list):
+        ind0 = (" " * indent)
+        ind = ind0 + "  "
+        sep = "\n" + ind
+        init = "[\n" + ind
+        final = "\n" + ind0 + "]"
+        # Note: handle panels and block text
+        out = init + sep.join([show(xi, print_it=False, indent=indent + 2, render=False)
+                               for xi in x]) + final
+    elif isinstance(x, dict):
+        ind0 = (" " * indent)
+        out = str({k: show(v, print_it=False) for k, v in x.items()})
+    else:
+        ind0 = (" " * indent)
+        out = ind0 + str(x)
+    if print_it:
+        environment.console.print(out)
+        return
+    return out
 
 
 #
