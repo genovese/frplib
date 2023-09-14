@@ -1135,7 +1135,7 @@ def weighted_by(*xs, weight_by: Callable) -> Kind:
         return Kind.empty
     return Kind([KindBranch.make(vs=as_quant_vec(x), p=as_quantity(weight_by(x))) for x in values])
 
-def weighted_as(*xs, weights: list[ScalarQ | Symbolic] = []) -> Kind:
+def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
     """Returns a kind with the specified values weighted by given weights.
 
     Parameters
@@ -1252,12 +1252,19 @@ def without_replacement(n: int, xs: Iterable) -> Kind:
 
         permutations_of // without_replacement(n, xs)
 
+    See `ordered_samples` for the factory that does this.
+
     """
     return Kind([KindBranch.make(vs=comb, p=1) for comb in combinations(xs, n)])
 
 def subsets(xs: Collection) -> Kind:
     "Kind of an FRP whose values are subsets of a given collection."
-    return without_replacement(len(xs), xs)
+    coll = list(xs)
+    return without_replacement(len(coll), coll)
+
+def ordered_samples(n: int, xs: Collection) -> Kind:
+    "Kind of an FRP whose values are all ordered samples of size `n` from the given collection."
+    return permutations_of // without_replacement(n, xs)
 
 def permutations_of(xs: Collection, r=None) -> Kind:
     "Kind of an FRP whose values are permutations of a given collection."
