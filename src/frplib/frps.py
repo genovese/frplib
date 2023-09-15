@@ -343,7 +343,8 @@ class MixtureExpression(FrpExpression):
     def sample1(self, want_value=False) -> ValueType:
         mixer_value = self._mixer.sample1()
         target_frp = self._target(mixer_value)
-        return FRP.sample1(target_frp)
+        target_value = FRP.sample1(target_frp)
+        return join_values([mixer_value, target_value])
 
     def value(self) -> ValueType:
         if self._cached_value is None:
@@ -733,13 +734,40 @@ class ConditionalFRP:
         return ConditionalFRP(mixed)
 
 
-def conditional_frp(mapping, *, codim=None, dim=None, domain=None) -> ConditionalFRP:
+def conditional_frp(
+        mapping: Callable[[ValueType], FRP] | dict[ValueType, FRP] | ConditionalKind | None = None,
+        *,
+        codim=None,
+        dim=None,
+        domain=None
+) -> ConditionalFRP | Callable[..., ConditionalFRP]:
     """Converts a mapping from values to FRPs into a conditional FRP.
 
-    While an arbitrary mapping can be used ATTN
+    The mapping can be a dictionary associating values (vector tuples)
+    to FRPs, a function associating values to FRPs, or a conditional kind.
+
+    The dictionaries can be specified with scalar keys as these are automatically
+    wrapped in a tuple. If you want the function to accept a scalar argument
+    rather than a tuple (even 1-dimensional), you should supply codim=1.
+
+    The `codim`, `dim`, and `domain` arguments are used for compatibility
+    checks, except for the codim=1 case mentioned earlier. `domain` is the
+    set of possible values which can be supplied when mapping is a function
+    (or used as a decorator).
+
+    If mapping is missing, this function can acts as a decorator on the
+    function definition following.
+
+    Returns a ConditionalFRP (if mapping given) or a decorator.
 
     """
-    return ConditionalFRP(mapping, codim=codim, dim=dim, domain=domain)
+    if mapping is not None:
+        return ConditionalFRP(mapping, codim=codim, dim=dim, domain=domain)
+
+    def decorator(fn: Callable) -> ConditionalFRP:
+        return ConditionalFRP(fn, codim=codim, dim=dim, domain=domain)
+    return decorator
+
 
 class EmptyFrpDescriptor:
     def __get__(self, obj, objtype=None):

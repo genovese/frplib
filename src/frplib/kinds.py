@@ -1580,7 +1580,23 @@ def conditional_kind(
 ) -> ConditionalKind | Callable[..., ConditionalKind]:
     """Converts a mapping from values to FRPs into a conditional FRP.
 
-    While an arbitrary mapping can be used ATTN
+    The mapping can be a dictionary associating values (vector tuples)
+    to FRPs or a function associating values to kindss. In the latter
+    case, a `domain` set can be supplied for validation.
+
+    The dictionaries can be specified with scalar keys as these are automatically
+    wrapped in a tuple. If you want the function to accept a scalar argument
+    rather than a tuple (even 1-dimensional), you should supply codim=1.
+
+    The `codim`, `dim`, and `domain` arguments are used for compatibility
+    checks, except for the codim=1 case mentioned earlier. `domain` is the
+    set of possible values which can be supplied when mapping is a function
+    (or used as a decorator).
+
+    If mapping is missing, this function can acts as a decorator on the
+    function definition following.
+
+    Returns a ConditionalKind (if mapping given) or a decorator.
 
     """
     if mapping is not None:
