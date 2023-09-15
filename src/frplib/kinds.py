@@ -20,14 +20,14 @@ from frplib.exceptions import ConstructionError, KindError, MismatchedDomain
 from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
-from frplib.numeric    import Numeric, ScalarQ, as_nice_numeric, as_numeric, as_real, numeric_log2
+from frplib.numeric    import (Numeric, ScalarQ, as_nice_numeric, as_numeric, as_real,
+                               is_numeric, numeric_log2, numeric_floor)
 from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection
 from frplib.quantity   import as_quantity, as_quant_vec, show_quantities, show_qtuples
 from frplib.statistics import Condition, MonoidalStatistic, Statistic, compose2
-from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol
-from frplib.utils      import (compose, const, identity,
-                               is_interactive, is_tuple, lmap, some)
+from frplib.symbolic   import Symbolic, gen_symbol, symbol
+from frplib.utils      import compose, const, identity, is_interactive, is_tuple, lmap
 from frplib.vec_tuples import VecTuple, as_numeric_vec, as_scalar_strict, as_vec_tuple, vec_tuple
 
 
@@ -281,12 +281,12 @@ class Kind:
         return Kind([KindBranch.make(as_quant_vec(value), 1)])
 
     @classmethod
-    def compare(cls, kind1: Kind, kind2: Kind, tolerance: ScalarQ = '1e-16') -> str:
+    def compare(cls, kind1: Kind, kind2: Kind, tolerance: ScalarQ = '1e-12') -> str:
         """Compares two kinds and returns a diagnostic message about the differences, if any.
 
         Parameters:
           kind1, kind2 :: the kinds to compare
-          tolerance[='1e-16'] :: numerical tolerance for comparing weights
+          tolerance[='1e-12'] :: numerical tolerance for comparing weights
 
         Returns a (rich) string that prints nicely at the repl.
 
@@ -315,12 +315,12 @@ class Kind:
         return RichString('The two kinds are the [bold green]same[/] within numerical precision.')
 
     @classmethod
-    def equal(cls, kind1, kind2, tolerance: ScalarQ = '1e-16') -> bool:
+    def equal(cls, kind1, kind2, tolerance: ScalarQ = '1e-12') -> bool:
         """Compares two kinds and returns True if they are equal within numerical tolerance.
 
         Parameters:
           kind1, kind2 :: the kinds to compare
-          tolerance[='1e-16'] :: numerical tolerance for comparing weights
+          tolerance[='1e-12'] :: numerical tolerance for comparing weights
 
         Returns True if the kinds are the same (within tolerance), else False.
 
@@ -850,9 +850,9 @@ def fast_mixture_pow(mstat: MonoidalStatistic, k: Kind, n: int) -> Kind:
     if n < 0:
         raise KindError(f'fast_mixture_pow requires a non-negative power, given {n}.')
     if n == 0:
-        return Kind.empty
+        return constant(mstat())
     if n == 1:
-        return k
+        return mstat(k)
 
     kn2 = fast_mixture_pow(mstat, k, (n // 2))
 
@@ -907,8 +907,10 @@ def sequence_of_values(
         if value == Ellipsis:
             if i <= 1 or i == n - 1:
                 raise KindError(f'Argument ... to {parent or "a factory"} must be appear in the pattern a, b, ..., c.')
-            a, b, c = (proto_values[i - 2], proto_values[i - 1], proto_values[i + 1])
-            if some(is_symbolic, [a, b, c]):
+
+            a, b, c = tuple(as_quantity(proto_values[j]) for j in [i - 2, i - 1, i + 1])
+
+            if not is_numeric(a) or not is_numeric(b) or not is_numeric(c):
                 raise ConstructionError('An ellipsis ... cannot be used between symbolic quantities')
             if (a - b) * (b - c) <= 0:
                 raise KindError(f'Argument ... to {parent or "a factory"} must be appear in the pattern a, b, ..., c '
@@ -916,7 +918,9 @@ def sequence_of_values(
             if (c - b) > (b - a) * ELLIPSIS_MAX_LENGTH:
                 raise KindError(f'Argument ... to {parent or "a factory"} will leads to a very large sequence;'
                                 f"I'm guessing this is a mistake.")
-            values.extend([transform(b + k * (b - a)) for k in range(1, int(math.floor((c - b) / (b - a))))])
+
+            values.extend([transform(b + k * (b - a))
+                           for k in range(1, int(numeric_floor(as_real(c - b) / (b - a))))])
         else:
             values.append(transform(value))
 

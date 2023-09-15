@@ -15,7 +15,7 @@ import re
 from abc               import abstractmethod
 from collections.abc   import Iterable
 from dataclasses       import dataclass
-from decimal           import Decimal, ROUND_HALF_UP, ROUND_UP
+from decimal           import Decimal, ROUND_HALF_UP, ROUND_UP, ROUND_FLOOR, ROUND_CEILING
 from enum              import Enum, auto
 from fractions         import Fraction
 from typing            import cast, Literal, Union
@@ -153,6 +153,9 @@ Numeric:  TypeAlias = NumericD  # Default underlying numeric representation
 def is_scalar_q(x) -> TypeGuard[Union[int, float, Fraction, Decimal, NumericQ, str]]:
     return isinstance(x, (int, float, Fraction, Decimal, NumericQuantity, str, bool))  # bool auto cast to int
 
+def is_numeric(x) -> TypeGuard[Union[int, Decimal]]:
+    return isinstance(x, (int, float, Fraction, Decimal, NumericQuantity, str, bool))  # bool auto cast to int
+
 
 #
 # Numeric Conversion
@@ -268,21 +271,36 @@ def as_nice_numeric(x: ScalarQ = RealQuantity(), digits=NICE_DIGITS) -> Numeric:
 # Specialized Calculations
 #
 
-def numeric_sqrt(x: Numeric) -> Numeric:
+def numeric_sqrt(x: ScalarQ) -> Numeric:
     return as_real(x).sqrt()
 
-def numeric_exp(x: Numeric) -> Numeric:
+def numeric_exp(x: ScalarQ) -> Numeric:
     return as_real(x).exp()
 
-def numeric_ln(x: Numeric) -> Numeric:
+def numeric_ln(x: ScalarQ) -> Numeric:
     return as_real(x).ln()
 
-def numeric_log10(x: Numeric) -> Numeric:
+def numeric_log10(x: ScalarQ) -> Numeric:
     return as_real(x).log10()
 
-def numeric_log2(x: Numeric) -> Numeric:
+def numeric_log2(x: ScalarQ) -> Numeric:
     c = as_real(2).ln()
     return as_real(x).ln() / c
+
+def numeric_abs(x: ScalarQ) -> Numeric:
+    if isinstance(x, int):
+        return abs(x)
+    return as_real(x).copy_abs()
+
+def numeric_floor(x: ScalarQ) -> Numeric:
+    if isinstance(x, int):
+        return x
+    return as_real(x).quantize(REAL_ONE, ROUND_FLOOR)
+
+def numeric_ceil(x: ScalarQ) -> Numeric:
+    if isinstance(x, int):
+        return x
+    return as_real(x).quantize(REAL_ONE, ROUND_CEILING)
 
 
 #

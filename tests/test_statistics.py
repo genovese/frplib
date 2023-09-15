@@ -17,7 +17,7 @@ from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                Constantly, Fork, ForEach, IfThenElse,
                                And, Or, Not, Xor, top, bottom,
                                )
-from frplib.quantity   import as_quantity
+from frplib.quantity   import as_quantity, qvec
 from frplib.symbolic   import symbol
 from frplib.vec_tuples import vec_tuple
 
@@ -99,6 +99,9 @@ def test_builtin_statistics():
     assert Ceil(4.2) == vec_tuple(5)
     assert Floor(0) == vec_tuple(0)
     assert Ceil(0) == vec_tuple(0)
+
+    assert Abs(-4.2) == qvec(4.2)
+    assert Abs('4.2') == Abs(4.2)
 
     assert Sqrt(4) == vec_tuple(2)
     assert Sqrt(1.44) == vec_tuple(as_quantity(1.2))

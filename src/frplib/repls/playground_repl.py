@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from importlib                     import import_module
 from importlib.resources           import files
-from pathlib                       import Path
 
 from prompt_toolkit.formatted_text import HTML, ANSI
 from prompt_toolkit.shortcuts      import print_formatted_text
@@ -107,6 +106,8 @@ playground_imports: dict[str, list[str]] = {
         'FRP', 'frp', 'conditional_frp', 'shuffle',
     ],
     'calculate': ['substitute', 'substitute_with', 'substitution'],
+    'numeric': ['numeric_exp', 'numeric_ln', 'numeric_log10', 'numeric_log2',
+                'numeric_abs', 'numeric_floor', 'numeric_ceil'],
     'quantity': ['as_quantity', 'qvec'],
     'symbolic': ['gen_symbol', 'is_symbolic', 'symbol'],
     'utils': [

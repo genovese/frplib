@@ -9,12 +9,12 @@ from frplib.kinds      import (Kind, kind, conditional_kind,
                                weighted_by, weighted_as, arbitrary,
                                integers, evenly_spaced, bin,
                                subsets, permutations_of,
-                               )
-from frplib.numeric    import numeric_log2
+                               fast_mixture_pow)
+from frplib.numeric    import as_numeric, numeric_log2
 from frplib.quantity   import as_quantity
-from frplib.statistics import Proj, Sum, Min
+from frplib.statistics import Proj, Sum, Min, Max
 from frplib.symbolic   import symbol
-from frplib.utils      import lmap
+from frplib.utils      import irange, lmap
 from frplib.vec_tuples import vec_tuple
 
 
@@ -152,4 +152,22 @@ def test_comparisons():
     assert Kind.divergence(uniform(0, 2), uniform(0, 2)) == 0
     assert Kind.divergence(uniform(0, 2), weighted_as(1, 2, weights=[0.999, 1.001])) == as_quantity('Infinity')
     assert Kind.divergence(uniform(1, 2), weighted_as(1, 2, weights=['1/4', '3/4'])) == \
-        pytest.approx(as_quantity('1/2') - numeric_log2('1.5') / 2)
+        pytest.approx(as_numeric('1/2') - numeric_log2('1.5') / 2)   # type: ignore
+
+def test_fast_pow():
+    assert Kind.equal(fast_mixture_pow(Sum, either(0, 1), 0), constant(0))
+    assert Kind.equal(fast_mixture_pow(Min, either(0, 1), 0), constant('infinity'))
+    assert Kind.equal(fast_mixture_pow(Max, either(0, 1), 0), constant('-infinity'))
+    assert Kind.equal(fast_mixture_pow(Sum, either(0, 1), 1), either(0, 1))
+    assert Kind.equal(fast_mixture_pow(Sum, either(0, 1), 2), Sum(either(0, 1) * either(0, 1)))
+    assert Kind.equal(fast_mixture_pow(Sum, either(0, 1), 5), Sum(either(0, 1) ** 5))
+
+def test_factory_details():
+    # Test for roundoff that was happening in the differences with ...
+    a_values = [as_numeric(0.05) * k for k in irange(1, 19)]
+    k = uniform(0.05, 0.1, ..., 0.95)
+    assert Kind.equal(k, uniform(a_values), tolerance='1.0e-16')
+
+    k1 = weighted_as({0.05: 1, 0.45: 2, 0.70: 3})
+    k2 = weighted_as(0.05, 0.45, 0.70, weights=[1, 2, 3])
+    assert Kind.equal(k1, k2, tolerance='1.0e-16')

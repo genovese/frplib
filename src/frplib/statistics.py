@@ -6,15 +6,16 @@ import re
 import textwrap
 
 from collections.abc   import Iterable
-from decimal           import Decimal, ROUND_CEILING, ROUND_FLOOR
+from decimal           import Decimal
 from functools         import wraps
 from operator          import itemgetter
 from typing            import Callable, cast, Literal, Optional, overload, Union
 from typing_extensions import Self, TypeAlias, TypeGuard
 
 from frplib.exceptions import OperationError, StatisticError, DomainDimensionError
-from frplib.numeric    import (REAL_ONE, ScalarQ, as_real, numeric_sqrt, numeric_exp,
-                               numeric_ln, numeric_log10, numeric_log2)
+from frplib.numeric    import (ScalarQ, as_real, numeric_sqrt, numeric_exp,
+                               numeric_ln, numeric_log10, numeric_log2,
+                               numeric_abs, numeric_floor, numeric_ceil)
 
 from frplib.protocols  import Projection, Transformable
 from frplib.quantity   import as_quant_vec, as_quantity
@@ -230,31 +231,6 @@ def old_tuple_safe(fn: Callable, arity: Optional[int] = None) -> Callable:
 #
 # The Statistics Interface
 #
-
-# TODO: Need to handle dimensions of return type.
-#       In particular, something like Sum returns a scalar, which needs to be wrapped in a tuple at the end ?!?
-#       Also want to allow operations on tuples to be component wise and implement @ as a dot product
-#       So,   Id - (1, 2, 3) is a tuple and Id @ (1, 2, 3) is a scalar wrapped
-#       Add: Scalar function or wrap scalar constants in operation methods below
-
-# Idea here is to be able to do things like
-# dice | Sum > 5 and d6 ** 4 ^ Sum / 4  and d6 ** 4 ^ Mean
-# or even dice ^ Sum > 5
-
-# dice | fork(Sum, Count)               # produces tuples x :-> (sum(x), len(x))
-# dice | chain(Id - 7, Abs, Id <= 3)    # should reduce to lambda x: |x - 7| <= 3
-#
-# Built-in statistics: Sum, Mean, Max, Min, Product, Count, Dot(c1,c2,c3,...)
-# [dot product, repeat last coefficient ad infinitum; this is a function that produces a Statistic],
-# Id, Proj(1,...) [func that produces a statistic, equiv to @ but allows Proj(2) - Proj(1)],
-# Permutation(i1,i2,i3,...),
-# Square, Cube, SumOfSquares, Sqrt, Pow(exp), Exp, Ln, Abs, Sin, Cos, Tan
-
-# NOTE: This means that we want to accept 0-1 valued functions in conditioning predicates
-# as well as boolean functions. Or maybe it's OK and just works, but probably want to convert
-# boolean to 0-1 in .map().  <<<---- so events become easy
-
-# Note: codim=0 can be used to mean the same dim as input
 
 # ATTN: Also implement things like __is__ and __in__ so we can do X ^ (__ in {0, 1, 2})
 
@@ -1030,18 +1006,12 @@ Min = MonoidalStatistic(min, unit=as_quantity('infinity'), dim=0, codim=1, name=
                         description='returns the minimum of all components of the given value')
 Mean = Statistic(lambda x: sum(x) / len(x), dim=0, codim=1, name='mean',
                  description='returns the arithmetic mean of all components of the given value')
-Abs = Statistic(abs, dim=1, codim=1, name='abs',
+Abs = Statistic(numeric_abs, dim=1, codim=1, name='abs',
                 description='returns the absolute value of the given number')
-
-@statistic(dim=1, codim=1, name='floor',
-           description='returns the greatest integer <= its argument')
-def Floor(x):
-    return as_real(x).quantize(REAL_ONE, ROUND_FLOOR)
-
-@statistic(dim=1, codim=1, name='ceiling',
-           description='returns the least integer >= its argument')
-def Ceil(x):
-    return as_real(x).quantize(REAL_ONE, ROUND_CEILING)
+Floor = Statistic(numeric_floor, dim=1, codim=1, name='floor',
+                  description='returns the greatest integer <= its argument')
+Ceil = Statistic(numeric_ceil, dim=1, codim=1, name='ceiling',
+                 description='returns the least integer >= its argument')
 
 Sqrt = Statistic(numeric_sqrt, dim=1, codim=1, name='sqrt', strict=True,
                  description='returns the square root of a scalar argument')
@@ -1053,7 +1023,7 @@ Log2 = Statistic(numeric_log2, dim=1, codim=1, name='log', strict=True,
                  description='returns the logarithm base 2 of a positive scalar argument')
 Log10 = Statistic(numeric_log10, dim=1, codim=1, name='log', strict=True,
                   description='returns the logarithm base 10 of a positive scalar argument')
-# Can use the decimal recipes for sin and cos
+# ATTN: Can use the decimal recipes for sin and cos
 Sin = Statistic(math.sin, dim=1, codim=1, name='sin', strict=True,
                 description='returns the sine of a scalar argument')
 Cos = Statistic(math.cos, dim=1, codim=1, name='cos', strict=True,
