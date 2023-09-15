@@ -466,7 +466,10 @@ class Kind:
         """
         if isinstance(statistic, Statistic):
             lo, hi = statistic.dim
-            if self.dim >= lo and self.dim <= hi:
+            if self.dim == 0 and lo == 0:
+                # On Kind.empty, MonoidalStatistics return constant of their unit
+                return constant(statistic())
+            if lo <= self.dim <= hi:
                 f = statistic
             else:  # Dimensions don't match, try it anyway?  (ATTN)
                 try:
