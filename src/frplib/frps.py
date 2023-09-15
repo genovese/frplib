@@ -164,7 +164,7 @@ class FrpExpression(ABC):
         ...
 
     @abstractmethod
-    def clone(self) -> 'FrpExpression':
+    def clone(self) -> FrpExpression:
         ...
 
 class TransformExpression(FrpExpression):
@@ -892,12 +892,12 @@ class FRP:
         "Returns true if this FRP has an efficiently available kind."
         return self._expr is None and self._kind is not None
 
-    def clone(self) -> 'FRP':
+    def clone(self) -> FRP:
         if self.is_kinded():
             new_frp = FRP(self.kind)
         else:
             assert self._expr is not None   # Grrr...
-            new_frp = FRP(self._expr)
+            new_frp = FRP(self._expr.clone())
             new_frp._kind = self._kind  # If already computed, use it.
         return new_frp
 
