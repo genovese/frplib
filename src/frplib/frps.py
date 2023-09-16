@@ -1065,9 +1065,12 @@ class FRP:
             indices = tuple(index_spec[0].subspace)
         elif isinstance(index_spec[0], slice):
             start, stop, step = index_spec[0].indices(dim + 1)
-            indices = tuple(range(start, stop, step))
+            indices = tuple(range(max(start, 1), stop, step))
         else:
             indices = index_spec
+
+        if len(indices) == 0:
+            return FRP.empty
 
         # Check dimensions (allow negative indices python style)
         if any([index == 0 or index < -dim or index > dim for index in indices]):
@@ -1092,10 +1095,7 @@ class FRP:
 
     def __getitem__(self, indices):
         "Marginalizing this kind; other is a projection index or list of indices (1-indexed)"
-        try:
-            return self.marginal(indices)
-        except:  # noqa: E722
-            return NotImplemented
+        return self.marginal(indices)
 
     def __or__(self, predicate):
         "Applies a conditional filter to an FRP"

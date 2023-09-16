@@ -171,3 +171,14 @@ def test_factory_details():
     k1 = weighted_as({0.05: 1, 0.45: 2, 0.70: 3})
     k2 = weighted_as(0.05, 0.45, 0.70, weights=[1, 2, 3])
     assert Kind.equal(k1, k2, tolerance='1.0e-16')
+
+def test_indexing():
+    k = either(0, 1) * either(2, 3) * either(4, 5) * either(6, 7)
+    assert Kind.equal(k[:2], either(0, 1))
+    assert Kind.equal(k[:-1], either(0, 1) * either(2, 3) * either(4, 5))
+    assert Kind.equal(k[-3:-1], either(2, 3) * either(4, 5))
+    with pytest.raises(KindError):
+        k[5]
+    with pytest.raises(KindError):
+        k[-5]
+    assert Kind.equal(k[:1], Kind.empty)
