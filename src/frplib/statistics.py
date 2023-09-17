@@ -8,6 +8,7 @@ import textwrap
 from collections.abc   import Iterable
 from decimal           import Decimal
 from functools         import wraps
+from math              import prod
 from operator          import itemgetter
 from typing            import Callable, cast, Literal, Optional, overload, Union
 from typing_extensions import Self, TypeAlias, TypeGuard
@@ -998,6 +999,8 @@ def Constantly(x) -> Statistic:
 
 Sum = MonoidalStatistic(sum, unit=0, dim=0, codim=1, name='sum',
                         description='returns the sum of all the components of the given value')
+Product = MonoidalStatistic(prod, unit=1, dim=0, codim=1, name='product',
+                            description='returns the product of all the components of the given value')
 Count = MonoidalStatistic(len, unit=0, dim=0, codim=1, name='count',
                           description='returns the number of components in the given value')
 Max = MonoidalStatistic(max, unit=as_quantity('-infinity'), dim=0, codim=1, name='max',

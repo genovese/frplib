@@ -148,7 +148,7 @@ def irange(
     else:
         start = start_or_stop
 
-    if (stop - start) * step <= 0:
+    if (stop - start) * step < 0:
         raise ConstructionError(f'irange {start}:{stop} and step {step} have inconsistent direction.')
 
     sign = 1 if step >= 0 else -1

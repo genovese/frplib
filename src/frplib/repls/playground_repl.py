@@ -93,7 +93,7 @@ playground_imports: dict[str, list[str]] = {
         'tuple_safe', 'infinity',
         'fork', 'chain', 'compose',
         'Id', 'Scalar', '__', 'Proj', '_x_',
-        'Sum', 'Count', 'Max', 'Min', 'Mean', 'Abs',
+        'Sum', 'Product', 'Count', 'Max', 'Min', 'Mean', 'Abs',
         'Sqrt', 'Floor', 'Ceil', 'NormalCDF',
         'Exp', 'Log', 'Log2', 'Log10',
         'Sin', 'Cos', 'Tan', 'ATan2', 'Sinh', 'Cosh', 'Tanh',
