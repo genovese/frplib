@@ -12,7 +12,7 @@ from frplib.vec_tuples import VecTuple, vec_tuple
 
 def as_quantity(
         x: ScalarQ | Symbolic = 0,
-        convert_numeric=as_nice_numeric  # ATTN: as_numeric instead??
+        convert_numeric=as_numeric  # as_nice_numeric  # ATTN: as_numeric instead??
 ) -> Numeric | Symbolic:
     if isinstance(x, Symbolic):
         return x
