@@ -14,7 +14,8 @@ from typing_extensions import Any, TypeAlias
 from parsy             import ParseError
 
 from frplib.exceptions           import KindError
-from frplib.numeric              import Numeric, ScalarQ, show_values, show_tuples, as_nice_numeric
+from frplib.numeric              import (Numeric, ScalarQ, as_nice_numeric, as_real,
+                                         show_values, show_tuples)
 from frplib.parsing.kind_strings import canonical_tree, kind_sexp, validate_kind
 from frplib.parsing.parsy_adjust import parse_error_message
 from frplib.quantity             import as_quantity, as_quant_vec, as_real_quantity
@@ -118,9 +119,10 @@ class KindBranch(_KindBranch):
             return KindBranch.make(vs=vs(branch.vs), p=p(branch.p))
         return transform
 
+# ATTN: This version is not called; see kinds; remove?
 def normalize_branches(canonical) -> list[KindBranch]:
     seen: dict[tuple, KindBranch] = {}
-    total = sum(map(lambda b: b.p, canonical))
+    total = as_quantity(sum(map(lambda b: b.p, canonical)), convert_numeric=as_real)
     for branch in canonical:
         if branch.vs in seen:
             seen[branch.vs] = KindBranch.make(vs=branch.vs, p=seen[branch.vs].p + branch.p / total)

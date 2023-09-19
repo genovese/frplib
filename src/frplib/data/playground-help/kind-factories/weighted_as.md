@@ -10,6 +10,8 @@ Values (and weights) can be specified in a variety of ways:
     the former determine the start and increment; the latter the end point.
     Multiple implied sequences with different increments are allowed,
     e.g., weighted_as(1, 2, ..., 10, 12, ... 20)
+    Note that the pattern a, b, ..., a will be taken as the singleton list [a]
+    with b ignored, and the pattern a, b, ..., b produces [a, b].
   + As an iterable, e.g., weighted_as([1, 10, 20]) or weighted_as(irange(1,52))
   + With a combination of methods, e.g.,
        weighted_as(1, 2, [4, 3, 5], 10, 12, ..., 16)

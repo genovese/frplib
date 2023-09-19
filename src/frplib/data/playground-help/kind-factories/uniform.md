@@ -11,6 +11,8 @@ kind factories):
   the former determine the start and increment; the latter the end point.
   Multiple implied sequences with different increments are allowed,
   e.g., `uniform(1, 2, ..., 10, 12, ... 20)`
+  Note that the pattern a, b, ..., a will be taken as the singleton list [a]
+  with b ignored, and the pattern a, b, ..., b produces [a, b].
 + As an iterable, e.g., `uniform([1, 10, 20])` or `uniform(irange(1,52))`
 + With a combination of methods, e.g.,
      `uniform(1, 2, [4, 3, 5], 10, 12, ..., 16)`

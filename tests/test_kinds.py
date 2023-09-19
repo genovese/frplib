@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from frplib.exceptions import KindError
+from frplib.exceptions import ConstructionError, KindError
 from frplib.kinds      import (Kind, kind, conditional_kind,
                                constant, either, uniform,
                                symmetric, linear, geometric,
                                weighted_by, weighted_as, arbitrary,
                                integers, evenly_spaced, bin,
                                subsets, permutations_of,
+                               sequence_of_values,
                                fast_mixture_pow)
 from frplib.numeric    import as_numeric, numeric_log2
 from frplib.quantity   import as_quantity
@@ -24,6 +25,33 @@ def values_of(u):
 def weights_of(u):
     return list(u.values())
 
+
+def test_value_sequences():
+    assert sequence_of_values(1, 2, 3) == [1, 2, 3]
+    assert sequence_of_values(1) == [1]
+    assert sequence_of_values(1, 2, ..., 6) == list(range(1, 7))
+    assert sequence_of_values(10, 9, ..., 0) == list(range(10, -1, -1))
+    assert sequence_of_values(0.05, 0.10, ..., 0.95, transform=as_quantity) == [as_quantity(0.05) * k for k in range(1, 20)]
+    assert sequence_of_values(1, 2, ..., 1) == [1]
+    assert sequence_of_values(1, 0, ..., 1) == [1]
+    assert sequence_of_values(1, 1, ..., 1) == [1]
+    assert sequence_of_values(1, 2, ..., 2) == [1, 2]
+    assert sequence_of_values(1, 0, ..., 0) == [1, 0]
+
+    with pytest.raises(KindError):
+        sequence_of_values(1, 0, ..., 2)
+
+    with pytest.raises(KindError):
+        sequence_of_values(1, 2, ...)
+
+    with pytest.raises(ConstructionError):
+        sequence_of_values(1, 2, ..., 'a')
+
+    with pytest.raises(KindError):
+        sequence_of_values(1, 2, ..., 0)
+
+    with pytest.raises(KindError):
+        sequence_of_values(1, 2, ..., 1e9)
 
 def test_kinds_factories():
     "Builtin kind factories"

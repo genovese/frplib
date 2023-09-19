@@ -21,7 +21,7 @@ from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
 from frplib.numeric    import (Numeric, ScalarQ, as_nice_numeric, as_numeric, as_real,
-                               is_numeric, numeric_log2, numeric_floor)
+                               is_numeric, numeric_abs, numeric_floor, numeric_log2)
 from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection
 from frplib.quantity   import as_quantity, as_quant_vec, show_quantities, show_qtuples
@@ -121,7 +121,7 @@ def normalize_branches(canonical) -> list[KindBranch]:
     seen: dict[tuple, KindBranch] = {}
     # ATTN: refactor to make one pass so canonical can be a general iterable without losing it
     # Store as a list initially?  (We need two passes over the final list regardless regardless.)
-    total = sum(map(lambda b: b.p, canonical))
+    total = as_quantity(sum(map(lambda b: b.p, canonical)), convert_numeric=as_real)
     for branch in canonical:
         if branch.vs in seen:
             seen[branch.vs] = KindBranch.make(vs=branch.vs, p=seen[branch.vs].p + branch.p / total)
@@ -139,6 +139,7 @@ def new_normalize_branches(canonical) -> list[KindBranch]:
         else:
             seen[branch.vs] = branch.p
         total += branch.p
+    total = as_quantity(total, convert_numeric=as_real)
 
     return sorted((KindBranch.make(vs=value, p=weight / total) for value, weight in seen.items()),  # type: ignore
                   key=lambda b: b.vs)
@@ -900,7 +901,7 @@ def sequence_of_values(
     else:
         proto_values = list(map(pre_transform, xs))
 
-    values = []
+    values = []  # type: ignore
     n = len(proto_values)
     for i in range(n):
         value = proto_values[i]
@@ -912,15 +913,21 @@ def sequence_of_values(
 
             if not is_numeric(a) or not is_numeric(b) or not is_numeric(c):
                 raise ConstructionError('An ellipsis ... cannot be used between symbolic quantities')
-            if (a - b) * (b - c) <= 0:
+
+            if c == a:  # singleton sequence, drop a and b
+                values.pop()
+                values.pop()
+            elif c == b:  # pair, drop b
+                values.pop()
+            elif (a - b) * (b - c) <= 0:
                 raise KindError(f'Argument ... to {parent or "a factory"} must be appear in the pattern a, b, ..., c '
                                 f'with a < b < c or a > b > c.')
-            if (c - b) > (b - a) * ELLIPSIS_MAX_LENGTH:
-                raise KindError(f'Argument ... to {parent or "a factory"} will leads to a very large sequence;'
+            elif numeric_abs(c - b) > numeric_abs(b - a) * ELLIPSIS_MAX_LENGTH:
+                raise KindError(f'Argument ... to {parent or "a factory"} will lead to a very large sequence;'
                                 f"I'm guessing this is a mistake.")
-
-            values.extend([transform(b + k * (b - a))
-                           for k in range(1, int(numeric_floor(as_real(c - b) / (b - a))))])
+            else:
+                values.extend([transform(b + k * (b - a))
+                               for k in range(1, int(numeric_floor(as_real(c - b) / (b - a))))])
         else:
             values.append(transform(value))
 
@@ -971,6 +978,8 @@ def uniform(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ell
         the former determine the start and increment; the latter the end point.
         Multiple implied sequences with different increments are allowed,
         e.g., uniform(1, 2, ..., 10, 12, ... 20)
+        Note that the pattern a, b, ..., a will be taken as the singleton list a
+        with b ignored, and the pattern a, b, ..., b produces [a, b].
       + As an iterable, e.g., uniform([1, 10, 20]) or uniform(irange(1,52))
       + With a combination of methods, e.g.,
            uniform(1, 2, [4, 3, 5], 10, 12, ..., 16)
@@ -1006,6 +1015,8 @@ def symmetric(*xs, around=None, weight_by=lambda dist: 1 / dist if dist > 0 else
         the former determine the start and increment; the latter the end point.
         Multiple implied sequences with different increments are allowed,
         e.g., symmetric(1, 2, ..., 10, 12, ... 20)
+        Note that the pattern a, b, ..., a will be taken as the singleton list a
+        with b ignored, and the pattern a, b, ..., b produces [a, b].
       + As an iterable, e.g., symmetric([1, 10, 20]) or symmetric(irange(1,52))
       + With a combination of methods, e.g.,
            symmetric(1, 2, [4, 3, 5], 10, 12, ..., 16)
@@ -1054,6 +1065,8 @@ def linear(
         the former determine the start and increment; the latter the end point.
         Multiple implied sequences with different increments are allowed,
         e.g., linear(1, 2, ..., 10, 12, ... 20)
+        Note that the pattern a, b, ..., a will be taken as the singleton list a
+        with b ignored, and the pattern a, b, ..., b produces [a, b].
       + As an iterable, e.g., linear([1, 10, 20]) or linear(irange(1,52))
       + With a combination of methods, e.g.,
            linear(1, 2, [4, 3, 5], 10, 12, ..., 16)
@@ -1089,6 +1102,8 @@ def geometric(
         the former determine the start and increment; the latter the end point.
         Multiple implied sequences with different increments are allowed,
         e.g., geometric(1, 2, ..., 10, 12, ... 20)
+        Note that the pattern a, b, ..., a will be taken as the singleton list a
+        with b ignored, and the pattern a, b, ..., b produces [a, b].
       + As an iterable, e.g., geometric([1, 10, 20]) or geometric(irange(1,52))
       + With a combination of methods, e.g.,
            geometric(1, 2, [4, 3, 5], 10, 12, ..., 16)
@@ -1123,6 +1138,8 @@ def weighted_by(*xs, weight_by: Callable) -> Kind:
         the former determine the start and increment; the latter the end point.
         Multiple implied sequences with different increments are allowed,
         e.g., weighted_by(1, 2, ..., 10, 12, ... 20)
+        Note that the pattern a, b, ..., a will be taken as the singleton list a
+        with b ignored.
       + As an iterable, e.g., weighted_by([1, 10, 20]) or weighted_by(irange(1,52))
       + With a combination of methods, e.g.,
            weighted_by(1, 2, [4, 3, 5], 10, 12, ..., 16)
@@ -1158,6 +1175,8 @@ def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
         the former determine the start and increment; the latter the end point.
         Multiple implied sequences with different increments are allowed,
         e.g., weighted_as(1, 2, ..., 10, 12, ... 20)
+        Note that the pattern a, b, ..., a will be taken as the singleton list a
+        with b ignored, and the pattern a, b, ..., b produces [a, b].
       + As an iterable, e.g., weighted_as([1, 10, 20]) or weighted_as(irange(1,52))
       + With a combination of methods, e.g.,
            weighted_as(1, 2, [4, 3, 5], 10, 12, ..., 16)
