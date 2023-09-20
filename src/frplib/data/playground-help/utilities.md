@@ -4,6 +4,11 @@
 operations easier and to access information from objects
 like kinds, FRPs, etc. in a uniform way.
 
+## Output
+
++ `show(x)` :: displays an object, list, or dictionary in a more friendly manner.
+    See subtopic `show`.
+
 ## Cloning
 
 + `clone(X)` :: produces a copy of its argument `X` if possible; primarily useful with
@@ -66,8 +71,8 @@ like kinds, FRPs, etc. in a uniform way.
 
 + `some(f, iterable)` :: returns true if `f(x)` is truthy for some `x` in `iterable`
 
-+ `lmap(f, iterable)` :: returns a *list* containing `f(x)` for `x` in `iterable`
++ `lmap(f, iterable)` :: returns a *list* containing `f(x)` for every `x` in `iterable`
 
 ## Sub-topics
 
-`symbols`, `irange`, `index_of`
+`symbols`, `irange`, `index_of`, `show`

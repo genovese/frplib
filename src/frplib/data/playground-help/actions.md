@@ -29,7 +29,8 @@ or producing a random sample. There are currently only a few main actions:
 + `unfold` :: Accepts any kind and shows the unfolded tree.
 
 + `clean` :: Accepts any kind and removes any branches that are numerically zero
-      according to a specified tolerance (default 1e-16)
+      according to a specified tolerance (default 1e-16). It also rounds numeric
+      values to avoid round-off error in comparing values.
 
 + `FRP.sample` :: activate clones of a given FRP. Also accepts a kind.
 

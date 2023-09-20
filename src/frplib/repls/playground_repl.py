@@ -111,8 +111,8 @@ playground_imports: dict[str, list[str]] = {
     'quantity': ['as_quantity', 'qvec'],
     'symbolic': ['gen_symbol', 'is_symbolic', 'symbol'],
     'utils': [
-        'clone', 'compose', 'const', 'every', 'identity',
-        'index_of', 'irange', 'lmap',
+        'clone', 'compose', 'const', 'every', 'frequencies',
+        'identity', 'index_of', 'irange', 'lmap',
         'values', 'dim', 'codim', 'size', 'show', 'some',
     ],
     'vec_tuples': [

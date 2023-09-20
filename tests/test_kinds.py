@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from frplib.exceptions import ConstructionError, KindError
+from frplib.exceptions import EvaluationError, ConstructionError, KindError
 from frplib.kinds      import (Kind, kind, conditional_kind,
                                constant, either, uniform,
                                symmetric, linear, geometric,
@@ -15,7 +15,7 @@ from frplib.numeric    import as_numeric, numeric_log2
 from frplib.quantity   import as_quantity
 from frplib.statistics import Proj, Sum, Min, Max
 from frplib.symbolic   import symbol
-from frplib.utils      import irange, lmap
+from frplib.utils      import every, frequencies, irange, lmap
 from frplib.vec_tuples import vec_tuple
 
 
@@ -210,3 +210,18 @@ def test_indexing():
     with pytest.raises(KindError):
         k[-5]
     assert Kind.equal(k[:1], Kind.empty)
+
+def test_sampling():
+    c = symbol('c')
+
+    assert len(constant(1).sample(10)) == 10
+    assert every(lambda x: x == 1, constant(1).sample(10))
+    assert every(lambda x: x == c, constant(c).sample(10))
+    assert set(either(0, 1).sample(100)) == {(0,), (1,)}
+
+    with pytest.raises(EvaluationError):
+        either(0, 1, c).sample(10)
+
+    a, b = frequencies(either(0, 1).sample(20000), counts_only=True)
+    assert a + b == 20_000
+    assert abs(a - 10000) <= 250
