@@ -843,7 +843,16 @@ def clean(k: Kind, tolerance: ScalarQ = '1e-16') -> Kind:
     """
     # ATTN: new_normalize_branches above with _canonical=True can make this more efficient
     tol = as_real(tolerance)
-    return Kind([b for b in k._branches if b.p >= tol])
+    k = k ^ (lambda x: as_quant_vec(x, convert=as_nice_quantity))
+    canonical = []
+    for b in k._branches:
+        if is_symbolic(b.p):
+            pv = b.p.pure_value()
+            if pv is None or pv >= tol:
+                canonical.append(b)
+        elif b.p >= tol:
+            canonical.append(b)
+    return Kind(canonical)
 
 def fast_mixture_pow(mstat: MonoidalStatistic, k: Kind, n: int) -> Kind:
     """Efficiently computes the kind mstat(k ** n) for monoidal statistic `mstat`.
