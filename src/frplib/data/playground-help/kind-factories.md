@@ -29,6 +29,7 @@ patterns of weights on specified values.
 + `without_replacement` :: kind of an FRP that samples n items from a set without replacement
 + `subsets` :: kind of an FRP whose values are subsets of a given collection
 + `permutations_of` :: kind of an FRP whose values are permutations of a given collection
++ `ordered_samples` :: like `without_replacement` but gives ordered samples (all permutations)
 
 ## Available Sub-topics
 
