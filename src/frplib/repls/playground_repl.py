@@ -157,7 +157,10 @@ class PlaygroundRepl(PythonRepl):
         if isinstance(result, Renderable) and not isinstance(result, type):
             # Don't call for classes e.g., VecTuple as a class not instance
             # Holding off on pager for now
-            environment.console.print(result.__frplib_repr__())
+            try:
+                environment.console.print(result.__frplib_repr__())
+            except Exception as e:
+                environment.console.print(f'Could not print result due to an error: {str(e)}')
         else:
             formatted_text_output = self._format_result_output(result)
 
