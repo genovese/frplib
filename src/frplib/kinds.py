@@ -16,7 +16,7 @@ from rich              import box
 from rich.panel        import Panel
 
 from frplib.env        import environment
-from frplib.exceptions import ConstructionError, KindError, MismatchedDomain
+from frplib.exceptions import ConstructionError, EvaluationError, KindError, MismatchedDomain
 from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
@@ -24,9 +24,9 @@ from frplib.numeric    import (Numeric, ScalarQ, as_nice_numeric, as_numeric, as
                                is_numeric, numeric_abs, numeric_floor, numeric_log2)
 from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection
-from frplib.quantity   import as_quantity, as_quant_vec, show_quantities, show_qtuples
+from frplib.quantity   import as_quantity, as_nice_quantity, as_quant_vec, show_quantities, show_qtuples
 from frplib.statistics import Condition, MonoidalStatistic, Statistic, compose2
-from frplib.symbolic   import Symbolic, gen_symbol, symbol
+from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol
 from frplib.utils      import compose, const, identity, is_interactive, is_tuple, lmap
 from frplib.vec_tuples import VecTuple, as_numeric_vec, as_scalar_strict, as_vec_tuple, vec_tuple
 
@@ -695,9 +695,19 @@ class Kind:
 
     def sample(self, n: int = 1):
         "Returns a list of values corresponding to `n` FRPs with this kind."
-        weights = [float(branch.p) for branch in self._canonical] or [1]
-        values = [branch.vs for branch in self._canonical] or [vec_tuple()]
-        # ATTN: Conver to iterator ??
+        if self._canonical:
+            weights = []
+            values = []
+            for branch in self._canonical:
+                if is_symbolic(branch.p):
+                    raise EvaluationError(f'Cannot sample from a kind/FRP with symbolic weight {branch.p}.'
+                                          ' Try substituting values for the symbols first.')
+                weights.append(float(branch.p))
+                values.append(branch.vs)
+        else:
+            weights = [1]
+            values = [vec_tuple()]
+        # ATTN: Convert to iterator ??
         return lmap(VecTuple, random.choices(values, weights, k=n))
 
     def show_full(self) -> str:
