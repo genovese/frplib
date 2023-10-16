@@ -254,6 +254,33 @@ def some(func, iterable):
     "Returns true if f(x) is truthy for some x in iterable."
     return any(map(func, iterable))
 
+def iterate(f: Callable[..., A], n: int, start: A, *extra_args, **extra_kwargs) -> A:
+    """Returns nth item in the sequence: start, f(start), f(f(start)), f(f(f(start))), ...
+
+    If n <= 0, start is returned as is. Extra positional and keyword arguments
+    are passed to f in each call.
+
+    Parameters
+    ----------
+    f :: a function from A -> A, however f can accept extra positional or keyword
+        arguments; these are given by `extra_args` and `extra_kwargs`, respectively.
+
+    n :: the number of times to iterate; if n <= 0, `start` is returned as is.
+
+    start :: a value of type A, the initial value of the sequence
+
+    extra_args :: zero or more additional arguments that are passed to `f`
+        following the value of type A.
+
+    extra_kwargs :: zero or more additional keyword arguments that are passed
+        to `f` following the value of type A and `extra_args`.
+
+    """
+    result = start
+    for _ in range(n):
+        result = f(result, *extra_args, **extra_kwargs)
+    return result
+
 
 #
 # Environment
@@ -307,3 +334,6 @@ setattr(every, '__info__', 'utilities')
 setattr(some, '__info__', 'utilities')
 setattr(lmap, '__info__', 'utilities')
 setattr(is_tuple, '__info__', 'utilities')
+setattr(frequencies, '__info__', 'utilities')
+setattr(show, '__info__', 'utilities::show')
+setattr(iterate, '__info__', 'utilities::iterate')

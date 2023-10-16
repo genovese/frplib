@@ -25,9 +25,9 @@ from frplib.numeric    import (Numeric, ScalarQ, as_nice_numeric, as_numeric, as
 from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection
 from frplib.quantity   import as_quantity, as_nice_quantity, as_quant_vec, show_quantities, show_qtuples
-from frplib.statistics import Condition, MonoidalStatistic, Statistic, compose2
+from frplib.statistics import Condition, MonoidalStatistic, Statistic, compose2, Proj
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol
-from frplib.utils      import compose, const, identity, is_interactive, is_tuple, lmap
+from frplib.utils      import compose, const, dim, identity, is_interactive, is_tuple, lmap
 from frplib.vec_tuples import VecTuple, as_numeric_vec, as_scalar_strict, as_vec_tuple, vec_tuple
 
 
@@ -854,6 +854,23 @@ def clean(k: Kind, tolerance: ScalarQ = '1e-16') -> Kind:
             canonical.append(b)
     return Kind(canonical)
 
+def bayes(observed_y, x, y_given_x):
+    """Applies Bayes's Rule to find x | y == observed_y, a kind or FRP.
+
+    Takes an observed value of y, the kind/FRP x, and the conditional kind/FRP
+    y_given_x, reversing the conditionals.
+
+    + `observed_y` is a *possible* value of a quantity y
+    + `x` -- a kind or FRP for a quantity x
+    + `y_given_x` -- a conditional kind or FRP (if x is an FRP) of y
+          given the value of x.
+
+    Returns a kind if `x` is a kind or FRP, if x is an FRP.
+
+    """
+    i = dim(x) + 1
+    return (x >> y_given_x | (Proj[i:] == observed_y)) ^ Proj[1:i]
+
 def fast_mixture_pow(mstat: MonoidalStatistic, k: Kind, n: int) -> Kind:
     """Efficiently computes the kind mstat(k ** n) for monoidal statistic `mstat`.
 
@@ -1021,10 +1038,10 @@ def symmetric(*xs, around=None, weight_by=lambda dist: 1 / dist if dist > 0 else
     Specifically, the weights are determined by the distance of each value
     from a specified value `around`:
 
-           weight(x) = weight_fn(distance(x, around))
+           weight(x) = weight_by(distance(x, around))
 
     If `around` is specified it is used; otherwise, the mean of the values is used.
-    The `weight_fn` defaults to 1/distance, but can specified; it should be a function
+    The `weight_by` defaults to 1/distance, but can specified; it should be a function
     of one numeric parameter.
 
     Values can be specified in a variety of ways:
@@ -1692,3 +1709,4 @@ setattr(bin, '__info__', 'kind-combinators::bin')
 setattr(unfold, '__info__', 'actions')
 setattr(clean, '__info__', 'actions')
 setattr(fast_mixture_pow, '__info__', 'kind-combinators::fast_mixture_pow')
+setattr(bayes, '__info__', 'kind-combinators')

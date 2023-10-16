@@ -1007,7 +1007,7 @@ Max = MonoidalStatistic(max, unit=as_quantity('-infinity'), dim=0, codim=1, name
                         description='returns the maximum of all components of the given value')
 Min = MonoidalStatistic(min, unit=as_quantity('infinity'), dim=0, codim=1, name='min',
                         description='returns the minimum of all components of the given value')
-Mean = Statistic(lambda x: sum(x) / len(x), dim=0, codim=1, name='mean',
+Mean = Statistic(lambda x: sum(x) / as_real(len(x)), dim=0, codim=1, name='mean',
                  description='returns the arithmetic mean of all components of the given value')
 Abs = Statistic(numeric_abs, dim=1, codim=1, name='abs',
                 description='returns the absolute value of the given number')
@@ -1050,6 +1050,25 @@ def NormalCDF(x):
     'Cumulative distribution function for the standard normal distribution'
     return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
 
+@statistic(name='sumsq', monoidal=0, description='returns the sum of squares of components')
+def SumSq(value):
+    return sum(v * v for v in value)
+
+@statistic(name='sd', description='returns the sample standard deviation of the values components')
+def StdDev(value):
+    n = len(value)
+    if n == 1:
+        return 0
+    mu = as_scalar(Mean(value))
+    return numeric_sqrt(sum((v - mu) ** 2 for v in value) / as_real(n - 1))
+
+@statistic(name='variance', description='returns the sample variance of the values components')
+def Variance(value):
+    n = len(value)
+    if n == 1:
+        return 0
+    mu = as_scalar(Mean(value))
+    return sum((v - mu) ** 2 for v in value) / as_real(n - 1)
 
 @statistic(name='diff', dim=ANY_TUPLE, description='returns tuple of first differences of its argument')
 def Diff(xs):
@@ -1471,6 +1490,9 @@ setattr(Sinh, '__info__', 'statistic-builtins')
 setattr(Cosh, '__info__', 'statistic-builtins')
 setattr(Tanh, '__info__', 'statistic-builtins')
 setattr(NormalCDF, '__info__', 'statistic-builtins')
+setattr(SumSq, '__info__', 'statistic-builtins')
+setattr(StdDev, '__info__', 'statistic-builtins')
+setattr(Variance, '__info__', 'statistic-builtins')
 
 setattr(Fork, '__info__', 'statistic-combinators')
 setattr(MFork, '__info__', 'statistic-combinators')

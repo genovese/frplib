@@ -80,11 +80,11 @@ playground_imports: dict[str, list[str]] = {
     'kinds': [
         'Kind', 'ConditionalKind',
         'kind', 'conditional_kind',
-        'unfold', 'clean', 'fast_mixture_pow',
+        'unfold', 'clean', 'fast_mixture_pow', 'bayes',
         'constant', 'uniform', 'either',
         'symmetric', 'linear', 'geometric',
-        'weighted_by', 'weighted_as', 'arbitrary',
-        'integers', 'evenly_spaced', 'bin',
+        'weighted_by', 'weighted_as', 'weighted_pairs',
+        'arbitrary', 'integers', 'evenly_spaced', 'bin',
         'without_replacement', 'subsets', 'permutations_of',
     ],
     'statistics': [
@@ -93,10 +93,11 @@ playground_imports: dict[str, list[str]] = {
         'tuple_safe', 'infinity',
         'fork', 'chain', 'compose',
         'Id', 'Scalar', '__', 'Proj', '_x_',
-        'Sum', 'Product', 'Count', 'Max', 'Min', 'Mean', 'Abs',
+        'Sum', 'Product', 'Count', 'Max', 'Min', 'Abs', 'SumSq',
         'Sqrt', 'Floor', 'Ceil', 'NormalCDF',
         'Exp', 'Log', 'Log2', 'Log10',
         'Sin', 'Cos', 'Tan', 'ATan2', 'Sinh', 'Cosh', 'Tanh',
+        'Mean', 'StdDev', 'Variance',
         'Diff', 'Diffs', 'Permute',
         'Constantly', 'Fork', 'MFork', 'ForEach', 'IfThenElse',
         'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
@@ -112,7 +113,7 @@ playground_imports: dict[str, list[str]] = {
     'symbolic': ['gen_symbol', 'is_symbolic', 'symbol'],
     'utils': [
         'clone', 'compose', 'const', 'every', 'frequencies',
-        'identity', 'index_of', 'irange', 'lmap',
+        'identity', 'index_of', 'irange', 'iterate', 'lmap',
         'values', 'dim', 'codim', 'size', 'show', 'some',
     ],
     'vec_tuples': [

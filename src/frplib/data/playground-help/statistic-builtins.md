@@ -12,10 +12,13 @@
 
 ## Functions on tuples
 
-+ `Sum`, `Count`, `Max`, `Min`, `Mean`, 
++ `Sum`, `Count`, `Max`, `Min`,
++ `SumSq` :: computes the sum of squares of the components
 + `Diff` :: compute first order differences of the components in order,
 + `Diffs` :: compute kth-order differences of the components in order,
 + `Permute` :: creates a permutation statistic with the specified permutation
++ `Mean`, `StdDev`, `Variance` :: computes the sample mean, standard deviation,
+      and variance, respectively, of the tuple's components.
 
 
 ## Scalar Mathematical Functions

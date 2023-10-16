@@ -25,6 +25,10 @@
 + `bin` :: a kind that bins the values of another kind
 
 + `fast_mixture_pow` :: efficiently computes `stat(a_kind ** n)` for some statistics.
+
++ `bayes(observed_y, x, y_given_x)` :: applies Bayes's rule given quantity y having
+      observed value `observed_y`, using the kind `x`, conditional kind `y_given_x`.
+
 ## Sub-topics
 
 + `bin`, `fast_mixture_pow`

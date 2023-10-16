@@ -23,7 +23,7 @@ like kinds, FRPs, etc. in a uniform way.
 
 + `size` :: `size(x)` returns the size of `x`, usually a kind, if available
 
-+ `values` :: `size(x)` returns the *set* of `x`'s values, if available; applies to kinds
++ `values` :: `values(x)` returns the *set* of `x`'s values, if available; applies to kinds
 
 
 ## Symbolic Manipulation
@@ -50,6 +50,8 @@ like kinds, FRPs, etc. in a uniform way.
 + `qvec` :: converts arguments to a quantitative vector tuple, whose values are
       numeric or symbolic quantities and can be added or scaled like vectors.
 
++ `as_scalar` :: converts a 1-dimensional tuple to a scalar
+
 + `as_quantity` :: converts to a quantity, takes symbols, strings, or numbers.
 
 ## Function Helpers
@@ -60,6 +62,7 @@ like kinds, FRPs, etc. in a uniform way.
 
 + `compose(f,g)` :: returns the function `f` after `g`
 
++ `iterate(f, n, start)` :: returns nth item in sequence `f(start), f(f(start)), ...`
 
 ## Sequence Helpers
 
@@ -73,6 +76,11 @@ like kinds, FRPs, etc. in a uniform way.
 
 + `lmap(f, iterable)` :: returns a *list* containing `f(x)` for every `x` in `iterable`
 
++ `frequencies(iterable, counts_only=False)` :: computes counts of
+   unique values in iterable; returns a dictionary, but if
+   `counts_only` is True, return just the counts without labels
+
+
 ## Sub-topics
 
-`symbols`, `irange`, `index_of`, `show`
+`symbols`, `irange`, `index_of`, `iterate`, `show`
