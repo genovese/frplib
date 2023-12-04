@@ -1559,7 +1559,7 @@ class ConditionalKind:
             title = 'A conditional Kind with mapping:\n'
             return title + tbl
         elif tbl:
-            mlabel = f'\nIt\'s mapping includes:\n{tbl}\n  ...more kinds\n'
+            mlabel = f'\nIts mapping includes:\n{tbl}\n  ...more kinds\n'
             return f'A conditional Kind as a function{dlabel or label or mlabel}'
         return f'A conditional Kind as a function{dlabel or label}'
 
