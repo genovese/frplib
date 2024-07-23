@@ -1324,11 +1324,11 @@ def subsets(xs: Collection) -> Kind:
     coll = list(xs)
     return without_replacement(len(coll), coll)
 
-def ordered_samples(n: int, xs: Collection) -> Kind:
+def ordered_samples(n: int, xs: Iterable) -> Kind:
     "Kind of an FRP whose values are all ordered samples of size `n` from the given collection."
     return permutations_of // without_replacement(n, xs)
 
-def permutations_of(xs: Collection, r=None) -> Kind:
+def permutations_of(xs: Iterable, r=None) -> Kind:
     "Kind of an FRP whose values are permutations of a given collection."
     return Kind([KindBranch.make(vs=pi, p=1) for pi in permutations(xs, r)])
 
@@ -1363,6 +1363,9 @@ def kind(any) -> Kind:
     "A generic constructor for kinds, from strings, other kinds, FRPs, and more."
     if isinstance(any, Kind):
         return any
+    # ATTN: Add case for conditional FRP to produce a conditional Kind
+    #       Types(union) might be an issue downstream but probably not
+    #       Maybe add a kind property to ConditionalFRP to handle this?
     if hasattr(any, 'kind'):
         return any.kind
     if not any:
