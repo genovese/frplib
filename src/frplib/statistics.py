@@ -41,6 +41,7 @@ ArityType: TypeAlias = tuple[int, Union[int, float]]   # Would like Literal[infi
 #
 
 infinity = math.inf  # ATTN: if needed, convert to appropriate value component type
+pi = PI = math.pi
 
 
 #
@@ -727,9 +728,14 @@ class Statistic:
 
         return Statistic(a_or_b, dim=0, name=label)
 
-
 def is_statistic(x) -> TypeGuard[Statistic]:
     return isinstance(x, Statistic)
+
+def scalar_fn(stat: Statistic) -> Callable:
+    "Converts a statistic into a regular scalar function."
+    def as_fn(val):
+        return stat(val)[0]
+    return as_fn
 
 class MonoidalStatistic(Statistic):
     def __init__(
@@ -992,10 +998,23 @@ Scalar = Statistic(lambda x: x[0] if is_tuple(x) else x, dim=1, strict=True,
 __ = Statistic(as_vec_tuple, dim=ANY_TUPLE, name='__', description='represents the value given to the statistic')
 _x_ = Scalar
 
-def Constantly(x) -> Statistic:
-    "A statistic factory that produces a statistic that always returns `x`."
-    xvec = as_quant_vec(x)
+# def Constantly(x) -> Statistic:
+#     "A statistic factory that produces a statistic that always returns `x`."
+#     xvec = as_quant_vec(x)
+#     return Statistic(lambda _: xvec, dim=ANY_TUPLE, codim=len(xvec), name=f'The constant {xvec}')
+def Constantly(*x) -> Statistic:
+    """A statistic factory that produces a statistic that always returns the specified value.
+
+    This accepts either a single tuple argument, which will be converted to a quantity vector,
+    or multiple arguments that will be aggregated into a quantity vector.
+
+    """
+    if len(x) == 1 and is_tuple(x[0]):
+        xvec = as_quant_vec(x[0])
+    else:
+        xvec = as_quant_vec(x)
     return Statistic(lambda _: xvec, dim=ANY_TUPLE, codim=len(xvec), name=f'The constant {xvec}')
+
 
 Sum = MonoidalStatistic(sum, unit=0, dim=0, codim=1, name='sum',
                         description='returns the sum of all the components of the given value')
@@ -1054,6 +1073,10 @@ def NormalCDF(x):
 def SumSq(value):
     return sum(v * v for v in value)
 
+@statistic(name='norm', description='returns the Euclidean norm of its argument')
+def Norm(value):
+    return numeric_sqrt(sum(v * v for v in value))
+
 @statistic(name='sd', description='returns the sample standard deviation of the values components')
 def StdDev(value):
     n = len(value)
@@ -1069,6 +1092,28 @@ def Variance(value):
         return 0
     mu = as_scalar(Mean(value))
     return sum((v - mu) ** 2 for v in value) / as_real(n - 1)
+
+# ATTN: set dim and codim properly (handle empty case?)
+@statistic(name='argmax', dim=ANY_TUPLE, description='returns the index of the maximum component')
+def ArgMax(val):
+    max_ind = 0
+    max_val = val[0]
+    for i in range(1, len(val)):
+        if val[i] > max_val:
+            max_ind = i
+            max_val = val[i]
+    return max_ind
+
+# ATTN: set dim and codim properly (handle empty case?)
+@statistic(name='argmin', dim=ANY_TUPLE, description='returns the index of the min component')
+def ArgMin(val):
+    min_ind = 0
+    min_val = val[0]
+    for i in range(1, len(val)):
+        if val[i] < min_val:
+            min_ind = i
+            min_val = val[i]
+    return min_ind
 
 @statistic(name='diff', dim=ANY_TUPLE, description='returns tuple of first differences of its argument')
 def Diff(xs):
@@ -1471,6 +1516,8 @@ setattr(Sum, '__info__', 'statistic-builtins')
 setattr(Count, '__info__', 'statistic-builtins')
 setattr(Min, '__info__', 'statistic-builtins')
 setattr(Max, '__info__', 'statistic-builtins')
+setattr(ArgMin, '__info__', 'statistic-builtins')
+setattr(ArgMax, '__info__', 'statistic-builtins')
 setattr(Mean, '__info__', 'statistic-builtins')
 setattr(Diff, '__info__', 'statistic-builtins')
 setattr(Diffs, '__info__', 'statistic-builtins')
