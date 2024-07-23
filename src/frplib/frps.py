@@ -6,6 +6,7 @@ import random
 from abc               import ABC, abstractmethod
 from collections       import defaultdict
 from collections.abc   import Iterable
+from functools         import reduce
 from typing            import Callable, cast, overload, Union
 from typing_extensions import Self, Any, TypeAlias
 
@@ -478,7 +479,7 @@ class ConditionalFRP:
         # These are optional hints, useful for checking compatibility (codim=1 is significant though)
         self._codim = codim
         self._dim = dim
-        self._domain: set | None = set(domain) if domain else None
+        self._domain: set | None = set(domain) if domain else None  # ATTN: add value_set functionality here, including accepting iterator or generator expression
         self._is_dict = True
         self._original_fn: Callable[[ValueType], 'FRP'] | None = None
 
@@ -502,7 +503,7 @@ class ConditionalFRP:
                 else:
                     value = VecTuple(args)
                 if value not in self._mapping:
-                    raise MismatchedDomain(f'Value {value} not in domain of conditional FRP.')
+                    raise MismatchedDomain(f'Value {value} not in the domain of this conditional FRP.')
                 return self._mapping[value]
 
             self._fn: Callable[..., 'FRP'] = fn
@@ -546,6 +547,10 @@ class ConditionalFRP:
 
             self._fn = fn
 
+    # ATTN:Bug (?) should prepend the input value, e.g., map with a statistic (tuple_args(*value),)
+    #   for suitable tuple preprocessor tuple_args. See TODO for more discussion.
+    # The logic: Calling is equivalent to passing an input into the system. Pre wrap with the stat
+    # at creation time as the values are known in advance.
     def __call__(self, *value) -> 'FRP':
         return self._fn(*value)
 
@@ -712,6 +717,7 @@ class ConditionalFRP:
     def __xor__(self, statistic):
         return self.transform(statistic)
 
+    # ATTN:Bugs should return ConditionalFRP only and needs to account for input value and output in updated map
     def __rshift__(self, cfrp):
         if not isinstance(cfrp, ConditionalFRP):
             return NotImplemented
@@ -1112,7 +1118,7 @@ class FRP:
 
         if self.is_kinded():
             relevant = condition(self.value)  # We evaluate the value here
-            if not relevant:
+            if not relevant:     # ATTN:Bug check for falsy including <0> and <1>! Conditions do this
                 return FRP.empty
             conditional = FRP(self.kind | condition)
             conditional._value = self._value
@@ -1194,6 +1200,50 @@ class TaggedFRP(FRP):
 #
 # Utilities and Additional Factories and Combinators
 #
+
+@overload
+def independent_mixture(ks: Iterable[Kind]) -> Kind:
+    ...
+
+@overload
+def independent_mixture(ks: Iterable[FRP]) -> FRP:
+    ...
+
+def independent_mixture(ks):
+    "Returns the independent mixture of the Kinds or FRPs in the given sequence."
+    return reduce(lambda k1, k2: k1 * k2, ks)
+
+@overload
+def evolve(start: Kind, next_state: ConditionalKind, n_steps: int = 1) -> Kind:
+    ...
+
+@overload
+def evolve(start: FRP, next_state: ConditionalFRP, n_steps: int = 1) -> FRP:
+    ...
+
+def evolve(start, next_state, n_steps=1):
+    """Evolves a Markovian system through a specified number of steps.
+
+    In typical use, start will be the Kind of the system's initial state,
+    and next_state the conditional Kind that describes state transitions.
+    This also works when start and next_state are an FRP and a
+    conditional FRP.
+
+    Parameters:
+    ----------
+      start: Kind | FRP - represents the initial state
+      next_state: ConditionalKid | ConditionalFRP - state transition
+      n_steps: int -- the number of steps to process, >= 0
+
+    Returns the state of the system (Kind or FRP) after n_steps steps.
+
+    """
+    current = start
+    for _ in range(n_steps):
+        current = next_state // current
+    return current
+
+
 
 class FisherYates(FrpExpression):
     def __init__(self, items: Iterable):
