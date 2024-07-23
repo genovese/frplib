@@ -693,8 +693,12 @@ class SymbolicMultiRatio(Symbolic):
         num = self.numerator.substitute(mapping, purify)
         den = self.denominator.substitute(mapping, purify)
 
-        if not isinstance(num, SymbolicMultiSum) and not isinstance(num, SymbolicMultiSum):
+        # ATTN:Bug FIX 18 Jun2024: den was num here twice, use is_symbolic here instead?
+        #      If num is purified, the symbolic call fails because num is a number
+        if not isinstance(num, SymbolicMultiSum) and not isinstance(den, SymbolicMultiSum):
             return as_nice_numeric(as_real(num / den))
+        if not is_symbolic(num):
+            num = SymbolicMulti.pure(num)
         return simplify(symbolic(num, den))
 
     def __add__(self, other):
@@ -975,6 +979,72 @@ def gen_symbol() -> SymbolicMulti:
 def symbol(var: str) -> SymbolicMulti:
     "Generates a symbol with the given name, typically a single letter."
     return SymbolicMulti([var], [1])
+
+def symbols(names: str) -> tuple[SymbolicMulti, ...]:
+    """Generates symbols from the space-separated names in the given string.
+
+    A pattern  <NAME>M ... <NAME>N with M <= N natural numbers, produces
+    the symbols  NAME<M>, NAME<M+1>, ..., NAME<N>. For example,
+    'h1 ... h4' gives symbols with names 'h1', 'h2', 'h3', and 'h4'.
+    In this case, NAME should consist only of letters and '_''s.
+
+    Returns a tuple of named symbols in the same order specified.
+
+    """
+    ELLIPSIS = '...'
+    vars = names.strip().split()
+
+    if vars[0] == ELLIPSIS:
+        raise ConstructionError('Invalid ... at start of symbols argument.')
+
+    n = len(vars)
+    syms = []
+    active = 0
+    ind = 1
+    while ind < n:
+        if vars[ind] == ELLIPSIS:
+            if ind + 1 >= n:
+                raise ConstructionError('Invalid ... at end of symbols argument.')
+
+            if vars[ind + 1] == ELLIPSIS:
+                raise ConstructionError('Repeated ... in symbols argument.')
+
+            v1 = re.match(r'([A-Za-z_]+)(0|[1-9][0-9]*)', vars[active])
+            v2 = re.match(r'([A-Za-z_]+)(0|[1-9][0-9]*)', vars[ind + 1])
+
+            if v1 is None or v2 is None:
+                raise ConstructionError(f'Invalid pattern "{vars[active]} ... {vars[ind+1]}" in symbols argument.')
+
+            if v1.group(1) != v2.group(1):
+                raise ConstructionError(f'Mismatched names in "{vars[active]} ... {vars[ind+1]}" in symbols argument.')
+
+            n1 = int(v1.group(2))
+            n2 = int(v2.group(2))
+
+            if n1 > n2:
+                raise ConstructionError(f'Misordered indices in {n1} > {n2} in symbols argument.')
+
+            syms.extend([symbol(f'{v1.group(1)}{j}') for j in range(n1, n2 + 1)])
+
+            active = ind + 2
+
+            if active >= n:
+                break
+
+            if vars[ind + 2] == ELLIPSIS:
+                raise ConstructionError('Misplaced ... in symbols argument.')
+
+            ind += 3
+        else:
+            syms.append(SymbolicMulti([vars[active]], [1]))
+            active += 1
+            ind += 1
+
+    if active < n:
+        syms.append(SymbolicMulti([vars[active]], [1]))
+
+    # syms = [SymbolicMulti([var], [1]) for var in vars]
+    return tuple(syms)
 
 def is_symbolic(obj) -> TypeGuard[SymbolicMulti | SymbolicMultiSum | SymbolicMultiRatio]:
     return isinstance(obj, (SymbolicMulti, SymbolicMultiSum, SymbolicMultiRatio))
