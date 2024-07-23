@@ -23,6 +23,14 @@ class Expectation(VecTuple):
     def __frplib_repr__(self):
         return in_panel(str(self), title=self.label or None)
 
+    # ATTN: needed?
+    @property
+    def raw(self):
+        "Expectation as a raw scalar or vector tuple."
+        if len(self) == 1:
+            return self[0]
+        return VecTuple(self)
+
 def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
     """Computes and returns the expectation of a given object.
 
