@@ -4,7 +4,7 @@
 
 from frplib.calculate  import substitute_with
 from frplib.kinds      import uniform, arbitrary
-from frplib.statistics import statistic, Not
+from frplib.statistics import condition, Not
 from frplib.utils      import identity
 
 
@@ -16,7 +16,7 @@ chosen_door = arbitrary(1, 2, 3, names=['l', 'm', 'r'])  # l (ell) might look fu
 
 # Statitics used to decide whether you win under a strategy
 
-@statistic
+@condition
 def got_prize_door_initially(x):
     monty, you = x
     return monty == you
@@ -40,8 +40,8 @@ switch_win = didnt_get_prize_door_initially(game_outcome)
 # Analyze the game for any choice of doors
 # The Win kinds are the same for any choice of left/middle/right weights.
 
-def by_strategy(left=1, middle=1, right=1, *, switch=None):
-    """Returns outcome for a specific strategy of yours.
+def outcome_by_strategy(left=1, middle=1, right=1, *, switch=None):
+    """Returns outcome for specified strategy of yours.
 
     left, middle, right are weights you assign the three doors
       These should be positive numbers
