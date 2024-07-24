@@ -60,6 +60,7 @@ warn_redundant_casts = true
 warn_unreachable = true
 warn_unused_configs = true
 warn_unused_ignores = true
+enable_incomplete_feature = ["Unpack"]
 
 [tool.hatch.version]
 path = "src/frplib/__about__.py"
