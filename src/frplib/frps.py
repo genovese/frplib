@@ -547,7 +547,7 @@ class ConditionalFRP:
 
             self._fn = fn
 
-    # ATTN:Bug (?) should prepend the input value, e.g., map with a statistic (tuple_args(*value),)
+    # ATTN:Bug 15: (?) should prepend the input value, e.g., map with a statistic (tuple_args(*value),)
     #   for suitable tuple preprocessor tuple_args. See TODO for more discussion.
     # The logic: Calling is equivalent to passing an input into the system. Pre wrap with the stat
     # at creation time as the values are known in advance.
@@ -717,7 +717,7 @@ class ConditionalFRP:
     def __xor__(self, statistic):
         return self.transform(statistic)
 
-    # ATTN:Bugs should return ConditionalFRP only and needs to account for input value and output in updated map
+    # ATTN:Bug 14: should return ConditionalFRP only and needs to account for input value and output in updated map
     def __rshift__(self, cfrp):
         if not isinstance(cfrp, ConditionalFRP):
             return NotImplemented
@@ -1118,7 +1118,7 @@ class FRP:
 
         if self.is_kinded():
             relevant = condition(self.value)  # We evaluate the value here
-            if not relevant:     # ATTN:Bug check for falsy including <0> and <1>! Conditions do this
+            if not relevant:     # ATTN:Bug 11: check for falsy including <0> and <1>! Conditions do this
                 return FRP.empty
             conditional = FRP(self.kind | condition)
             conditional._value = self._value
