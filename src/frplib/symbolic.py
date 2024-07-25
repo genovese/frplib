@@ -160,6 +160,42 @@ class Symbolic(ABC):
                 return pv < as_real(other)
         return True
 
+    def __gt__(self, other):
+        "Sort symbols before numbers and by sort_key against Symbolics."
+        if isinstance(other, Symbolic):
+            return self.sort_key > other.sort_key
+        if isinstance(other, str):
+            return str(self) > other
+        if is_scalar_q(other):
+            pv = self.pure_value()
+            if pv is not None:
+                return pv > as_real(other)
+        return False
+
+    def __le__(self, other):
+        "Sort symbols before numbers and by sort_key against Symbolics."
+        if isinstance(other, Symbolic):
+            return self.sort_key <= other.sort_key
+        if isinstance(other, str):
+            return str(self) <= other
+        if is_scalar_q(other):
+            pv = self.pure_value()
+            if pv is not None:
+                return pv <= as_real(other)
+        return True
+
+    def __ge__(self, other):
+        "Sort symbols before numbers and by sort_key against Symbolics."
+        if isinstance(other, Symbolic):
+            return self.sort_key >= other.sort_key
+        if isinstance(other, str):
+            return str(self) >= other
+        if is_scalar_q(other):
+            pv = self.pure_value()
+            if pv is not None:
+                return pv >= as_real(other)
+        return False
+
 
 #
 # Multinomial Terms
