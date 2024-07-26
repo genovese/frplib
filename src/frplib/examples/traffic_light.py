@@ -16,13 +16,13 @@ class TrafficLight(IntEnum):
     RED = 2
 
     def __next__(self):
-        match self:
-            case TrafficLight.GREEN:
-                return TrafficLight.YELLOW
-            case TrafficLight.YELLOW:
-                return TrafficLight.RED
-            case TrafficLight.RED:
-                return TrafficLight.GREEN
+        if self == TrafficLight.GREEN:
+            return TrafficLight.YELLOW
+
+        if self == TrafficLight.YELLOW:
+            return TrafficLight.RED
+
+        return TrafficLight.GREEN
 
 # First Effort
 
@@ -86,25 +86,45 @@ def n_ticks_kind(n, initial_state):
 
 def neighbors(n: int) -> list[int]:
     # Ordinarily would use a dict but this matches the text
-    match n:
-        case 1:
-            return [2, 3, 4, 5, 8]
-        case 2:
-            return [1, 3, 4]
-        case 3:
-            return [1, 2]
-        case 4:
-            return [1, 2]
-        case 5:
-            return [1, 6]
-        case 6:
-            return [5, 8]
-        case 7:
-            return []
-        case 8:
-            return [6, 1]
-        case _:
-            raise FrplibException("Invalid node in graph example")
+    # changed from match to if... so it would run in python 3.9
+    # match n:
+    #     case 1:
+    #         return [2, 3, 4, 5, 8]
+    #     case 2:
+    #         return [1, 3, 4]
+    #     case 3:
+    #         return [1, 2]
+    #     case 4:
+    #         return [1, 2]
+    #     case 5:
+    #         return [1, 6]
+    #     case 6:
+    #         return [5, 8]
+    #     case 7:
+    #         return []
+    #     case 8:
+    #         return [6, 1]
+    #     case _:
+    #         raise FrplibException("Invalid node in graph example")
+
+    if n == 1:
+        return [2, 3, 4, 5, 8]
+    if n == 2:
+        return [1, 3, 4]
+    if n == 3:
+        return [1, 2]
+    if n == 4:
+        return [1, 2]
+    if n == 5:
+        return [1, 6]
+    if n == 6:
+        return [5, 8]
+    if n == 7:
+        return []
+    if n == 8:
+        return [6, 1]
+    raise FrplibException("Invalid node in graph example")
+
 
 @conditional_kind
 def next_node(node):
