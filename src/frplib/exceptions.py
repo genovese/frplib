@@ -53,7 +53,7 @@ class StatisticError(ConstructionError):
     pass
 
 class IndexingError(PlaygroundError):
-    "An error encountered during a mathematical operation"
+    "An error encountered during a key lookup or indexing operation"
     pass
 
 class ComplexExpectationWarning(FrplibException):
