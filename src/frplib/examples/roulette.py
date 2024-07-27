@@ -18,36 +18,42 @@ RED_SQUARES = set([1, 3, 5, 7, 9, 12, 14, 16, 18,
 
 @statistic(dim=1, codim=1)
 def _roulette_even(pocket):
+    "Play on all even pockets."
     if pocket % 2 == 0 and pocket >= 1 and pocket <= 36:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_odd(pocket):
+    "Play on all odd pockets."
     if pocket % 2 == 1 and pocket >= 1 and pocket <= 36:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_red(pocket):
+    "Play on all red pockets."
     if pocket in RED_SQUARES and pocket >= 1 and pocket <= 36:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_black(pocket):
+    "Play on all black pockets."
     if pocket not in RED_SQUARES and pocket >= 1 and pocket <= 36:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_first18(pocket):
+    "Play on first 18 consecutive pockets 1..18."
     if pocket >= 1 and pocket <= 18:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_second18(pocket):
+    "Play on second 18 consecutive pockets 19..36."
     if pocket >= 19 and pocket <= 36:
         return 1
     return -1
@@ -55,6 +61,7 @@ def _roulette_second18(pocket):
 # 2-to-1 Plays
 
 def _roulette_dozen(which):
+    "Dozen play on twelve consecutive pockets in 1..36, specified by 1, 2, or 3, first, second, third ...."
     if which in [1, 2, 3]:
         which_dozen = which - 1
     elif isinstance(which, str):
@@ -79,9 +86,10 @@ def _roulette_dozen(which):
     return dozen_play
 
 def _roulette_column(which):
+    "Column play on twelve pockets in one `column`, specified by 1, 2, or 3, first, second, third ...."
     if which == 3:
         which_column = 0
-    if which == 1 or which == 2:
+    elif which == 1 or which == 2:
         which_column = which
     elif isinstance(which, str):
         col = which.lower()
@@ -107,6 +115,7 @@ def _roulette_column(which):
 # Line Plays
 
 def _roulette_six_line(first_row):
+    "Six Line play on six pockets in two adjaced `rows`, specified by any pocket in smallest row."
     if not isinstance(first_row, int) or first_row < 1 or first_row > 36:
         raise IndexingError(f'Invalid pocket {first_row} to specify Six Line play, should be in 1..36.')
 
@@ -121,17 +130,31 @@ def _roulette_six_line(first_row):
 
 @statistic(dim=1, codim=1)
 def _roulette_top_line(pocket):
+    ""
     if pocket <= 3:
         return 6
     return -1
 
 # Other Plays
 
-def _roulette_corner():
-    pass  # ATTN: FIX
-# corner25 = statistic(lambda pocket: 8 if pocket in set(25,26,28,29) else -1, codim=1, dim=1)
+def _roulette_corner(smallest):
+    "Corner play specified by smallest square among four sharing a corner."
+    if not isinstance(smallest, int) or smallest < 1 or smallest > 36:
+        raise IndexingError(f'Invalid pocket {smallest} to specify Corner play. '
+                            f'It should be the smallest square in 1..36 among four that share a corner.')
+
+    winners = set([smallest, smallest + 1, smallest + 3, smallest + 4])
+
+    @statistic(dim=1, codim=1)
+    def corner(pocket):
+        if pocket in winners:
+            return 8
+        return -1
+
+    return corner
 
 def _roulette_street(first_row):
+    "Street play on three pockets in one `row` specified by any pocket in the row."
     if not isinstance(first_row, int) or first_row < 1 or first_row > 36:
         raise IndexingError(f'Invalid pocket {first_row} to specify Six Line play, should be in 1..36.')
 
@@ -145,7 +168,10 @@ def _roulette_street(first_row):
     return street
 
 def _roulette_split(first, second):
-    if first < second and (second - first == 1 or second - first == 3):
+    "Split play on two adjacent pockets in -1, 0, 1..36, the first smaller than the second."
+    if first < second and (second - first == 1 or second - first == 3
+                           or (first == -1 and second in [0, 2, 3])
+                           or (first == 0 and second in [1, 2])):
 
         @statistic(dim=1, codim=1)
         def split(pocket):
@@ -159,6 +185,7 @@ def _roulette_split(first, second):
                         f'they need to be adjacent with first < second.')
 
 def _roulette_straight(wins):
+    "Straight play on the specified pocket in -1, 0, 1..36."
     if not isinstance(wins, int) or wins < -1 or wins > 36:
         raise IndexingError(f'Invalid pocket {wins} to specify a straight play, should be in -1, 0, 1..36.')
 
@@ -178,9 +205,12 @@ def _roulette_straight(wins):
 def roulette(n=1):
     """An interface to FRPs and statistics representing Roulette spins and plays.
 
-    When called as a function, returns an FRP representing n spins (n=1 default)
+    When called as a function, returns an FRP representing n spins (n=1 default).
 
-    ATTN
+    roulette.plays is a list of available standard plays that are available
+    as statistics or statistic factories. For instance, roulette.even
+    is the Even play and roulette.straight(20) is the Straight play on
+    pocket 20.
 
     """
     return frp(ROULETTE_SPIN) ** n
@@ -188,14 +218,16 @@ def roulette(n=1):
 setattr(roulette, 'plays',
         ['even', 'odd', 'red', 'black', 'first18', 'second18'])
 
+setattr(roulette, 'kind', ROULETTE_SPIN)
+
 # Even-Money Plays
 
-setattr(roulette, 'even',      _roulette_even)
-setattr(roulette, 'odd',       _roulette_odd)
-setattr(roulette, 'red',       _roulette_red)
-setattr(roulette, 'black',     _roulette_black)
-setattr(roulette, 'first18',   _roulette_first18)
-setattr(roulette, 'second18',  _roulette_second18)
+setattr(roulette, 'even',     _roulette_even)
+setattr(roulette, 'odd',      _roulette_odd)
+setattr(roulette, 'red',      _roulette_red)
+setattr(roulette, 'black',    _roulette_black)
+setattr(roulette, 'first18',  _roulette_first18)
+setattr(roulette, 'second18', _roulette_second18)
 
 # 2-to-1 Plays
 
