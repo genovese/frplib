@@ -1118,7 +1118,13 @@ class FRP:
 
         if self.is_kinded():
             relevant = condition(self.value)  # We evaluate the value here
-            if not relevant:     # ATTN:Bug 11: check for falsy including <0> and <1>! Conditions do this
+            # Fixing Bug 11 27 Jul 2024  Require the condition/fn to return a scalar here
+            if isinstance(relevant, tuple):
+                if len(relevant) > 1:
+                    raise FrpError(f'Condition after given | should return a scalar; got {relevant}.')
+                relevant = relevant[0]
+
+            if not relevant:
                 return FRP.empty
             conditional = FRP(self.kind | condition)
             conditional._value = self._value
