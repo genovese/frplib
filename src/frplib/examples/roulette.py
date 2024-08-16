@@ -216,7 +216,11 @@ def roulette(n=1):
     return frp(ROULETTE_SPIN) ** n
 
 setattr(roulette, 'plays',
-        ['even', 'odd', 'red', 'black', 'first18', 'second18'])
+        [
+            'even', 'odd', 'red', 'black', 'first18', 'second18',
+            'dozen', 'column', 'six_line', 'top_line',
+            'corner', 'street', 'split', 'straight',
+        ])
 
 setattr(roulette, 'kind', ROULETTE_SPIN)
 

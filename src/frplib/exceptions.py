@@ -40,6 +40,10 @@ class PlaygroundError(FrplibException):
     "An error encountered during playground interactive session."
     pass
 
+class InputError(PlaygroundError):
+    "An error encountered due to a mis-specified input to a function or operator."
+    pass
+
 class OperationError(PlaygroundError):
     "An error encountered during a mathematical operation"
     pass

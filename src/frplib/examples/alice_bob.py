@@ -1,5 +1,5 @@
 #
-# Alice and Bob Example as described in the text Ch 0, Sec 7
+# Alice and Bob Example as described in the text Ch 0, Sec 6
 #
 
 from frplib.frps       import conditional_frp

@@ -7,6 +7,7 @@ from enum import IntEnum
 from frplib.frps       import conditional_frp, frp
 from frplib.exceptions import FrplibException
 from frplib.kinds      import Kind, conditional_kind, constant, uniform, weighted_as
+from frplib.numeric    import numeric_exp
 from frplib.statistics import Fork, Id
 from frplib.utils      import clone
 
@@ -44,7 +45,6 @@ def tick_light(state):
     )
     return frp(next_kind)
 
-# Provisional
 @conditional_kind
 def tick_light_kind(state):
     color, ticks = state
@@ -59,6 +59,15 @@ def tick_light_kind(state):
 start_any_color = uniform(change_on.keys()) ^ Fork(Id, 0)
 start_green = constant(TrafficLight.GREEN, 0)
 
+def n_ticks_kind(n, initial_state):
+    assert n >= 0, "Number of ticks must be non-negative."
+
+    state = initial_state
+    for _ in range(n):
+        state = tick_light_kind // state
+
+    return state
+
 def n_ticks(n, InitialState):
     assert n >= 0, "Number of ticks must be non-negative."
 
@@ -71,15 +80,42 @@ def n_ticks(n, InitialState):
 
     return State
 
-# Provisional
-def n_ticks_kind(n, initial_state):
-    assert n >= 0, "Number of ticks must be non-negative."
+# ATTN: Can also define in terms of n_ticks_kind as in text
+# def n_ticks(n, InitialState):
+#     return frp(n_ticks_kind(n, kind(InitialState)))
 
-    state = initial_state
-    for _ in range(n):
-        state = tick_light_kind // state
+# Refactoring 1
 
-    return state
+def stay_factor(ticks):
+    return numeric_exp(-ticks / 2)  # must be >= 0
+
+@conditional_kind
+def tick_light_kind_1(state):  # only change is this factor ||
+    color, ticks = state       # from last version          vv
+    change_probability = 1 - (1 - change_on[color]) * stay_factor(ticks)
+
+    return weighted_as(
+        (color, ticks + 1),
+        (next(color), 0),
+        weights=[1 - change_probability, change_probability]
+    )
+
+# Refactoring 2
+
+duration = {
+    TrafficLight.GREEN:  uniform(20, 21, ..., 50),
+    TrafficLight.YELLOW: uniform(5, 6, ..., 10),
+    TrafficLight.RED:    uniform(20, 21, ..., 50),
+}
+
+@conditional_kind
+def tick_light_kind_2(state):
+    color, ticks, remaining = state
+
+    if remaining > 0:
+        return constant(color, ticks + 1, remaining - 1)
+
+    return duration[color] ^ Fork(next(color), 0, Id)
 
 
 # Graph Example
