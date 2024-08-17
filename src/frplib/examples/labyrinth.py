@@ -2,6 +2,12 @@
 # Labyrinth Example as described in the text
 #
 
+__all__ = [
+    'labyrinth', 'steps', 'from_latest', 'start', 'moves',
+    'n_moves', 'theseus_latest', 'nth', 'after_move_n',
+    'ever_visited',
+]
+
 from collections.abc   import Generator, Iterator
 from itertools         import islice
 from typing            import TypeVar

@@ -2,6 +2,8 @@
 # Aces Example in Section 7
 #
 
+__all__ = ['between_aces', 'two_four_gaps', 'cut',]
+
 from frplib.statistics import statistic, Id
 from frplib.utils      import irange
 from frplib.vec_tuples import as_vec_tuple

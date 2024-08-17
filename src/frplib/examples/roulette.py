@@ -1,5 +1,7 @@
 # Roulette Example Chapter 0, Section 2
 
+__all__ = ['roulette']
+
 from frplib.exceptions   import IndexingError
 from frplib.frps         import frp
 from frplib.kinds        import uniform

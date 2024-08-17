@@ -1,6 +1,16 @@
 #
 # Random Graphs Example Chapter 0, Section 2.3
 #
+
+__all__ = [
+    'edge_kind', 'random_graph', 'node_count', 'edge_count', 'has_edge',
+    'is_connected', 'is_tree', 'is_acyclic',  'is_forest',
+    'connected_components', 'connected_component_count', 'connected_component_sizes',
+    'path_between', 'degrees', 'degrees_ordered', 'ForEachComponent',
+    'fast_edge_count', 'exact_edge_count', 'exact_is_tree',
+    'adjacency_matrix', 'adjacency_list',
+]
+
 import math
 
 from typing            import cast
@@ -243,7 +253,7 @@ def connected_component_count(graph):
 
     Input to the condition is a tuple giving the row-wise, upper
     triangle of the graph's adjacency matrix.
-    
+
     """
     return max(connected_components(graph))  # type: ignore
 

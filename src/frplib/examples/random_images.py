@@ -1,5 +1,14 @@
 # Random Image Example in Chapter 0 Section 2.3
 
+__all__ = [
+    'empty_image', 'pixel0', 'pixel1', 'as_image', 'add_image',
+    'clockwise', 'counter_clockwise', 'reflect_image_horizontally',
+    'reflect_image_vertically', 'largest_cluster_size',
+    'random_image', 'black_pixels', 'erode', 'dilate',
+    'ImageModels', 'image_distance', 'closest_image_to',
+    'reconstruct_image', 'max_likelihood_image', 'simulate_denoise',
+]
+
 import math
 
 from collections.abc     import Iterable
@@ -163,7 +172,7 @@ def reflect_image_vertically(image: Image) -> Image:
     return as_image(reflected, wd, ht)
 
 def largest_cluster_size(image: Image):
-    ...
+    ...  # ATTN:MISSING
 
 #
 # Main Image FRP Factory
