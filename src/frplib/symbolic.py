@@ -1,22 +1,57 @@
 from __future__ import annotations
 
+import math
 import re
 
 from abc               import ABC
 from collections       import defaultdict
 from collections.abc   import Generator
 from decimal           import Decimal
+from fractions         import Fraction
 from functools         import reduce
 from operator          import add
 from typing            import cast, Literal, Union
 from typing_extensions import TypeGuard
 
-from frplib.exceptions import ConstructionError
+from frplib.exceptions import ConstructionError, MismatchedDomain
 from frplib.numeric    import (Numeric, ScalarQ,
                                as_real, as_nice_numeric, as_numeric,
                                is_scalar_q, show_numeric)
 # from frplib.protocols  import NamedCallable
 # from frplib.utils      import every
+
+
+#
+# Scalar Utility
+#
+# This has to be here to avoid circular dependencies as it uses
+# Symbolic, which is forward referenced but defined below in this module.
+# I would prefer it to be elsewhere, but for now, this is the way.
+#
+
+def is_zero(quantity: ScalarQ, tolerance=0.0) -> bool:
+    if isinstance(quantity, int):
+        return quantity == 0
+
+    if isinstance(quantity, Decimal):
+        return quantity.is_zero()
+
+    if isinstance(quantity, float):
+        return math.isclose(quantity, 0.0, abs_tol=tolerance)
+
+    if isinstance(quantity, str):
+        return bool(re.match(r'(?:-?0$)|(?:-?0?\.0+$)|(?:-?0/[1-9][0-9]*$)', quantity))
+
+    if isinstance(quantity, Symbolic):
+        s = simplify(quantity)
+        if isinstance(s, Symbolic):
+            return s.is_pure() and is_zero(s.pure_value())
+        return is_zero(s)
+
+    if isinstance(quantity, Fraction):
+        return quantity.numerator == 0
+
+    raise MismatchedDomain(f'is_zero requires a scalar argument, given {quantity}.')
 
 #
 # Helpers
@@ -26,9 +61,6 @@ def merge_with(a, b, merge_fn=lambda x, y: y):
     merged = {k: a.get(k, b.get(k)) for k in a.keys() ^ b.keys()}
     merged.update({k: merge_fn(a[k], b[k]) for k in a.keys() & b.keys()})
     return merged
-
-def is_zero(x: Numeric):  # Move to Numeric, should it take ScalarQ?
-    return x == 0  # Temp
 
 def show_coef(x: ScalarQ) -> str:
     return show_numeric(as_numeric(x), max_denom=1)
