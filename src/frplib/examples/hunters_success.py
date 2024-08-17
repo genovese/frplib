@@ -4,14 +4,9 @@ from random              import random
 
 from frplib.calculate    import substitute_with
 from frplib.frps         import independent_mixture
-from frplib.kinds        import (Kind, conditional_kind, fast_mixture_pow,
-                                 constant, either, permutations_of, uniform, weighted_as,
-                                 without_replacement)
-from frplib.statistics   import (MonoidalStatistic, __, statistic,
-                                 Abs, And, Diff, Fork, Min, Max, Or, Proj, Sqrt, Sum,)
+from frplib.kinds        import weighted_as
+from frplib.statistics   import Sum
 from frplib.symbolic     import symbol, symbols
-from frplib.utils        import clone, index_of, irange
-from frplib.vec_tuples   import as_scalar, as_vec_tuple, vec_tuple
 
 # Approach #1 in the Text is obtained with the profile expert_plus below
 

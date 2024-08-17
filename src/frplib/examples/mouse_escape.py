@@ -1,5 +1,9 @@
 # Mouse Escape Example from Chapter 0 Section 8
 
+__all__ = ['initial_state', 'move', 'escaped',
+           'initial_state_alt', 'move_alt', 'mouse_outcome',
+           'escaped_alt']
+
 from frplib.expectations import E
 from frplib.frps         import evolve
 from frplib.kinds        import conditional_kind, constant, either
@@ -9,7 +13,7 @@ from frplib.statistics   import __, Proj
 # First Approach
 
 initial_state = constant(0)
-move = conditional_kind({
+move = conditional_kind({  # type: ignore
     0: either(0, 1, 2),
     1: either(0, 2, 2),
     2: either(1, 3, 2),
