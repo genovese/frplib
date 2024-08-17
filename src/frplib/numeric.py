@@ -154,7 +154,7 @@ def is_scalar_q(x) -> TypeGuard[Union[int, float, Fraction, Decimal, NumericQ, s
     return isinstance(x, (int, float, Fraction, Decimal, NumericQuantity, str, bool))  # bool auto cast to int
 
 def is_numeric(x) -> TypeGuard[Union[int, Decimal]]:
-    return isinstance(x, (int, float, Fraction, Decimal, NumericQuantity, str, bool))  # bool auto cast to int
+    return isinstance(x, (int, Decimal))
 
 
 #
