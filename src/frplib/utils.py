@@ -125,14 +125,16 @@ def irange(
       stop - if missing, start from 1 (unlike the builtin range that starts from 0);
           otherwise, the sequence goes up to and including this value.
       step - a non-zero integer giving the spacing between successive values of the
-          sequence; it can e negativ if stop < start.
+          sequence; it can be negative. Warning: A zero step will generate a
+          non-terminating sequence.
       exclude - either a set of integers or a predicate taking integers to boolean
-          values; values in the set or for which the predicate returns true are skippe.
+          values; values in the set or for which the predicate returns true are skipped.
       include - either a set of integers or a predicate taking integers to boolean
           values; values in the set or for which the predicate returns true are included.
           If exclude is also supplied, this takes precedence.
 
-    Returns an iterator over the resulting range.
+    Returns a generator for values in the resulting range. If the sign of step is
+    inconsistent with start and stop, the generator is empty.
 
     """
     if exclude is not None and not callable(exclude):
@@ -148,14 +150,14 @@ def irange(
     else:
         start = start_or_stop
 
-    if (stop - start) * step < 0:
-        raise ConstructionError(f'irange {start}:{stop} and step {step} have inconsistent direction.')
-
     sign = 1 if step >= 0 else -1
+
+    # if (stop - start) * sign < 0:
+    #     raise ConstructionError(f'irange {start}:{stop} and step {step} have inconsistent direction.')
 
     def generate_from_irange() -> Generator[int, None, None]:
         value = start
-        while (value - stop) * sign <= 0:
+        while (stop - value) * sign >= 0:
             if ((include is None and exclude is None) or
                (include is not None and include(value)) or
                (exclude is not None and not exclude(value))):
