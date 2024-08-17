@@ -506,7 +506,7 @@ class SymbolicMultiSum(Symbolic):
         return str(self)
 
     def is_pure(self) -> bool:
-        return len(self.terms) == 1 and self.terms[0].is_pure()
+        return not self.terms or (len(self.terms) == 1 and self.terms[0].is_pure())
 
     def is_single(self) -> bool:
         return len(self.terms) == 1
