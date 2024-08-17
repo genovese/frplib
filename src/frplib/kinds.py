@@ -1403,7 +1403,7 @@ class ConditionalKind:
     """
     def __init__(
             self,
-            mapping: Callable[[ValueType], Kind] | dict[ValueType, Kind] | Kind,
+            mapping: Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind,
             *,
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,
@@ -1637,7 +1637,7 @@ class ConditionalKind:
 
 
 def conditional_kind(
-        mapping: Callable[[ValueType], Kind] | dict[ValueType, Kind] | Kind | None = None,
+        mapping: Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind | None = None,
         *,
         codim: int | None = None,
         dim: int | None = None,
