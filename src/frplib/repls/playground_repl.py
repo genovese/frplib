@@ -110,7 +110,7 @@ playground_imports: dict[str, list[str]] = {
     'numeric': ['numeric_exp', 'numeric_ln', 'numeric_log10', 'numeric_log2',
                 'numeric_abs', 'numeric_sqrt', 'numeric_floor', 'numeric_ceil'],
     'quantity': ['as_quantity', 'qvec'],
-    'symbolic': ['gen_symbol', 'is_symbolic', 'symbol'],
+    'symbolic': ['gen_symbol', 'is_symbolic', 'symbol', 'symbols'],
     'utils': [
         'clone', 'compose', 'const', 'every', 'frequencies',
         'identity', 'index_of', 'irange', 'iterate', 'lmap',
