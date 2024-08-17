@@ -180,6 +180,36 @@ class Symbolic(ABC):
     def substitute(self, mapping: dict[str, ScalarQ], purify=True):
         ...
 
+    def __add__(self, other):
+        ...
+
+    def __radd__(self, other):
+        ...
+
+    def __sub__(self, other):
+        ...
+
+    def __rsub__(self, other):
+        ...
+
+    def __mul__(self, other):
+        ...
+
+    def __rmul__(self, other):
+        ...
+
+    def __eq__(self, other):
+        if isinstance(other, Symbolic):
+            return is_zero(self - other)
+
+        if self.is_pure() and is_scalar_q(other):
+            return as_numeric(self.pure_value()) == as_numeric(other)
+
+        return False
+
+    def __hash__(self):
+        ...
+
     def __lt__(self, other):
         "Sort symbols before numbers and by sort_key against Symbolics."
         if isinstance(other, Symbolic):
@@ -262,6 +292,9 @@ class SymbolicMulti(Symbolic):
         self.order = order
         self.key = sig
         self.as_str: Union[str, None] = None   # Computed lazily
+
+    def __hash__(self):
+        return hash((*sorted(self.term.keys()), *sorted(self.term.values()), self.coef, self.order))
 
     @classmethod
     def from_terms(cls, multi: dict[str, int], coef: Numeric = 1):
@@ -497,6 +530,9 @@ class SymbolicMultiSum(Symbolic):
             self.terms = terms
             self.as_str = None
 
+    def __hash__(self):
+        return hash((*self.terms, self.coef, self.order))
+
     def __str__(self) -> str:
         if self.as_str is None:
             self.as_str = " + ".join([str(term) for term in self.terms])
@@ -719,6 +755,9 @@ class SymbolicMultiRatio(Symbolic):
             den = f'({str(denominator)})'
 
         self.as_str = f'{num}/{den}'
+
+    def __hash__(self):
+        return hash(tuple(self.terms))
 
     @property
     def numerator(self):
@@ -993,7 +1032,7 @@ def symbolic(numerator: Union[Symbolic, str], denominator: Union[Symbolic, Liter
         numerator = symbol(numerator)
 
     npv = numerator.pure_value()
-    dpv = denominator.pure_value() if denominator != 1 else 1
+    dpv = denominator.pure_value() if denominator != 1 else 1  # type: ignore
     if npv is not None and dpv is not None:
         return as_real(npv / dpv)
     elif npv is not None and denominator == 1:

@@ -344,7 +344,14 @@ class Kind:
         w2 = kind2.weights
 
         for v in vals1:
-            if as_nice_numeric(as_real(w1[v] - w2[v]).copy_abs()) >= tol:
+            weight1 = w1[v]
+            weight2 = w2[v]
+
+            # ATTN:check compatibility if as_nice_numeric(as_real(w1[v] - w2[v]).copy_abs()) >= tol:
+            if is_numeric(weight1) and is_numeric(weight2):
+                if not math.isclose(weight1, weight2, abs_tol=tol, rel_tol=tol):
+                    return False
+            elif weight1 != weight2:
                 return False
 
         return True
@@ -1156,7 +1163,7 @@ def geometric(
     weights = []
     for _ in values:
         weights.append(w)
-        w = w * ratio      # type: ignore
+        w = w * ratio
     return Kind([KindBranch.make(vs=x, p=w) for x, w in zip(values, weights)])
 
 def weighted_by(*xs, weight_by: Callable) -> Kind:
