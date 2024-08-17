@@ -4,12 +4,18 @@ from itertools import chain
 
 from frplib.examples.roulette import roulette, RED_SQUARES
 
-from frplib.kinds      import Kind, kind
+from frplib.kinds      import Kind, kind, weighted_as
 from frplib.utils      import irange
 from frplib.vec_tuples import vec_tuple
 
 def test_roulette_basics():
-    assert Kind.equal(roulette.kind, kind(roulette()))
+    R = roulette()
+    kind_R = kind(R)
+    assert Kind.equal(roulette.kind, kind_R)
+    assert Kind.equal(roulette.even(kind_R),
+                      weighted_as(-1, 1, weights=['10/19', '9/19']))
+    assert Kind.equal(roulette.straight(16)(kind_R),
+                      weighted_as(-1, 35, weights=['37/38', '1/38']))
 
 def test_roulette_plays():
     lost = vec_tuple(-1)
@@ -57,10 +63,47 @@ def test_roulette_plays():
     assert all( roulette.top_line == 5 * won for p in irange(-1, 3) )
     assert all( roulette.top_line == lost for p in irange(4, 36) )
 
+    assert all( roulette.six_line(3 * u + k)(3 * u + p) == 5 * won
+                for u in range(11) for k in irange(1, 3) for p in irange(1, 6) )
     assert all( roulette.six_line(p)(-1) == lost for p in irange(1, 36) )
     assert all( roulette.six_line(p)(0) == lost for p in irange(1, 36) )
+    assert all( roulette.six_line(3 * u + k)(p) == lost
+                for u in range(11) for k in irange(1, 3) for p in irange(1, 3 * u) )
+    assert all( roulette.six_line(3 * u + k)(p) == lost
+                for u in range(11) for k in irange(1, 3) for p in irange(3 * u + 7, 36) )
 
-    # ATTN: finish six_line, corner, street, and split
+    assert all( roulette.street(3 * u + k)(3 * u + p) == 11 * won
+                for u in range(11) for k in irange(1, 3) for p in irange(1, 3) )
+    assert all( roulette.street(p)(-1) == lost for p in irange(1, 36) )
+    assert all( roulette.street(p)(0) == lost for p in irange(1, 36) )
+    assert all( roulette.street(3 * u + k)(p) == lost
+                for u in range(11) for k in irange(1, 3) for p in irange(1, 3 * u) )
+    assert all( roulette.street(3 * u + k)(p) == lost
+                for u in range(11) for k in irange(1, 3) for p in irange(3 * u + 4, 36) )
+
+    assert all( roulette.corner(3 * u + k)(x) == 8 * won for u in range(11) for k in [1, 2]
+                for x in [3 * u + k, 3 * u + k + 1, 3 * u + k + 3, 3 * u + k + 4] )
+    assert all( roulette.corner(3 * u + k)(x) == lost for u in range(11) for k in [1, 2]
+                for x in irange(-1, 36, exclude={3 * u + k, 3 * u + k + 1, 3 * u + k + 3, 3 * u + k + 4}) )
+
+    assert all( roulette.split(3 * u + k, p)(3 * u + k) == 17 * won
+                for u in range(11) for k in irange(1, 2) for p in [3 * u + k + 1, 3 * u + k + 3] )
+    assert all( roulette.split(3 * u + k, p)(p) == 17 * won
+                for u in range(11) for k in irange(1, 2) for p in [3 * u + k + 1, 3 * u + k + 3] )
+    assert all( roulette.split(3 * u, 3 * u + 1)(p) == 17 * won
+                for u in irange(1, 11) for p in [3 * u, 3 * u + 1])
+    assert all( roulette.split(u, u + 1)(p) == 17 * won
+                for u in irange(34, 35) for p in [u, u + 1] )
+    assert all( roulette.split(3 * u + k, p)(3 * u + k) == 17 * won
+                for u in range(11) for k in irange(1, 2) for p in [3 * u + k + 1, 3 * u + k + 3] )
+    assert all( roulette.split(3 * u + k, p)(x) == lost
+                for u in range(11) for k in irange(1, 2) for p in [3 * u + k + 1, 3 * u + k + 3]
+                for x in irange(-1, 36, exclude={3 * u + k, 3 * u + k + 1, 3 * u + k + 3}) )
+    assert all( roulette.split(3 * u, 3 * u + 1)(x) == lost
+                for u in irange(1, 11) for p in [3 * u, 3 * u + 1]
+                for x in irange(-1, 36, exclude={3 * u, 3 * u + 1}) )
+    assert all( roulette.split(u, u + 1)(p) == lost
+                for u in irange(34, 35) for p in irange(-1, 36, exclude={u, u + 1}) )
 
     assert all( roulette.straight(p)(p) == 35 * won for p in irange(-1, 36) )
     assert all( roulette.straight(p)(q) == lost for p in irange(-1, 36) for q in irange(-1, 36) if p != q )
