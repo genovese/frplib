@@ -470,7 +470,7 @@ class ConditionalFRP:
     """
     def __init__(
             self,
-            mapping: Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | ConditionalKind,
+            mapping: Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind,
             *,
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,
@@ -741,7 +741,7 @@ class ConditionalFRP:
 
 
 def conditional_frp(
-        mapping: Callable[[ValueType], FRP] | dict[ValueType, FRP] | ConditionalKind | None = None,
+        mapping: Callable[[ValueType], FRP] | dict[ValueType, FRP] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
         *,
         codim=None,
         dim=None,
