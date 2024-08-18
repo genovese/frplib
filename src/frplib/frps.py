@@ -21,7 +21,7 @@ from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
 from frplib.numeric    import Numeric, show_tuple, as_real
 from frplib.protocols  import Projection, SupportsExpectation
 from frplib.quantity   import as_quant_vec
-from frplib.statistics import Statistic, compose2, infinity, tuple_safe
+from frplib.statistics import Statistic, compose2, infinity, tuple_safe, Proj
 from frplib.symbolic   import Symbolic
 from frplib.utils      import scalarize
 from frplib.vec_tuples import VecTuple, as_scalar, as_vec_tuple, vec_tuple
@@ -1056,8 +1056,8 @@ class FRP:
 
     def __rfloordiv__(self, c_frp):
         "Conditioning on self; other is a conditional FRP."
-        c_frp = conditional_frp(c_frp)  # Convert to proper form with a copy
-        return c_frp(self.value)   # generate value even if costly
+        d = self.dim
+        return self >> c_frp ^ Proj[(d + 1):]
 
     @overload
     def marginal(self, *__indices: int) -> 'FRP':
