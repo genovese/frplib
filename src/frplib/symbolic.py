@@ -632,14 +632,17 @@ class SymbolicMultiSum(Symbolic):
 
     def __mul__(self, other):
         if isinstance(other, (int, float, Decimal)):   # is_scalar_q(other):
+            # ATTN: Re Bug 20, product with a pure value produces a pure symbolic
+            # Simplification will reduce this to a number as needed
+            # This is an attempt to fix Bug 20 without other adverse effects
             nother = as_numeric(other)
             if is_zero(nother):
-                return 0
+                return SymbolicMultiSum.singleton(symbolic_zero)
             if nother == 1:
                 return self
             pv = self.pure_value()
             if pv is not None:
-                return pv * nother
+                return SymbolicMultiSum.singleton(SymbolicMulti.pure(pv * nother))
             return SymbolicMultiSum([x * as_real(nother) for x in self.terms])
 
         pv = self.pure_value()
