@@ -18,7 +18,6 @@ from frplib.env        import environment
 from frplib.exceptions import (ConditionMustBeCallable, ComplexExpectationWarning,
                                ConstructionError, FrpError, KindError, MismatchedDomain,)
 from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
-# ATTN:Will replace this value type with a unified type TBD
 from frplib.numeric    import Numeric, show_tuple, as_real
 from frplib.protocols  import Projection, SupportsExpectation
 from frplib.quantity   import as_quant_vec
@@ -28,7 +27,6 @@ from frplib.utils      import scalarize
 from frplib.vec_tuples import VecTuple, as_scalar, as_vec_tuple, vec_tuple
 
 
-# ValueType: TypeAlias = VecTuple[Numeric]  # ATTN
 QuantityType: TypeAlias = Union[Numeric, Symbolic]
 ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 
@@ -553,6 +551,16 @@ class ConditionalFRP:
     # at creation time as the values are known in advance.
     def __call__(self, *value) -> 'FRP':
         return self._fn(*value)
+
+    def kind_of(self) -> 'ConditionalKind':
+        if self._is_dict:
+            c_kind = {k: kind(v) for k, v in self._mapping.items()}
+            return ConditionalKind(c_kind, codim=self._codim, dim=self._dim, domain=self._domain)
+
+        def c_kind_fn(value):
+            return kind(self._fn(value))  # ATTN! Note Bug 15's impact here
+
+        return ConditionalKind(c_kind_fn, codim=self._codim, dim=self._dim, domain=self._domain)
 
     def clone(self) -> 'ConditionalFRP':
         if self._is_dict:

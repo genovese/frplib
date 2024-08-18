@@ -23,7 +23,7 @@ from frplib.kind_trees import (KindBranch,
 from frplib.numeric    import (Numeric, ScalarQ, as_nice_numeric, as_numeric, as_real,
                                is_numeric, numeric_abs, numeric_floor, numeric_log2)
 from frplib.output     import RichReal, RichString
-from frplib.protocols  import Projection
+from frplib.protocols  import Projection, SupportsKindOf
 from frplib.quantity   import as_quantity, as_nice_quantity, as_quant_vec, show_quantities, show_qtuples
 from frplib.statistics import Condition, MonoidalStatistic, Statistic, compose2, Proj
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol
@@ -1375,10 +1375,15 @@ def kind(any) -> Kind:
     #       Maybe add a kind property to ConditionalFRP to handle this?
     if hasattr(any, 'kind'):
         return any.kind
+
     if not any:
         return Kind.empty
     if isinstance(any, str) and (any in {'void', 'empty'} or re.match(r'\s*\(\s*<\s*>\s*\)\s*', any)):
         return Kind.empty
+
+    if isinstance(any, SupportsKindOf):
+        return any.kind_of()
+
     try:
         return Kind(any)
     except Exception as e:
@@ -1498,6 +1503,9 @@ class ConditionalKind:
 
     def __getitem__(self, *value) -> Kind:
         return self._fn(*value)
+
+    def kind_of(self) -> 'ConditionalKind':
+        return self
 
     def clone(self) -> 'ConditionalKind':
         "Returns a clone of this conditional kind, which being immutable is itself."

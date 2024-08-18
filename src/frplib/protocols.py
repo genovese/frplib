@@ -39,3 +39,9 @@ class SupportsApproxExpectation(Protocol):
 class SupportsForcedExpectation(Protocol):
     def forced_expectation(self):
         ...
+
+@runtime_checkable
+class SupportsKindOf(Protocol):
+    "Describes objects X for which kind(X) is meaningful, excluding Kinds themselves."
+    def kind_of(self):
+        ...
