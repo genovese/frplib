@@ -98,6 +98,7 @@ playground_imports: dict[str, list[str]] = {
         'Exp', 'Log', 'Log2', 'Log10',
         'Sin', 'Cos', 'Tan', 'ATan2', 'Sinh', 'Cosh', 'Tanh',
         'Mean', 'StdDev', 'Variance',
+        'SumSq', 'Norm', 'ArgMin', 'ArgMax',
         'Diff', 'Diffs', 'Permute',
         'Constantly', 'Fork', 'MFork', 'ForEach', 'IfThenElse',
         'And', 'Or', 'Not', 'Xor', 'top', 'bottom',

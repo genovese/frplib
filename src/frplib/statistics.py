@@ -1538,6 +1538,7 @@ setattr(Cosh, '__info__', 'statistic-builtins')
 setattr(Tanh, '__info__', 'statistic-builtins')
 setattr(NormalCDF, '__info__', 'statistic-builtins')
 setattr(SumSq, '__info__', 'statistic-builtins')
+setattr(Norm, '__info__', 'statistic-builtins')
 setattr(StdDev, '__info__', 'statistic-builtins')
 setattr(Variance, '__info__', 'statistic-builtins')
 

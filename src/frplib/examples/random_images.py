@@ -598,15 +598,15 @@ def simulate_denoise(
     distance between truth and reconstruction over all observations.
 
     """
-    propi = 0
+    prop_wrong = 0
     score = 0
     for _ in range(observations):
         data, truth = ImageModels.observe(model_id, p=p)
         reconstructed = denoiser(data)
         distance = image_distance(reconstructed.value, truth)
         score += distance
-        propi += (distance > 0)  # 0 if correct, 1 if not
-    return (propi / observations, score / observations)
+        prop_wrong += (distance > 0)  # 0 if correct, 1 if not
+    return (prop_wrong / observations, score / observations)
 
 
 #
