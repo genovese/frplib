@@ -107,3 +107,16 @@ def test_roulette_plays():
 
     assert all( roulette.straight(p)(p) == 35 * won for p in irange(-1, 36) )
     assert all( roulette.straight(p)(q) == lost for p in irange(-1, 36) for q in irange(-1, 36) if p != q )
+
+def test_text():
+    R = roulette()
+    s16_10 = 10 * roulette.straight(16)
+    W16_10 = R ^ s16_10
+    assert Kind.equal(kind(W16_10), weighted_as(-10, 350, weights=['37/38', '1/38']))
+
+    comb = 10 * roulette.even + 5 * roulette.corner(25) + 20 * roulette.straight(4) + 50 * roulette.column(2)
+    assert comb(26)[0] == 130
+
+    k = weighted_as(-85, -65, -40, -20, 65, 85, 110, 130, 655,
+                    weights=['13/38', '10/38', '1/38', '1/38', '5/38', '5/38', '1/38', '1/38', '1/38'])
+    assert Kind.equal(kind(comb(R)), k)
