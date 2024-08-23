@@ -5,7 +5,7 @@ __all__ = ['solve_dirichlet', 'solve_dirichlet_sparse', 'K_NSEW', 'lava_room']
 from frplib.exceptions import InputError
 from frplib.frps       import frp
 from frplib.kinds      import conditional_kind, uniform, weighted_as
-from frplib.utils      import clone
+from frplib.utils      import clone, irange
 
 
 @conditional_kind
@@ -73,6 +73,67 @@ def solve_dirichlet_sparse(cKind, *, fixed, fixed_values, alpha=0, beta=1, state
 
 # Example System in Text
 
-lava_room = 'A room filled with lava and cool water arranged on a regular grid'
-setattr(lava_room, 'states', [])
-setattr(lava_room, 'fixed', [{}, {}])
+class LavaRoom:
+    'A room filled with lava and cool water arranged on a regular grid'
+
+    def __init__(self):
+        cells = [(x, y) for y in irange(-6, 6) for x in irange(-12, 12)]
+
+        self.states = cells
+        self.lava = {
+            (x, y) for x, y in cells
+            if ((8 <= x <= 12 and -6 <= y <= -5) or (x == 12 and -4 <= y <= -3) or
+                (8 <= x <= 12 and y == 1) or (8 <= x < 9 and y == 0) or
+                (11 <= x <= 12 and y == 0) or (x == -12 and -6 <= y <= 1) or
+                (x == -11 and -6 <= y <= -1) or (x == -10 and y == -6) or
+                (x == 6 and -8 <= y <= -7))
+        }
+        self.water = {
+            (x, y) for x, y in cells
+            if ((-8 <= x <= -5 and -6 <= y <= -3) or (6 <= x <= 7 and -6 <= y <= -5) or
+                (-4 <= x <= 4 and y == 6) or (-1 <= x <= 1 and y == 5) or
+                (x == 0 and y == 4))
+        }
+        self.fixed = [self.lava, self.water]
+        # Originally free was a set, but a list is more useful # set(self.states) - self.lava - self.water
+
+        self.free = [(100, 100)] * (len(cells) - len(self.lava) - len(self.water))
+        self.state_index: dict[tuple[int, int], int] = {}
+        self.free_index: dict[tuple[int, int], int] = {}
+        j = 0
+        for i, v in enumerate(cells):
+            self.state_index[v] = i
+            if v not in self.lava and v not in self.water:
+                self.free[j] = v
+                self.free_index[v] = j
+                j += 1
+
+    def _row(self, fcell, fixed_values=(0, 1)):
+        "Returns row and RHS of the specified index (free cell index)."
+        x, y = self.free[fcell]
+        row: list[float] = [0.0] * len(self.free)
+        rhs: float = 0
+
+        row[fcell] = 1.0
+
+        if abs(x) == 12 and abs(y) == 6:
+            r = 0.5
+        elif abs(x) == 12 or abs(y) == 6:
+            r = 1.0 / 3.0
+        else:
+            r = 0.25
+
+        for delta in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            neighbor = (x + delta[0], y + delta[1])
+            if abs(neighbor[0]) > 12 or abs(neighbor[1]) > 6:
+                continue
+            if neighbor in self.lava:
+                rhs += r * fixed_values[0]
+            elif neighbor in self.water:
+                rhs += r * fixed_values[1]
+            else:
+                row[self.free_index[neighbor]] = -r
+
+        return (row, rhs)
+
+lava_room = LavaRoom()
