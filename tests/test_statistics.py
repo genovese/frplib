@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import math
-
 import pytest
 
+from frplib.exceptions import DomainDimensionError, InputError
 from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                is_statistic, statistic, condition, scalar_statistic,
-                               tuple_safe, infinity,
+                               tuple_safe, infinity, ANY_TUPLE,
                                fork, chain, compose,
                                Id, Scalar, __, Proj, _x_,
                                Sum, Count, Max, Min, Mean, Abs,
@@ -105,3 +105,105 @@ def test_builtin_statistics():
 
     assert Sqrt(4) == vec_tuple(2)
     assert Sqrt(1.44) == vec_tuple(as_quantity(1.2))
+
+def test_tuple_safe():
+    def sc_fn(x):
+        return as_quantity(x) + 1   # type: ignore
+
+    s1 = tuple_safe(sc_fn, arities=1, strict=False)
+    s1s = tuple_safe(sc_fn, arities=1, strict=True)
+
+    assert s1(4) == vec_tuple(5)
+    assert s1((4,)) == vec_tuple(5)
+    assert s1(-1) == vec_tuple(0)
+    assert s1('1/2') == vec_tuple(1.5)
+    assert s1(17, 10) == vec_tuple(18)
+    assert s1((17, 10)) == vec_tuple(18)
+    assert s1((-101, 1, 2, 3, 4, 5)) == vec_tuple(-100)
+
+    with pytest.raises(DomainDimensionError):
+        s1s(17, 10)
+
+    with pytest.raises(DomainDimensionError):
+        s1s((17, 10))
+
+    with pytest.raises(DomainDimensionError):
+        s1s()
+
+    with pytest.raises(DomainDimensionError):
+        s1s((1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))
+
+    def bad_1(x, y, z):
+        return x + y + z
+
+    with pytest.raises(InputError):
+        tuple_safe(bad_1, arities=(1, 3), strict=False)
+
+    with pytest.raises(InputError):
+        tuple_safe(bad_1, arities=4, strict=False)
+
+    with pytest.raises(InputError):
+        tuple_safe(bad_1, arities=(0, infinity), strict=False)
+
+    def v_fn(a, b, c):
+        return (a, b, c, 0)
+
+    v1 = tuple_safe(v_fn, strict=False)
+    v1s = tuple_safe(v_fn, strict=True)
+
+    assert v1(1, 2, 3) == vec_tuple(1, 2, 3, 0)
+    assert v1((1, 2, 3)) == vec_tuple(1, 2, 3, 0)
+    assert v1((1, 2, 3, 4, 5, 6, 7, 8)) == vec_tuple(1, 2, 3, 0)
+
+    with pytest.raises(DomainDimensionError):
+        v1s((1, 2, 3, 4))
+
+    with pytest.raises(DomainDimensionError):
+        v1(1, 2)
+
+    with pytest.raises(DomainDimensionError):
+        v1s(1, 2)
+
+    with pytest.raises(DomainDimensionError):
+        v1((4,))
+
+    with pytest.raises(DomainDimensionError):
+        v1()
+
+    def vt_fn(a):
+        u, v, w = a
+        return (u, v, w, 0)
+
+    v2 = tuple_safe(vt_fn, arities=3, strict=False)
+    v2s = tuple_safe(vt_fn, arities=3, strict=True)
+
+    assert v2(1, 2, 3) == vec_tuple(1, 2, 3, 0)
+    assert v2((1, 2, 3)) == vec_tuple(1, 2, 3, 0)
+    assert v2((1, 2, 3, 4, 5, 6, 7, 8)) == vec_tuple(1, 2, 3, 0)
+
+    with pytest.raises(DomainDimensionError):
+        v2s((1, 2, 3, 4))
+
+    with pytest.raises(DomainDimensionError):
+        v2((1, 2,))
+
+    with pytest.raises(DomainDimensionError):
+        v2(1, 2,)
+
+    with pytest.raises(DomainDimensionError):
+        v2()
+
+    def vm_fn(a):
+        return sum(a[2:])
+
+    v3 = tuple_safe(vm_fn, arities=(3, infinity), strict=False)
+    assert v3(1, 2, 3, 4) == vec_tuple(7)
+    assert v3(tuple(range(11))) == vec_tuple(54)
+    assert v3(10, 90, 80) == vec_tuple(80)
+
+    with pytest.raises(DomainDimensionError):
+        v3((1, 2))
+    with pytest.raises(DomainDimensionError):
+        v3(4)
+    with pytest.raises(DomainDimensionError):
+        v3()
