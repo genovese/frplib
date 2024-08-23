@@ -5,7 +5,7 @@ import math
 import re
 import textwrap
 
-from collections.abc   import Iterable
+from collections.abc   import Iterable, Collection
 from decimal           import Decimal
 from functools         import wraps
 from math              import prod
@@ -14,7 +14,7 @@ from typing            import Callable, cast, Literal, Optional, overload, Union
 from typing_extensions import Self, TypeAlias, TypeGuard
 
 from frplib.exceptions import OperationError, StatisticError, DomainDimensionError, InputError
-from frplib.numeric    import (ScalarQ, as_real, numeric_sqrt, numeric_exp,
+from frplib.numeric    import (ScalarQ, Numeric, as_real, numeric_sqrt, numeric_exp,
                                numeric_ln, numeric_log10, numeric_log2,
                                numeric_abs, numeric_floor, numeric_ceil)
 
@@ -34,7 +34,7 @@ from frplib.vec_tuples import VecTuple, as_scalar, as_scalar_strict, as_vec_tupl
 #
 
 ArityType: TypeAlias = tuple[int, Union[int, float]]   # Would like Literal[infinity] here, but mypy rejects
-
+QuantityType: TypeAlias = Union[Numeric, Symbolic]
 
 #
 # Special Numerical Values
@@ -115,7 +115,7 @@ def analyze_domain(fn: Callable) -> ArityType:
             break
     return (requires, requires + accepts)
 
-def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, strict=False) -> Callable:
+def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, strict=True) -> Callable:
     """Returns a function that can accept a single tuple or multiple individual arguments.
 
     Ensures that the returned function has an `arity` attribute set
@@ -345,7 +345,7 @@ class Statistic:
             codim: Optional[int] = None,            # Dimension of the codomain; None means don't know
             name: Optional[str] = None,             # A user-facing name for the statistic
             description: Optional[str] = None,      # A description used as a __doc__ string for the Statistic
-            strict=False                            # If true, treat arities strictly
+            strict=True                             # If true, treat arities strictly
     ) -> None:
         if dim == 0:
             dim = ANY_TUPLE
@@ -850,10 +850,10 @@ class MonoidalStatistic(Statistic):
             codim: Optional[int] = None,            # Dimension of the codomain; None means don't know
             name: Optional[str] = None,             # A user-facing name for the statistic
             description: Optional[str] = None,      # A description used as a __doc__ string for the Statistic
-            strict=False                            # If true, then strictly enforce dim upper bound
+            strict=True                             # If true, then strictly enforce dim upper bound
     ) -> None:
         super().__init__(fn, dim, codim, name, description, strict=strict)
-        self.unit = unit
+        self.unit = as_vec_tuple(unit)
 
     def __call__(self, *args):
         if len(args) == 0:
@@ -922,7 +922,7 @@ class Condition(Statistic):
                                                     # infinity allowed for b; None means infer by inspection
             name: Optional[str] = None,             # A user-facing name for the statistic
             description: Optional[str] = None,      # A description used as a __doc__ string for the Statistic
-            strict=False                            # If true, then strictly enforce dim upper bound
+            strict=True                             # If true, then strictly enforce dim upper bound
     ) -> None:
         super().__init__(predicate, dim, 1, name, description, strict)
         self.__doc__ = self.__describe__(description or predicate.__doc__ or '', 'returns a 0-1 (boolean) value')
@@ -960,7 +960,7 @@ def statistic(
         codim: Optional[int] = None,            # Dimension of the codomain; None means don't know
         description: Optional[str] = None,      # A description used as a __doc__ string for the Statistic
         monoidal=None,                          # If not None, the unit for a Monoidal Statistic
-        strict=False                            # If true, then strictly enforce dim upper bound
+        strict=True                             # If true, then strictly enforce dim upper bound
 ) -> Statistic | Callable[[Callable], Statistic]:
     """
     Statistics factory and decorator. Converts a function into a Statistic.
@@ -989,7 +989,7 @@ def scalar_statistic(
                                                 # infinity allowed for b; None means infer by inspection
         description: Optional[str] = None,      # A description used as a __doc__ string for the Statistic
         monoidal=None,                          # If not None, the unit of a Monoidal Statistic
-        strict=False                            # If true, then strictly enforce dim upper bound
+        strict=True                             # If true, then strictly enforce dim upper bound
 ):
     """
     Statistics factory and decorator. Converts a function into a Statistic that returns a scalar.
@@ -1007,7 +1007,7 @@ def condition(
         dim: Optional[int] = None,          # Number of arguments the function takes; 0 means tuple expected
         codim: Optional[int] = None,        # Dimension of the codomain; None means don't know
         description: Optional[str] = None,  # A description used as a __doc__ string for the Statistic
-        strict=False                        # If true, then strictly enforce dim upper bound
+        strict=True                         # If true, then strictly enforce dim upper bound
 ) -> Condition | Callable[[Callable], Condition]:
     """
     Statistics factory and decorator. Converts a predicate into a Condition statistic.
@@ -1131,8 +1131,6 @@ Min = MonoidalStatistic(min, unit=as_quantity('infinity'), dim=0, codim=1, name=
                         description='returns the minimum of all components of the given value')
 Mean = Statistic(lambda x: sum(x) / as_real(len(x)), dim=0, codim=1, name='mean',
                  description='returns the arithmetic mean of all components of the given value')
-Abs = Statistic(numeric_abs, dim=1, codim=1, name='abs',
-                description='returns the absolute value of the given number')
 Floor = Statistic(numeric_floor, dim=1, codim=1, name='floor',
                   description='returns the greatest integer <= its argument')
 Ceil = Statistic(numeric_ceil, dim=1, codim=1, name='ceiling',
@@ -1162,7 +1160,42 @@ Cosh = Statistic(math.cosh, dim=1, codim=1, name='cos', strict=True,
 Tanh = Statistic(math.tanh, dim=1, codim=1, name='tan', strict=True,
                  description='returns the hyperbolic tangent of a scalar argument')
 
-@statistic(name='atan2', description='returns the sector correct arctangent')
+# Make Abs act like Norm for larger dimensions
+# Abs = Statistic(numeric_abs, dim=1, codim=1, name='abs',
+#                 description='returns the absolute value of the given number')
+@statistic(dim=(1, infinity), codim=1, name='abs',
+           description='returns the absolute value of the given number or the modulus of a tuple')
+def Abs(x):
+    if len(x) == 1:
+        return numeric_abs(x[0])
+    return numeric_sqrt(sum(u * u for u in x))
+
+def Dot(*vec):
+    if len(vec) == 1 and is_tuple(vec[0]):
+        v: Collection[QuantityType] = vec[0]
+    elif len(vec) > 0:
+        v = vec
+    else:
+        raise StatisticError('Statistic factory Dot requires quantity tuple of dimension >= 1')
+
+    @statistic(dim=len(v), codim=1, name='dot',
+               description=f'returns dot product with vector {as_vec_tuple(v)}')
+    def dot(x):
+        return sum(xi * vi for xi, vi in zip(x, v))
+
+    return dot
+
+@statistic
+def Ascending(v):
+    "returns the components of its input in increasing order"
+    return sorted(v)
+
+@statistic
+def Descending(v):
+    "returns the components of its input in decreasing order"
+    return sorted(v, reverse=True)
+
+@statistic(name='atan2', dim=(1, 2), description='returns the sector correct arctangent')
 def ATan2(x, y=1):
     return as_quantity(math.atan2(x, y))
 
@@ -1176,7 +1209,7 @@ def NormalCDF(x):
 def SumSq(value):
     return sum(v * v for v in value)
 
-@statistic(name='norm', description='returns the Euclidean norm of its argument')
+@statistic(name='norm', dim=(1, infinity), description='returns the Euclidean norm of its argument')
 def Norm(value):
     return numeric_sqrt(sum(v * v for v in value))
 
@@ -1622,6 +1655,8 @@ setattr(Max, '__info__', 'statistic-builtins')
 setattr(ArgMin, '__info__', 'statistic-builtins')
 setattr(ArgMax, '__info__', 'statistic-builtins')
 setattr(Mean, '__info__', 'statistic-builtins')
+setattr(Ascending, '__info__', 'statistic-builtins')
+setattr(Descending, '__info__', 'statistic-builtins')
 setattr(Diff, '__info__', 'statistic-builtins')
 setattr(Diffs, '__info__', 'statistic-builtins')
 setattr(Abs, '__info__', 'statistic-builtins')
@@ -1642,6 +1677,7 @@ setattr(Tanh, '__info__', 'statistic-builtins')
 setattr(NormalCDF, '__info__', 'statistic-builtins')
 setattr(SumSq, '__info__', 'statistic-builtins')
 setattr(Norm, '__info__', 'statistic-builtins')
+setattr(Dot, '__info__', 'statistic-builtins')
 setattr(StdDev, '__info__', 'statistic-builtins')
 setattr(Variance, '__info__', 'statistic-builtins')
 
