@@ -80,7 +80,7 @@ playground_imports: dict[str, list[str]] = {
     'kinds': [
         'Kind', 'ConditionalKind',
         'kind', 'conditional_kind',
-        'unfold', 'clean', 'fast_mixture_pow', 'bayes',
+        'is_kind', 'unfold', 'clean', 'fast_mixture_pow', 'bayes',
         'constant', 'uniform', 'either',
         'symmetric', 'linear', 'geometric',
         'weighted_by', 'weighted_as', 'weighted_pairs',
@@ -90,7 +90,7 @@ playground_imports: dict[str, list[str]] = {
     'statistics': [
         'Statistic', 'Condition', 'MonoidalStatistic',
         'is_statistic', 'statistic', 'condition', 'scalar_statistic',
-        'tuple_safe', 'infinity',
+        'tuple_safe', 'infinity', 'is_true', 'is_false',
         'fork', 'chain', 'compose',
         'Id', 'Scalar', '__', 'Proj', '_x_',
         'Sum', 'Product', 'Count', 'Max', 'Min', 'Abs', 'SumSq',
@@ -106,7 +106,7 @@ playground_imports: dict[str, list[str]] = {
     ],
     'expectations': ['E', 'D_'],
     'frps': [
-        'FRP', 'frp', 'conditional_frp', 'evolve', 'shuffle',
+        'FRP', 'frp', 'conditional_frp', 'is_frp', 'evolve', 'shuffle',
     ],
     'calculate': ['substitute', 'substitute_with', 'substitution'],
     'numeric': ['numeric_exp', 'numeric_ln', 'numeric_log10', 'numeric_log2',

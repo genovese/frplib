@@ -9,7 +9,7 @@ from dataclasses       import dataclass
 from enum              import Enum, auto
 from itertools         import chain, combinations, permutations, product
 from typing            import Literal, Callable, overload, Union
-from typing_extensions import TypeAlias
+from typing_extensions import TypeAlias, TypeGuard
 
 
 from rich              import box
@@ -1389,6 +1389,8 @@ def kind(any) -> Kind:
     except Exception as e:
         raise KindError(f'I could not create a kind from {any}: {str(e)}')
 
+def is_kind(x) -> TypeGuard[Kind]:
+    return isinstance(x, Kind)
 
 #
 # Conditional Kinds

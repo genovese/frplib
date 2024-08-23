@@ -16,10 +16,10 @@ import math
 from typing            import cast
 
 from frplib.exceptions import StatisticError
-from frplib.frps       import FRP, frp
-from frplib.kinds      import Kind, fast_mixture_pow, weighted_as
+from frplib.frps       import frp, is_frp
+from frplib.kinds      import fast_mixture_pow, weighted_as
 from frplib.statistics import (Condition, Constantly, Id, Sum,
-                               condition, scalar_statistic, statistic)
+                               condition, is_true, scalar_statistic, statistic)
 from frplib.quantity   import as_quantity
 from frplib.utils      import frequencies
 from frplib.vec_tuples import VecTuple, as_vec_tuple, is_vec_tuple
@@ -78,27 +78,6 @@ def _neighbors(n: int, i: int, graph: tuple[int, ...]) -> list[int]:
         if graph[ind] > 0:
             neighbors.append(i0)
     return neighbors
-
-# ATTN: Move to statistics.py
-def is_true(v) -> bool:
-    "Converts the value returned by a Condition to a boolean."
-    return (is_vec_tuple(v) and bool(v[0])) or bool(v)
-
-# ATTN: Move to statistics.py
-def ascending(v):
-    return as_vec_tuple(sorted(v))
-
-# ATTN: Move to statistics.py
-def descending(v):
-    return as_vec_tuple(sorted(v, reverse=True))
-
-# ATTN: Move to frps.py
-def is_frp(x) -> bool:
-    return isinstance(x, FRP)
-
-# ATTN: Move to kinds.py
-def is_kind(x) -> bool:
-    return isinstance(x, Kind)
 
 
 #

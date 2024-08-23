@@ -8,7 +8,7 @@ from collections       import defaultdict
 from collections.abc   import Iterable
 from functools         import reduce
 from typing            import Callable, cast, overload, Union
-from typing_extensions import Self, Any, TypeAlias
+from typing_extensions import Self, Any, TypeAlias, TypeGuard
 
 from rich.table        import Table
 from rich              import box as rich_box
@@ -1175,6 +1175,8 @@ def frp(spec) -> FRP:
     except Exception as e:
         raise FrpError(f'I could not create an Frp from {spec}: {str(e)}')
 
+def is_frp(x) -> TypeGuard[FRP]:
+    return isinstance(x, FRP)
 
 #
 # Tagged FRPs for context in conditionals

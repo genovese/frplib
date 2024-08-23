@@ -22,7 +22,7 @@ from frplib.protocols  import Projection, Transformable
 from frplib.quantity   import as_quant_vec, as_quantity
 from frplib.symbolic   import Symbolic
 from frplib.utils      import identity, is_interactive, is_tuple, scalarize
-from frplib.vec_tuples import VecTuple, as_scalar, as_scalar_strict, as_vec_tuple, vec_tuple
+from frplib.vec_tuples import VecTuple, as_scalar, as_scalar_strict, as_vec_tuple, is_vec_tuple, vec_tuple
 
 # ATTN: conversion with as_real etc in truediv, pow to prevent accidental float conversion
 # This could be mitigated by eliminating ints from as_numeric*, but we'll see how this
@@ -54,6 +54,14 @@ ANY_TUPLE: ArityType = (0, infinity)
 #
 # Helpers
 #
+
+def is_true(v) -> bool:
+    "Converts the value returned by a Condition to a boolean."
+    return (is_vec_tuple(v) and bool(v[0])) or bool(v)
+
+def is_false(v) -> bool:
+    "Converts the complement of the value returned by a Condition to a boolean."
+    return (is_vec_tuple(v) and not bool(v[0])) or not bool(v)
 
 def as_scalar_stat(x: ScalarQ | Symbolic):
     "Returns a quantity guaranteed to be a scalar for use in statistical math operations."
