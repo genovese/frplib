@@ -725,7 +725,7 @@ class ConditionalFRP:
     def __xor__(self, statistic):
         return self.transform(statistic)
 
-    # ATTN:Bug 14: should return ConditionalFRP only and needs to account for input value and output in updated map
+    # ATTN:Bug 15: needs to account for input value and output in updated map
     def __rshift__(self, cfrp):
         if not isinstance(cfrp, ConditionalFRP):
             return NotImplemented
@@ -734,7 +734,7 @@ class ConditionalFRP:
 
         def mixed(*given):
             self(*given) >> cfrp
-        return ConditionalKind(mixed)
+        return ConditionalFRP(mixed)
 
     def __mul__(self, cfrp):
         if not isinstance(cfrp, ConditionalFRP):
