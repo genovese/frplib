@@ -406,13 +406,14 @@ def show_values(
 
     # Otherwise, show as real numbers, rounding all to a reasonable common scale
     real_xs = [as_real(x) for x in xs]
-    expts = [x.copy_abs() for x in real_xs if x != REAL_ZERO]
-    size = (sum(expts) / len(expts)).log10() if len(expts) > 0 else digit_shift  # type: ignore
-    digits = digit_shift - int(nround(size, REAL_ONE, ROUND_UP))
-    mask = Decimal('1.' + ('0' * digits)) if digits > 0 else REAL_ONE
+    ## Original rounding approach
+    # expts = [x.copy_abs() for x in real_xs if x != REAL_ZERO]
+    # size = (sum(expts) / len(expts)).log10() if len(expts) > 0 else digit_shift  # type: ignore
+    # digits = digit_shift - int(nround(size, REAL_ONE, ROUND_UP))
+    # mask = Decimal('1.' + ('0' * digits)) if digits > 0 else REAL_ONE
+    # return [str(nround(x, mask)) for x in real_xs]
 
     return [str(nice_round(x, 5)) for x in real_xs]
-    # return [str(nround(x, mask)) for x in real_xs]
 
 def show_tuples(
         tups: Iterable[tuple],
