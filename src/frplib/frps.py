@@ -703,7 +703,7 @@ class ConditionalFRP:
         if not isinstance(statistic, Statistic):
             raise FrpError('A conditional FRP can be transformed only by a Statistic.'
                            ' Consider passing this tranform to `conditional_frp` first.')
-        lo, hi = statistic.dim
+        lo, hi = statistic.codim
         if self._dim is not None and (self._dim < lo or self._dim > hi):
             raise FrpError(f'Statistic {statistic.name} is incompatible with this FRP: '
                            f'acceptable dimension [{lo},{hi}] but kind dimension {self._dim}.')
@@ -1026,7 +1026,7 @@ class FRP:
         # ATTN! Handle actual statistic here; error checking etc.
         if isinstance(f_mapping, Statistic):
             if self.is_kinded():
-                fdim_lo, fdim_hi = f_mapping.dim
+                fdim_lo, fdim_hi = f_mapping.codim
                 if self.dim < fdim_lo or self.dim > fdim_hi:
                     raise MismatchedDomain(f'Statistic {f_mapping.name} is incompatible with this FRP: '
                                            f'acceptable dimension [{fdim_lo},{fdim_hi}] but FRP dimension {self.dim}.')
@@ -1195,7 +1195,7 @@ class TaggedFRP(FRP):
         self._original = original
         self._stat = stat
 
-        lo, hi = stat.dim
+        lo, hi = stat.codim
         if self.dim < lo or self.dim > hi:
             raise MismatchedDomain(f'Statistic {stat.name} is incompatible with this Kind, '
                                    f'which has dimension {self.dim} out of expected range '

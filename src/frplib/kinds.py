@@ -473,7 +473,7 @@ class Kind:
 
         """
         if isinstance(statistic, Statistic):
-            lo, hi = statistic.dim
+            lo, hi = statistic.codim
             if self.dim == 0 and lo == 0:
                 # On Kind.empty, MonoidalStatistics return constant of their unit
                 return constant(statistic())
@@ -788,7 +788,7 @@ class TaggedKind(Kind):
         self._original = original
         self._stat = stat
 
-        lo, hi = stat.dim
+        lo, hi = stat.codim
         if self.dim < lo or self.dim > hi:
             raise MismatchedDomain(f'Statistic {stat.name} is incompatible with this Kind, '
                                    f'which has dimension {self.dim} out of expected range '
@@ -1609,7 +1609,7 @@ class ConditionalKind:
         if not isinstance(statistic, Statistic):
             raise KindError('A conditional kind can be transformed only by a Statistic.'
                             ' Consider passing this tranform to `conditional_kind` first.')
-        lo, hi = statistic.dim
+        lo, hi = statistic.codim
         if self._dim is not None and (self._dim < lo or self._dim > hi):
             raise KindError(f'Statistic {statistic.name} is incompatible with this kind: '
                             f'acceptable dimension [{lo},{hi}] but kind dimension {self._dim}.')
