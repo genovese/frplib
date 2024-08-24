@@ -108,6 +108,9 @@ class KindBranch(_KindBranch):
         prob = p(self.p) if have_p else self.p
         return self.make(vs=val, p=prob)
 
+    def is_symbolic(self):
+        return isinstance(self.p, Symbolic) or any(isinstance(vi, Symbolic) for vi in self.vs)
+
     # (va -> vb) -> (pa -> pb) -> (KindBranch -> KindBranch)
     @staticmethod
     def bimap(vs=identity, p=identity):

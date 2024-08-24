@@ -825,6 +825,9 @@ class UnfoldedKind:
         return Panel(str(self), expand=False, box=box.SQUARE)
 
 def unfold(k: Kind) -> UnfoldedKind:  # ATTN: Return an object that prints this string, later
+    if any(branch.is_symbolic() for branch in k._canonical):
+        raise KindError('unfold on symbolic Kinds is not yet supported.')
+
     dim = k.dim
     unfolded = unfold_tree(k._canonical)
     if unfolded is None:
