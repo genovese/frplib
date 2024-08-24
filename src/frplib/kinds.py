@@ -127,7 +127,7 @@ def normalize_branches(canonical) -> list[KindBranch]:
             seen[branch.vs] = KindBranch.make(vs=branch.vs, p=seen[branch.vs].p + branch.p / total)
         else:
             seen[branch.vs] = KindBranch.make(vs=branch.vs, p=branch.p / total)
-    return sorted(seen.values(), key=lambda b: b.vs)
+    return sorted(seen.values(), key=lambda b: tuple(b.vs))
 
 def new_normalize_branches(canonical) -> list[KindBranch]:
     # NOTE: This allows canonical to be a general iterable
@@ -142,7 +142,7 @@ def new_normalize_branches(canonical) -> list[KindBranch]:
     total = as_quantity(total, convert_numeric=as_real)
 
     return sorted((KindBranch.make(vs=value, p=weight / total) for value, weight in seen.items()),  # type: ignore
-                  key=lambda b: b.vs)
+                  key=lambda b: tuple(b.vs))
 
 class EmptyKindDescriptor:
     def __get__(self, obj, objtype=None):

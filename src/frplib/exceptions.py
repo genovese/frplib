@@ -13,7 +13,11 @@ class MismatchedDomain(FrplibInternalException):
     pass
 
 class DomainDimensionError(FrplibInternalException):
-    "A value outside the expected domain was passed to a mapping."
+    "A value's dimension does not match the domain of a function."
+    pass
+
+class MismatchedDimensionError(FrplibInternalException):
+    "Values of incompatible dimension were passed to an operation."
     pass
 
 class ConstructionError(FrplibInternalException):

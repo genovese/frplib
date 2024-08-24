@@ -82,7 +82,7 @@ class FrpDemoSummary:
         table.add_column('Count', justify='right')
         table.add_column('Proportion', justify='right', style='#6a6c6e')
 
-        values = sorted(self._summary.keys())
+        values = sorted(self._summary.keys(), key=tuple)  # Dictionary order
         n = float(self._size)
         for value in values:
             table.add_row(show_tuple(value.map(lambda x: "{0:.4g}".format(x))),
@@ -97,7 +97,7 @@ class FrpDemoSummary:
             title = 'Summary of output values:'
         out.append(title)
 
-        values = sorted(self._summary.keys())
+        values = sorted(self._summary.keys(), key=tuple)  # Dictionary order
         n = float(self._size)
         widths = {'value': 0, 'count': 0, 'prop': 0}
         rows = []
@@ -655,10 +655,10 @@ class ConditionalFRP:
         return fn
 
     def __str__(self) -> str:
-        # if dict put out a table of values and FRP summaries
+        # if dict put out a table of values and FRP summaries in dictionary order
         # if callable, put out what information we have
         tbl = '\n'.join('  {value:<16s}  {frp:<s}'.format(value=str(k), frp=str(v))
-                        for k, v in sorted(self._mapping.items(), key=lambda item: item[0]))
+                        for k, v in sorted(self._mapping.items(), key=lambda item: tuple(item[0])))
         label = ''
         dlabel = ''
         if self._codim:

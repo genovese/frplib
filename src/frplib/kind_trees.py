@@ -131,7 +131,7 @@ def normalize_branches(canonical) -> list[KindBranch]:
             seen[branch.vs] = KindBranch.make(vs=branch.vs, p=seen[branch.vs].p + branch.p / total)
         else:
             seen[branch.vs] = KindBranch.make(vs=branch.vs, p=branch.p / total)
-    return sorted(seen.values(), key=lambda b: b.vs)
+    return sorted(seen.values(), key=lambda b: tuple(b.vs))
 
 
 #
@@ -143,7 +143,7 @@ def canonical_from_tree(ktree: list) -> list[KindBranch]:
                              weight_fn=as_real_quantity,
                              value_fn=as_real_quantity)
     canonical = [KindBranch.make(vs=subtree, p=weight) for weight, subtree in compact]
-    canonical.sort(key=lambda x: x.vs)
+    canonical.sort(key=lambda x: tuple(x.vs))
     return canonical
 
 def canonical_from_sexp(k_sexp_str: str) -> list[KindBranch]:
