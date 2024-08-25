@@ -8,8 +8,8 @@ from collections.abc   import Collection, Iterable
 from dataclasses       import dataclass
 from enum              import Enum, auto
 from itertools         import chain, combinations, permutations, product
-from typing            import Literal, Callable, overload, Union
-from typing_extensions import TypeAlias, TypeGuard
+from typing            import Literal, Callable, overload, Union, cast
+from typing_extensions import Any, TypeAlias, TypeGuard
 
 
 from rich              import box
@@ -73,13 +73,13 @@ def dict_as_value_map(d: dict, values: set | None = None) -> Callable:
         d_keys = {as_vec_tuple(vs) for vs in d.keys()}
         if d_keys < values:   # superset of values is ok
             raise KindError('All specified values must be present to convert a dictionary to a value function.\n'
-                            'This likely occurred when creating a conditional kind to take a mixture.')
+                            'This likely occurred when creating a conditional Kind to take a mixture.')
 
         value_dims = {k.dim for k in d.values()}
         if len(value_dims) != 1:
             raise KindError('When converting a dictionary to a value function, all values must '
                             'map to a quantity of the same dimension. This likely occurred when '
-                            'creating a conditional kind to take a mixture.')
+                            'creating a conditional Kind to take a mixture.')
     scalar_keys = [vs for vs in d.keys() if not is_tuple(vs) and (vs,) not in d]
     if len(scalar_keys) > 0:
         d = d | {vec_tuple(vs): d[vs] for vs in scalar_keys}
@@ -104,6 +104,7 @@ def value_map(f, kind=None):  # ATTN: make in coming maps tuple safe; add dimens
                                 'associated with a kind of the same dimension')
         return f
     elif isinstance(f, dict):
+        # ATTN?? Use dict_as_value_map(f, kind.value_set) here instead of the following code
         if kind is not None:
             overlapping = {as_vec_tuple(vs) for vs in f.keys()} & kind.value_set
             if overlapping < kind.value_set:   # superset of values ok
@@ -146,7 +147,32 @@ def new_normalize_branches(canonical) -> list[KindBranch]:
     return sorted((KindBranch.make(vs=value, p=weight / total) for value, weight in seen.items()),  # type: ignore
                   key=lambda b: tuple(b.vs))
 
-class EmptyKindDescriptor:
+def drop_input(codim):
+    "A simple projection factory for extracting targets from Conditional Kinds."
+    def f(v):
+        return v[codim:]
+    return f
+
+def scalar_safe(f):
+    "Wraps a scalar function so that it can accept scalars or tuples."
+    def g(v):
+        return f(as_scalar_weak(v))
+
+    return g
+
+def vector_safe(f):
+    "Wraps a function taking a single VecTuple so that it can accept more flexible inputs."
+    def g(v):
+        return f(as_vec_tuple(v))
+
+    return g
+
+
+#
+# Kinds
+#
+
+class EmptyKindDescriptor:  # Allows Kind.empty to be a Kind
     def __get__(self, obj, objtype=None):
         return objtype([])
 
@@ -785,7 +811,6 @@ class Kind:
     def repr_internal(self) -> str:
         return f'Kind({repr(self._canonical)})'
 
-
 # Tagged kinds for context in conditionals
 #
 # phi@k acts exactly like phi(k) except in a conditional, where
@@ -820,7 +845,41 @@ class TaggedKind(Kind):
         return (self._stat, self._original)
 
 
-# Utilities
+#
+# Generalized Kind Constructor and Predicate
+#
+# See also the generic utilities size, dim, values, frp, unfold, clone, et cetera.
+
+def kind(any) -> Kind:
+    "A generic constructor for kinds, from strings, other kinds, FRPs, and more."
+    if isinstance(any, Kind):
+        return any
+    # ATTN: Add case for conditional FRP to produce a conditional Kind
+    #       Types(union) might be an issue downstream but probably not
+    #       Maybe add a kind property to ConditionalFRP to handle this?
+    if hasattr(any, 'kind'):
+        return any.kind
+
+    if not any:
+        return Kind.empty
+    if isinstance(any, str) and (any in {'void', 'empty'} or re.match(r'\s*\(\s*<\s*>\s*\)\s*', any)):
+        return Kind.empty
+
+    if isinstance(any, SupportsKindOf):
+        return any.kind_of()
+
+    try:
+        return Kind(any)
+    except Exception as e:
+        raise KindError(f'I could not create a kind from {any}: {str(e)}')
+
+def is_kind(x) -> TypeGuard[Kind]:
+    return isinstance(x, Kind)
+
+
+#
+# Kind Utilities
+#
 
 @dataclass(frozen=True)
 class UnfoldedKind:
@@ -922,7 +981,9 @@ def fast_mixture_pow(mstat: MonoidalStatistic, k: Kind, n: int) -> Kind:
     return mstat(k * mstat(kn2 * kn2))
 
 
-# Sequence argument interface
+#
+# Sequence argument interface for Kind factories
+#
 
 class Flatten(Enum):
     NOTHING = auto()
@@ -940,7 +1001,6 @@ flatteners: dict[Flatten, Callable] = {
 }
 
 ELLIPSIS_MAX_LENGTH: int = 10 ** 6
-
 
 def sequence_of_values(
         *xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis],   # type: ignore
@@ -995,7 +1055,7 @@ def sequence_of_values(
 
 
 #
-# Kind Builders
+# Kind Factories
 #
 
 void: Kind = Kind.empty
@@ -1207,7 +1267,6 @@ def weighted_by(*xs, weight_by: Callable) -> Kind:
         flattened into a sequence of values. (Though note: all values
         should have the same dimension.)
 
-
     Values and weights can be numbers, tuples, symbols, or strings.
     In the latter case they are converted to numbers or symbols as
     appropriate. `weight_by` must return a valid weight for all
@@ -1280,7 +1339,6 @@ def weighted_pairs(xs: Iterable[tuple[ValueType | ScalarQ, ScalarQ]]) -> Kind:
     """
     return Kind([KindBranch.make(vs=as_quant_vec(v), p=as_quantity(w))
                  for v, w in xs])
-
 
 def arbitrary(*xs, names: list[str] = []):
     "Returns a kind with the given values and arbitrary symbolic weights."
@@ -1379,38 +1437,6 @@ def bin(scalar_kind, lower, width):
 
 
 #
-# Utilities
-#
-# See also the generic utilities size, dim, values, frp, unfold, clone, et cetera.
-
-def kind(any) -> Kind:
-    "A generic constructor for kinds, from strings, other kinds, FRPs, and more."
-    if isinstance(any, Kind):
-        return any
-    # ATTN: Add case for conditional FRP to produce a conditional Kind
-    #       Types(union) might be an issue downstream but probably not
-    #       Maybe add a kind property to ConditionalFRP to handle this?
-    if hasattr(any, 'kind'):
-        return any.kind
-
-    if not any:
-        return Kind.empty
-    if isinstance(any, str) and (any in {'void', 'empty'} or re.match(r'\s*\(\s*<\s*>\s*\)\s*', any)):
-        return Kind.empty
-
-    if isinstance(any, SupportsKindOf):
-        return any.kind_of()
-
-    try:
-        return Kind(any)
-    except Exception as e:
-        raise KindError(f'I could not create a kind from {any}: {str(e)}')
-
-def is_kind(x) -> TypeGuard[Kind]:
-    return isinstance(x, Kind)
-
-
-#
 # Conditional Kinds
 #
 
@@ -1468,7 +1494,7 @@ class ConditionalKind:
                 vout = v.map(lambda u: VecTuple.concat(kin, u))  # Input pass through
                 self._mapping[kin] = vout
             self._original_fn: Callable[[ValueType], Kind] | None = None
-            self._target_fn: Callable[[ValueType], Kind] | None = None
+            self._target_fn: Callable[[Any], Kind] | None = None  # type is approximate
 
             # Attempt to infer codimension and domain if needed and possible.
             # We allow a) the dictionary to have extra keys, b) the Kinds to have
@@ -1519,6 +1545,7 @@ class ConditionalKind:
                 self._domain_set = _domain_set
                 self._domain = lambda v: v in _domain_set
                 has_domain_set = True
+                self._trivial_domain = False  # non-trivial domain specified implicitly
             elif has_domain_set:  # check that domains are consistent
                 mapping_domain = set(k for k in self._mapping.keys() if len(k) == _codim)
                 if not (mapping_domain <= self._domain_set):
@@ -1549,7 +1576,7 @@ class ConditionalKind:
             self._is_dict = False
             self._mapping = {}
             self._original_fn = mapping
-            self._target_fn = mapping
+            self._target_fn = vector_safe(mapping)
 
             if codim is None:
                 domain_dims = set()
@@ -1571,8 +1598,8 @@ class ConditionalKind:
                     self._domain = lambda v: original_domain(as_scalar_weak(v))
                 # function is assumed to take a scalar, so we unwrap it
                 original_fn = mapping
-                mapping = lambda v: original_fn(as_scalar_weak(v))
-                self._target_fn = mapping
+                mapping = scalar_safe(original_fn)
+                self._target_fn = cast(Callable[[ValueType], Kind], mapping)
 
             if dim is None and target_dim is None:
                 raise ConstructionError('Cannot infer dimension of conditional Kind from given function, '
@@ -1593,6 +1620,8 @@ class ConditionalKind:
             self._codim = _codim
             self._dim = _dim
             self._has_domain_set = has_domain_set
+
+            assert callable(mapping)  # For mypy
 
             def fn(*args) -> Kind:
                 n = len(args)
@@ -1667,11 +1696,11 @@ class ConditionalKind:
         if self._is_dict:
             return {k: transform(v) for k, v in self._mapping.items()}
 
-        fn = self._original_fn
+        fn = self._target_fn
         assert callable(fn)
 
         def trans_map(*x):
-            return transform(fn(*x))
+            return transform(fn(x))
         return trans_map
 
     def expectation(self) -> Callable:
@@ -1790,15 +1819,12 @@ class ConditionalKind:
 
         dim = lo if lo == hi else None
 
-        def proj(v):
-            return v[self._codim:]
-
         if self._is_dict:
-            f_mapping = {k: statistic(v.map(proj)) for k, v in self._mapping.items()}
+            f_mapping = {k: statistic(v.map(drop_input(self._codim))) for k, v in self._mapping.items()}
             return ConditionalKind(f_mapping, codim=self._codim, dim=dim, domain=domain)
 
         def transformed(*value):
-            return statistic(self._original_fn(*value))  # type: ignore
+            return statistic(self._target_fn(value))  # type: ignore
         return ConditionalKind(transformed, codim=self._codim, dim=dim, domain=domain)
 
     def __rshift__(self, ckind):
@@ -1818,8 +1844,7 @@ class ConditionalKind:
         else:
             domain = None
 
-        def proj(v):
-            return v[self._codim:]
+        proj = drop_input(self._codim)
 
         # For dict or function with whole domain seen, use a dict; otherwise wrap the function
         if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
