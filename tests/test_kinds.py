@@ -291,8 +291,10 @@ def test_conditional_kinds():
 
     k7 = conditional_kind({0: either(0, 1), 1: either(2, 3)})
     k8 = k7 * k7
-    assert Kind.equal(k8.target(0), uniform((0, 0, 0), (0, 0, 1), (0, 1, 0), (0, 1, 1)))
-    assert Kind.equal(k8.target(1), uniform((1, 2, 2), (1, 2, 3), (1, 3, 2), (1, 3, 3)))
+    assert Kind.equal(k8.target(0), either(0, 1) * either(0, 1))
+    assert Kind.equal(k8.target(1), either(2, 3) * either(2, 3))
+    assert Kind.equal(k8(0), uniform((0, 0, 0), (0, 0, 1), (0, 1, 0), (0, 1, 1)))
+    assert Kind.equal(k8(1), uniform((1, 2, 2), (1, 2, 3), (1, 3, 2), (1, 3, 3)))
 
     # On a kind, we get a constant function
 

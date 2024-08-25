@@ -1484,8 +1484,7 @@ class ConditionalKind:
             self._trivial_domain = True
 
         if isinstance(mapping, Kind):
-            if dim is None:
-                target_dim = target_dim or mapping.dim
+            target_dim = target_dim or mapping.dim
             mapping = const(mapping)
 
         if isinstance(mapping, dict):
@@ -1510,54 +1509,79 @@ class ConditionalKind:
 
             if codim is None:
                 if len(maybe_codims) == 1:
-                    _codim: int = list(maybe_codims)[0]
-                elif has_domain_set and len(self._domain_set) == 1:  # Known to have elements of only one dimension
-                    _codim = list(self._domain_set)[0]
+                    _codim: int | None = list(maybe_codims)[0]
+                elif has_domain_set:
+                    domain_dims = set(x.dim for x in self._domain_set)
+                    if len(self._domain_set) == 1:  # Known to have elements of only one dimension
+                        _codim = list(self._domain_set)[0]
+                    else:
+                        # This should not happen so raise an error
+                        raise ConstructionError('Domain set for conditional Kind contains disparate dimensions')
                 else:
-                    raise ConstructionError('Cannot infer codimension of conditional Kind from given dict, '
-                                            'please supply a codim argument or keys of common dimension')
+                    _codim = None  # Cannot infer a single codim, accept any type of values
+                    # raise ConstructionError('Cannot infer codimension of conditional Kind from given dict, '
+                    #                         'please supply a codim argument or keys of common dimension')
             else:
                 _codim = codim
 
             maybe_dims: set[int] = set()
             for k, v in self._mapping.items():
-                if k.dim == _codim:
+                if _codim is None or k.dim == _codim:
                     maybe_dims.add(v.dim)
 
             if dim is None and target_dim is None:
                 if len(maybe_dims) == 1:
-                    _dim: int = list(maybe_dims)[0]
+                    _dim: int | None = list(maybe_dims)[0]
                 else:
-                    raise ConstructionError('Cannot infer dimension of conditional Kind from given dict, '
-                                            'please supply a dim argument or Kinds of common dimension')
+                    _dim = None
+                    # raise ConstructionError('Cannot infer dimension of conditional Kind from given dict, '
+                    #                         'please supply a dim argument or Kinds of common dimension')
             elif dim is None:
-                _dim = _codim + target_dim   # type: ignore
+                # ATTN! set _target_dim field if possible as this can be used when codim unknown!!
+                _dim = _codim + target_dim if _codim is not None else None  # type: ignore
             elif target_dim is None:
                 if dim < min(maybe_dims):
                     raise ConstructionError('Specified dim for conditional Kind too small (must include input length), '
                                             'perhaps you meant to give the target_dim instead')
                 _dim = dim
-            elif _codim != dim - target_dim:
+            elif _codim is not None and _codim != dim - target_dim:
                 raise ConstructionError('Both dim and target_dim given but inconsistent, '
                                         'should have codim + target_dim = dim')
-            else:
+            else:  # both dim and target_dim supplied, either consistent with codim or with no codim
+                if _codim is None:
+                    if target_dim >= dim:
+                        raise ConstructionError(f'target_dim {target_dim} should be smaller than dim {dim} '
+                                                'for a Conditional Kind')
+                    _codim = dim - target_dim  # Use this to infer codim, it's equivalent
                 _dim = dim
 
-            if domain is None:
-                _domain_set = set(k for k in self._mapping.keys() if len(k) == _codim)
+            if domain is None:  # Infer domain set from keys
+                if _codim is not None:
+                    _domain_set = set(k for k in self._mapping.keys() if len(k) == _codim)
+                else:
+                    _domain_set = set(self._mapping.keys())
                 self._domain_set = _domain_set
                 self._domain = lambda v: v in _domain_set
                 has_domain_set = True
                 self._trivial_domain = False  # non-trivial domain specified implicitly
             elif has_domain_set:  # check that domains are consistent
-                mapping_domain = set(k for k in self._mapping.keys() if len(k) == _codim)
-                if not (mapping_domain <= self._domain_set):
-                    raise ConstructionError('The supplied domain for a conditional Kind is inconsistent '
-                                            'with the given dictionary for the conditional Kind.')
+                if _codim is not None:
+                    mapping_domain = set(k for k in self._mapping.keys() if len(k) == _codim)
+                else:
+                    mapping_domain = set(self._mapping.keys())
+                if not (self._domain_set <= mapping_domain):
+                    raise ConstructionError('The supplied domain for a conditional Kind is not a subset of '
+                                            'with the keys of the given dictionary.')
 
-            self._codim: int = _codim
-            self._dim: int = _dim
+            self._codim: int | None = _codim
+            self._dim: int | None = _dim
             self._has_domain_set = has_domain_set
+            if target_dim is not None:
+                self._target_dim: int | None = target_dim
+            elif _codim is not None and _dim is not None:
+                self._target_dim = _dim - _codim
+            else:
+                self._target_dim = None
 
             def fn(*args) -> Kind:
                 n = len(args)
@@ -1566,7 +1590,7 @@ class ConditionalKind:
                     n = len(args)
                 value = as_quant_vec(args)  # ATTN: should this be as_vec_tuple??
 
-                if n != self._codim:
+                if self._codim is not None and n != self._codim:
                     raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
                                            f' conditional Kind of codimension {self._codim}.')
                 if not self._trivial_domain and not self._domain(value):
@@ -1581,7 +1605,7 @@ class ConditionalKind:
                     n = len(args)
                 value = as_quant_vec(args)  # ATTN: should this be as_vec_tuple??
 
-                if n != self._codim:
+                if self._codim is not None and n != self._codim:
                     raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
                                            f' conditional Kind of codimension {self._codim}.')
                 if not self._trivial_domain and not self._domain(value):
@@ -1605,8 +1629,9 @@ class ConditionalKind:
                 if has_domain_set and len(domain_dims) == 1:  # Known to have elements of only one dimension
                     _codim = list(domain_dims)[0]
                 else:
-                    raise ConstructionError('Cannot infer codimension of conditional Kind from given dict, '
-                                            'please supply a codim argument or keys of common dimension')
+                    _codim = None  # Cannot infer a single codim, accept any type of values
+                    # raise ConstructionError('Cannot infer codimension of conditional Kind from given dict, '
+                    #                         'please supply a codim argument or keys of common dimension')
             else:
                 _codim = codim
 
@@ -1620,24 +1645,36 @@ class ConditionalKind:
                 mapping = scalar_safe(original_fn)
 
             if dim is None and target_dim is None:
-                raise ConstructionError('Cannot infer dimension of conditional Kind from given function, '
-                                        'please supply a dim or target_dim argument')
+                _dim = None
+                # raise ConstructionError('Cannot infer dimension of conditional Kind from given function, '
+                #                         'please supply a dim or target_dim argument')
             elif dim is None:
-                _dim = _codim + target_dim   # type: ignore
+                _dim = _codim + target_dim if _codim is not None else None  # type: ignore
             elif target_dim is None:
-                if dim <= _codim:
+                if _codim is not None and dim <= _codim:
                     raise ConstructionError('Specified dim for conditional Kind too small (must include input length), '
                                             'perhaps you meant to give the target_dim instead')
                 _dim = dim
-            elif _codim != dim - target_dim:
+            elif _codim is not None and _codim != dim - target_dim:
                 raise ConstructionError('Both dim and target_dim given but inconsistent, '
                                         'should have codim + target_dim = dim')
             else:
+                if _codim is None:
+                    if target_dim >= dim:
+                        raise ConstructionError(f'target_dim {target_dim} should be smaller than dim {dim} '
+                                                'for a Conditional Kind')
+                    _codim = dim - target_dim  # Use this to infer codim, it's equivalent
                 _dim = dim
 
             self._codim = _codim
             self._dim = _dim
             self._has_domain_set = has_domain_set
+            if target_dim is not None:
+                self._target_dim = target_dim
+            elif _codim is not None and _dim is not None:
+                self._target_dim = _dim - _codim
+            else:
+                self._target_dim = None
 
             assert callable(mapping)  # For mypy
 
@@ -1648,7 +1685,7 @@ class ConditionalKind:
                     n = len(args)
                 value = as_quant_vec(args)  # ATTN: should this be as_vec_tuple??
 
-                if n != self._codim:
+                if self._codim is not None and n != self._codim:
                     raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
                                            f' conditional Kind of codimension {self._codim}.')
                 if not self._trivial_domain and not self._domain(value):
@@ -1673,7 +1710,7 @@ class ConditionalKind:
                     n = len(args)
                 value = as_quant_vec(args)  # ATTN: should this be as_vec_tuple??
 
-                if n != self._codim:
+                if self._codim is not None and n != self._codim:
                     raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
                                            f' conditional Kind of codimension {self._codim}.')
                 if not self._trivial_domain and not self._domain(value):
@@ -1710,7 +1747,16 @@ class ConditionalKind:
 
     @property
     def type(self):
-        return f'{self._codim} -> {self._dim}'
+        codim = f'{self._codim}' if self._codim is not None else '*'
+
+        if self._dim is not None:
+            dim = f'{self._dim}'
+        elif self._codim is None and self._dim is None and self._target_dim is not None:
+            dim = f'* + {self._target_dim}'
+        else:
+            dim = '*'
+
+        return f'{codim} -> {dim}'
 
     def is_in_domain(self, v):
         """Tests whether a value belongs to the specified domain of a Conditional Kind.
@@ -1763,7 +1809,12 @@ class ConditionalKind:
             return k.expectation()
 
         setattr(fn, 'codim', self._codim)
-        setattr(fn, 'dim', self._dim - self._codim)
+        if self._codim is not None and self._dim is not None:
+            setattr(fn, 'dim', self._dim - self._codim)
+        elif self._target_dim is not None:
+            setattr(fn, 'dim', self._target_dim)
+        else:
+            setattr(fn, 'dim', None)
         setattr(fn, 'domain', self._domain if not self._trivial_domain else None)
 
         return fn
@@ -1771,9 +1822,10 @@ class ConditionalKind:
     def well_defined_on(self, values) -> Union[bool, str]:
         "If possible, check that every value is in the domain."
         val_set = value_set_from(values)
-        trivial = self._trivial_domain
+        non_trivial = not self._trivial_domain
+        has_codim = self._codim is not None
         for v in val_set:
-            if v.dim != self._codim or (not trivial and not self._domain(v)):
+            if (has_codim and v.dim != self._codim) or (non_trivial and not self._domain(v)):
                 return (f'A conditional kind is not defined on all the values requested of it, '
                         f'including {v}')
         return True
@@ -1782,7 +1834,7 @@ class ConditionalKind:
         pad = ': '
         tbl = '\n\n'.join([show_labeled(self.target(k), str(k) + pad) for k in self._mapping])
         dlabel = f' with domain={str(self._domain_set)}.' if self._has_domain_set else ''
-        tlabel = f' of type {str(self._codim)} -> {str(self._dim)}'
+        tlabel = f' of type {self.type}'
 
         if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
             title = f'A conditional Kind{tlabel} with wiring:\n'
@@ -1801,10 +1853,12 @@ class ConditionalKind:
         if environment.is_interactive:
             return str(self)
         label = ''
-        if self._codim:
+        if self._codim is not None:
             label = label + f', codim={repr(self._codim)}'
-        if self._dim:
+        if self._dim is not None:
             label = label + f', dim={repr(self._dim)}'
+        if self._target_dim is not None:
+            label = label + f', target_dim={repr(self._target_dim)}'
         if self._has_domain_set:
             label = label + f', domain={repr(self._domain_set)}'
         else:
@@ -1821,7 +1875,7 @@ class ConditionalKind:
             raise KindError('A conditional kind can be transformed only by a Statistic.'
                             ' Consider passing this tranform to `conditional_kind` first.')
         lo, hi = statistic.codim
-        if self._dim is not None and (self._dim < lo or self._dim > hi):   # ATTN: Remove None checks here?
+        if self._dim is not None and (self._dim < lo or self._dim > hi):
             raise KindError(f'Statistic {statistic.name} is incompatible with this kind: '
                             f'acceptable dimension [{lo},{hi}] but kind dimension {self._dim}.')
 
@@ -1832,15 +1886,15 @@ class ConditionalKind:
         else:
             domain = self._domain
 
-        dim = lo if lo == hi else None
+        s_dim = statistic.dim
 
         if self._is_dict:
             f_mapping = {k: statistic(v) for k, v in self._mapping.items()}
-            return ConditionalKind(f_mapping, codim=self._codim, dim=dim, domain=domain)
+            return ConditionalKind(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain)
 
         def transformed(*value):
             return statistic(self._fn(*value))
-        return ConditionalKind(transformed, codim=self._codim, dim=dim, domain=domain)
+        return ConditionalKind(transformed, codim=self._codim, target_dim=s_dim, domain=domain)
 
     def __xor__(self, statistic):
         return self.transform(statistic)
@@ -1850,10 +1904,12 @@ class ConditionalKind:
             raise KindError('A conditional Kind can be transformed only by a Statistic.'
                             ' Consider passing this tranform to `conditional_kind` first.')
         lo, hi = statistic.codim
-        d = self._dim - self._codim
-        if d < lo or d > hi:
-            raise KindError(f'Statistic {statistic.name} is incompatible with this conditional Kind: '
-                            f'acceptable dimension [{lo},{hi}] but target Kind dimension {d}.')
+        have_dim_codim = self._dim is not None and self._codim is not None
+        if have_dim_codim or self._target_dim is not None:
+            d = self._dim - self._codim if have_dim_codim else self._target_dim  # type: ignore
+            if d < lo or d > hi:                                                 # type: ignore
+                raise KindError(f'Statistic {statistic.name} is incompatible with this conditional Kind: '
+                                f'acceptable dimension [{lo},{hi}] but target Kind dimension {d}.')
 
         if self._trivial_domain:
             domain: set[ValueType] | Callable[[ValueType], bool] | None = None
@@ -1862,21 +1918,19 @@ class ConditionalKind:
         else:
             domain = self._domain
 
-        dim = lo if lo == hi else None
+        s_dim = statistic.dim
 
         if self._is_dict:
             f_mapping = {k: statistic(v) for k, v in self._targets.items()}
-            return ConditionalKind(f_mapping, codim=self._codim, dim=dim, domain=domain)
+            return ConditionalKind(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain)
 
         def transformed(*value):
             return statistic(self._target_fn(*value))
-        return ConditionalKind(transformed, codim=self._codim, dim=dim, domain=domain)
+        return ConditionalKind(transformed, codim=self._codim, target_dim=s_dim, domain=domain)
 
     def __rshift__(self, ckind):
         if not isinstance(ckind, ConditionalKind):
             return NotImplemented
-
-        print('In ConditionalKind')
 
         if self._dim != ckind._codim:
             raise OperationError('Incompatible mixture of conditional kinds, '
@@ -1889,21 +1943,33 @@ class ConditionalKind:
         else:
             domain = None
 
-        proj = drop_input(self._codim)
+        # ATTN: Can optimize for the case where self._codim is not None
+        # proj = drop_input(self._codim)
 
         # For dict or function with whole domain seen, use a dict; otherwise wrap the function
         if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
-            mapping = {given: (kind >> ckind).map(proj) for given, kind in self._mapping.items()}
+            mapping = {given: (kind >> ckind).map(drop_input(len(given))) for given, kind in self._mapping.items()}
             return ConditionalKind(mapping, codim=self._codim, dim=ckind._dim, domain=domain)
 
         def mixed(*given):
-            (self(*given) >> ckind).map(proj)
+            return (self(*given) >> ckind).map(drop_input(len(given)))
         return ConditionalKind(mixed, codim=self._codim, dim=ckind._dim, domain=domain)
 
     def __mul__(self, ckind):
         "A conditional Kind from the independent mixture of targets for conditional Kinds of equal codim."
         if not isinstance(ckind, ConditionalKind):
             return NotImplemented
+
+        if self._codim is None or ckind._codim != self._codim:
+            raise OperationError('For conditional Kinds, * requires both to have fixed codimensions')
+
+        if self._dim is None or ckind._dim is None:
+            mdim: int | None = None
+        else:
+            mdim = self._dim + ckind._dim - ckind._codim
+
+        if self._codim is None or ckind._codim != self._codim:
+            raise OperationError('For conditional Kinds, * requires both to have fixed codimensions')
 
         if self._has_domain_set and ckind._has_domain_set:
             domain = self._domain_set & ckind._domain_set
@@ -1915,14 +1981,14 @@ class ConditionalKind:
             s_domain = (self._has_domain_set and self._domain_set) or self._mapping.keys()
             c_domain = (ckind._has_domain_set and ckind._domain_set) or ckind._mapping.keys()
             intersecting = s_domain & c_domain
-            mapping = {given: self._mapping[given] * ckind._targets[given] for given in intersecting}
+            mapping = {given: self._targets[given] * ckind._targets[given] for given in intersecting}
 
-            return ConditionalKind(mapping, codim=self._codim, dim=self._dim + ckind._dim, domain=domain)
+            return ConditionalKind(mapping, codim=self._codim, dim=mdim, domain=domain)
 
         def mixed(*given):
-            self(*given) * ckind._target_fn(*given)
+            return self._target_fn(*given) * ckind._target_fn(*given)
 
-        return ConditionalKind(mixed, codim=self._codim, dim=self._dim + ckind._dim, domain=domain)
+        return ConditionalKind(mixed, codim=self._codim, dim=mdim, domain=domain)
 
 def conditional_kind(
         mapping: Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind | None = None,
