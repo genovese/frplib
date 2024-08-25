@@ -45,7 +45,8 @@ from operator          import (add, mul, sub, truediv, floordiv, mod, pow,
 from typing            import cast, Type, TypeVar, Union
 from typing_extensions import Self, TypeGuard
 
-from frplib.exceptions import OperationError, NumericConversionError, MismatchedDimensionError
+from frplib.exceptions import (OperationError, NumericConversionError,
+                               MismatchedDimensionError, MismatchedDomain)
 from frplib.numeric    import Numeric, NumericF, NumericD, NumericB, numeric_sqrt  # ATTN: Numeric+Symbolic+SupportsVec
 from frplib.numeric    import as_numeric as scalar_as_numeric
 from frplib.symbolic   import Symbolic, symbolic_sqrt
@@ -267,6 +268,14 @@ def as_scalar_strict(x) -> T:
         return cast(T, x[0])
     raise NumericConversionError(f'The quantity {x} could not be converted to a numeric/symbolic scalar.')
 
+def as_scalar_weak(x):
+    "Returns a scalar if convertible, otherwise bail and return the argument."
+    if isinstance(x, (int, float, Fraction, Decimal, Symbolic, bool)):
+        return x
+    elif isinstance(x, tuple) and len(x) == 1:
+        return x[0]
+    return x
+
 
 #
 # Numeric/Quantified VecTuples
@@ -467,3 +476,37 @@ def as_numeric_vec(x):
 def is_vec_tuple(x) -> TypeGuard[VecTuple[T]]:
     "Is this a VecTuple?"
     return isinstance(x, VecTuple)
+
+def value_set(*vals) -> set[VecTuple]:
+    """Create a set of VecTuples from specified values or a single iterator.
+
+    Requires all values to have the *same dimension* or an error is raised.
+    If only one value is supplied that is an iterator or generator,
+    that is used as the source of values. See also `value_set_from`.
+
+    Returns a set of values.
+
+    """
+    if len(vals) == 1 and hasattr(vals[0], '__next__'):
+        # We have been given a single iterator/generator, use it
+        vals = vals[0]
+    vs = set([as_vec_tuple(v) for v in vals])
+    dims = set(map(len, vs))
+    if len(dims) != 1:
+        raise MismatchedDomain(f'Value set elements have different dimensions, {dims}.')
+    return vs
+
+def value_set_from(vals: Iterable) -> set[VecTuple]:
+    """Create a set of VecTuples from an iterable object.
+
+    Requires all values to have the *same dimension* or an error is raised.
+    See also `value_set`.
+
+    Returns a set of values.
+
+    """
+    vs = set([as_vec_tuple(v) for v in vals])
+    dims = set(map(len, vs))
+    if len(dims) != 1:
+        raise MismatchedDomain(f'Value set elements have different dimensions, {dims}.')
+    return vs

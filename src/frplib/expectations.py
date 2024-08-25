@@ -55,8 +55,8 @@ def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
         @wraps(f)
         def c_expectation(*xs):
             return Expectation(as_vec_tuple(f(*xs)))
-        if getattr(f, 'dim') is not None:
-            label = f'dimension {getattr(f, "dim")} values'
+        if getattr(f, 'codim') is not None:
+            label = f'dimension-{getattr(f, "codim")} values'
         else:
             label = 'values'
         setattr(c_expectation, '__frplib_repr__',

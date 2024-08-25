@@ -9,7 +9,7 @@ from typing            import Callable, Generator, TypeVar, Union
 from typing_extensions import Any, TypeGuard
 
 from frplib.env        import environment
-from frplib.exceptions import ConstructionError, OperationError
+from frplib.exceptions import OperationError
 from frplib.protocols  import Renderable
 
 #
@@ -151,9 +151,6 @@ def irange(
         start = start_or_stop
 
     sign = 1 if step >= 0 else -1
-
-    # if (stop - start) * sign < 0:
-    #     raise ConstructionError(f'irange {start}:{stop} and step {step} have inconsistent direction.')
 
     def generate_from_irange() -> Generator[int, None, None]:
         value = start

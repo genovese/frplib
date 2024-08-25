@@ -10,21 +10,6 @@ from frplib.kinds      import (conditional_kind,
                                constant, uniform, weighted_by)
 from frplib.utils      import compose, dim, irange
 
-# ATTN! Need to update for new interfaces, e.g., domain, codim
-# This def is temporary along these lines
-from frplib.vec_tuples import as_vec_tuple
-from frplib.exceptions import MismatchedDomain
-
-def value_set(*vals):
-    if len(vals) == 1 and hasattr(vals[0], '__next__'):
-        # We have been given a single iterator/generator, use it
-        vals = vals[0]
-    vs = set([as_vec_tuple(v) for v in vals])
-    dims = set(map(dim, vs))
-    if len(dims) != 1:
-        raise MismatchedDomain(f'Value set {vals} have different dimensions.')
-    return vs
-
 
 #
 # Helpers
@@ -66,7 +51,7 @@ def circle_points(
 
     x_kind = weighted_by(-r_lo, -r_lo + 1, ..., r_lo, weight_by=num_y_points)
 
-    @conditional_kind(domain=value_set(irange(-r_lo, r_lo)))   # ATTN: remove value_set
+    @conditional_kind(domain=irange(-r_lo, r_lo), target_dim=1)   # type: ignore
     def y_kind(x):
         return uniform(y_points(x))
 

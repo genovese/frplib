@@ -747,7 +747,6 @@ class ConditionalFRP:
             self(*given) * cfrp(*given)
         return ConditionalFRP(mixed)
 
-
 def conditional_frp(
         mapping: Callable[[ValueType], FRP] | dict[ValueType, FRP] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
         *,
@@ -1177,6 +1176,9 @@ def frp(spec) -> FRP:
 
 def is_frp(x) -> TypeGuard[FRP]:
     return isinstance(x, FRP)
+
+def is_conditional_frp(x) -> TypeGuard[Union[FRP, ConditionalFRP]]:
+    return isinstance(x, FRP) or isinstance(x, ConditionalFRP)
 
 #
 # Tagged FRPs for context in conditionals
