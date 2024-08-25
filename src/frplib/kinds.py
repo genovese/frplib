@@ -1465,8 +1465,8 @@ class ConditionalKind:
             *,
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,    # If not supplied, this inferred in dict case
-            domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,  # ATTN: scalar callable case, blech
-            target_dim: int | None = None
+            domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
+            target_dim: int | None = None   # ATTN: domain type in scalar callable case, blech
     ) -> None:
         has_domain_set = False
         if domain is not None:
@@ -1484,17 +1484,20 @@ class ConditionalKind:
             self._trivial_domain = True
 
         if isinstance(mapping, Kind):
+            if dim is None:
+                target_dim = target_dim or mapping.dim
             mapping = const(mapping)
 
         if isinstance(mapping, dict):
             self._is_dict = True
             self._mapping: dict[ValueType, Kind] = {}
+            self._targets: dict[ValueType, Kind] = {}  # NB: Trading space for time by keeping these
             for k, v in mapping.items():
                 kin = as_quant_vec(k)
                 vout = v.map(lambda u: VecTuple.concat(kin, u))  # Input pass through
                 self._mapping[kin] = vout
+                self._targets[kin] = v
             self._original_fn: Callable[[ValueType], Kind] | None = None
-            self._target_fn: Callable[[Any], Kind] | None = None  # type is approximate
 
             # Attempt to infer codimension and domain if needed and possible.
             # We allow a) the dictionary to have extra keys, b) the Kinds to have
@@ -1571,12 +1574,28 @@ class ConditionalKind:
 
                 return self._mapping[value]
 
+            def tfn(*args) -> Kind:
+                n = len(args)
+                if n == 1 and is_tuple(args[0]):
+                    args = args[0]
+                    n = len(args)
+                value = as_quant_vec(args)  # ATTN: should this be as_vec_tuple??
+
+                if n != self._codim:
+                    raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
+                                           f' conditional Kind of codimension {self._codim}.')
+                if not self._trivial_domain and not self._domain(value):
+                    raise MismatchedDomain(f'Supplied value {value} not in domain of conditional Kind.')
+
+                return self._targets[value]
+
             self._fn: Callable[..., Kind] = fn
+            self._target_fn: Callable[..., Kind] = tfn
         elif callable(mapping):         # Check to please mypy
             self._is_dict = False
             self._mapping = {}
+            self._targets = {}  # NB: Trading space for time by keeping these
             self._original_fn = mapping
-            self._target_fn = vector_safe(mapping)
 
             if codim is None:
                 domain_dims = set()
@@ -1599,7 +1618,6 @@ class ConditionalKind:
                 # function is assumed to take a scalar, so we unwrap it
                 original_fn = mapping
                 mapping = scalar_safe(original_fn)
-                self._target_fn = cast(Callable[[ValueType], Kind], mapping)
 
             if dim is None and target_dim is None:
                 raise ConstructionError('Cannot infer dimension of conditional Kind from given function, '
@@ -1645,9 +1663,36 @@ class ConditionalKind:
 
                 extended = result.map(lambda u: VecTuple.concat(value, u))  # Input pass through
                 self._mapping[value] = extended   # Cache, fn should be pure
+                self._targets[value] = result     # Store unextended to ease some operations
                 return extended
 
+            def tfn(*args) -> Kind:
+                n = len(args)
+                if n == 1 and is_tuple(args[0]):
+                    args = args[0]
+                    n = len(args)
+                value = as_quant_vec(args)  # ATTN: should this be as_vec_tuple??
+
+                if n != self._codim:
+                    raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
+                                           f' conditional Kind of codimension {self._codim}.')
+                if not self._trivial_domain and not self._domain(value):
+                    raise MismatchedDomain(f'Supplied value {value} not in domain of conditional Kind.')
+
+                if value in self._targets:
+                    return self._targets[value]
+                try:
+                    result = mapping(value)
+                except Exception as e:
+                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional Kind: {str(e)}')
+
+                extended = result.map(lambda u: VecTuple.concat(value, u))  # Input pass through
+                self._mapping[value] = extended   # Cache, fn should be pure
+                self._targets[value] = result     # Store unextended to ease some operations
+                return result
+
             self._fn = fn
+            self._target_fn = tfn
 
     def __call__(self, *value) -> Kind:
         return self._fn(*value)
@@ -1683,24 +1728,24 @@ class ConditionalKind:
         return self
 
     def target(self, *value) -> Kind:
-        return self._fn(*value).map(lambda v: v[self._codim:])
+        return self._target_fn(*value)
 
     def map(self, transform) -> dict | Callable:
         """Returns a dictionary or function like this conditional Kind applying `transform` to each target Kind.
 
-        The Kinds in this dictionary do *not* include the input.
+        The Kinds in this dictionary do *not* include the input, nor does the transform see the input.
+        For that, see the `transform` method.
 
-        This is for specialized uses; users will almost always prefer to use a mixture.
+        This is for specialized uses; users will almost always prefer to use `ConditionalKind.transform`.
 
         """
         if self._is_dict:
-            return {k: transform(v) for k, v in self._mapping.items()}
+            return {k: transform(v) for k, v in self._targets.items()}
 
         fn = self._target_fn
-        assert callable(fn)
 
         def trans_map(*x):
-            return transform(fn(x))
+            return transform(fn(*x))
         return trans_map
 
     def expectation(self) -> Callable:
@@ -1712,7 +1757,7 @@ class ConditionalKind:
         """
         def fn(*x):
             try:
-                k = self.target(*x)
+                k = self._target_fn(*x)
             except MismatchedDomain:
                 return None
             return k.expectation()
@@ -1820,11 +1865,11 @@ class ConditionalKind:
         dim = lo if lo == hi else None
 
         if self._is_dict:
-            f_mapping = {k: statistic(v.map(drop_input(self._codim))) for k, v in self._mapping.items()}
+            f_mapping = {k: statistic(v) for k, v in self._targets.items()}
             return ConditionalKind(f_mapping, codim=self._codim, dim=dim, domain=domain)
 
         def transformed(*value):
-            return statistic(self._target_fn(value))  # type: ignore
+            return statistic(self._target_fn(*value))
         return ConditionalKind(transformed, codim=self._codim, dim=dim, domain=domain)
 
     def __rshift__(self, ckind):
@@ -1855,17 +1900,29 @@ class ConditionalKind:
             (self(*given) >> ckind).map(proj)
         return ConditionalKind(mixed, codim=self._codim, dim=ckind._dim, domain=domain)
 
-    # ATTN: WTH is this? Check this. Looks like a fork independent mixture. Needs fixing
     def __mul__(self, ckind):
+        "A conditional Kind from the independent mixture of targets for conditional Kinds of equal codim."
         if not isinstance(ckind, ConditionalKind):
             return NotImplemented
+
+        if self._has_domain_set and ckind._has_domain_set:
+            domain = self._domain_set & ckind._domain_set
+        else:
+            # ATTN: domain function should also be checked and used where appropriate
+            domain = None
+
         if self._is_dict and ckind._is_dict:
-            intersecting = self._mapping.keys() & ckind._mapping.keys()
-            return ConditionalKind({given: self._mapping[given] * ckind._mapping[given] for given in intersecting})
+            s_domain = (self._has_domain_set and self._domain_set) or self._mapping.keys()
+            c_domain = (ckind._has_domain_set and ckind._domain_set) or ckind._mapping.keys()
+            intersecting = s_domain & c_domain
+            mapping = {given: self._mapping[given] * ckind._targets[given] for given in intersecting}
+
+            return ConditionalKind(mapping, codim=self._codim, dim=self._dim + ckind._dim, domain=domain)
 
         def mixed(*given):
-            self(*given) * ckind(*given)
-        return ConditionalKind(mixed)
+            self(*given) * ckind._target_fn(*given)
+
+        return ConditionalKind(mixed, codim=self._codim, dim=self._dim + ckind._dim, domain=domain)
 
 def conditional_kind(
         mapping: Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind | None = None,

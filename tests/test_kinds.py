@@ -288,3 +288,21 @@ def test_conditional_kinds():
     assert Kind.equal(either(0, 1, 2) >> (k5 >> k6), either(0, 1, 2) >> k5 >> k6)
 
     assert Kind.equal(k6 // uniform(k6._domain_set), uniform(10, 20, ..., 80))
+
+    k7 = conditional_kind({0: either(0, 1), 1: either(2, 3)})
+    k8 = k7 * k7
+    assert Kind.equal(k8.target(0), uniform((0, 0, 0), (0, 0, 1), (0, 1, 0), (0, 1, 1)))
+    assert Kind.equal(k8.target(1), uniform((1, 2, 2), (1, 2, 3), (1, 3, 2), (1, 3, 3)))
+
+    # On a kind, we get a constant function
+
+    k9 = conditional_kind(uniform(1, 2, 3), codim=1)
+    k9d = conditional_kind(uniform(1, 2, 3), domain=[10, 20, 30])
+    k9e = conditional_kind(uniform(1, 2, 3), codim=1, domain=is_even)
+    assert Kind.equal(k9.target(100), uniform(1, 2, 3))
+    assert Kind.equal(k9d.target(10), uniform(1, 2, 3))
+    assert Kind.equal(k9e.target(0), uniform(1, 2, 3))
+    with pytest.raises(MismatchedDomain):
+        k9d(100)
+    with pytest.raises(MismatchedDomain):
+        k9e(3)
