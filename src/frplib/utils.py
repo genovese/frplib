@@ -66,6 +66,12 @@ def codim(x):
     except Exception:
         raise OperationError(f'Object {str(x)} does not have a codim property.')
 
+def typeof(x):
+    "Returns the (str) type of its argument, which is typically a conditional kind or FRP, or a statistic."
+    if hasattr(x, 'type'):
+        return getattr(x, 'type')
+    return None
+
 def size(x):
     "Returns the size of its argument, which is typically a kind or FRP."
     try:

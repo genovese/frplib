@@ -200,17 +200,17 @@ class Kind:
 
     @property
     def size(self):
-        "The size of this kind."
+        "The size of this Kind."
         return self._size
 
     @property
     def dim(self):
-        "The dimension of this kind."
+        "The dimension of this Kind."
         return self._dimension
 
     @property
     def codim(self):
-        "The dimension of this kind."
+        "The codimension of this Kind."
         return 0
 
     @property
@@ -1516,8 +1516,8 @@ class ConditionalKind:
                     _codim: int | None = list(maybe_codims)[0]
                 elif has_domain_set:
                     domain_dims = set(x.dim for x in self._domain_set)
-                    if len(self._domain_set) == 1:  # Known to have elements of only one dimension
-                        _codim = list(self._domain_set)[0]
+                    if len(domain_dims) == 1:  # Known to have elements of only one dimension
+                        _codim = list(domain_dims)[0]
                     else:
                         # This should not happen so raise an error
                         raise ConstructionError('Domain set for conditional Kind contains disparate dimensions')
@@ -1541,7 +1541,6 @@ class ConditionalKind:
                     # raise ConstructionError('Cannot infer dimension of conditional Kind from given dict, '
                     #                         'please supply a dim argument or Kinds of common dimension')
             elif dim is None:
-                # ATTN! set _target_dim field if possible as this can be used when codim unknown!!
                 _dim = _codim + target_dim if _codim is not None else None  # type: ignore
             elif target_dim is None:
                 if dim < min(maybe_dims):
@@ -1597,7 +1596,7 @@ class ConditionalKind:
                 if self._codim is not None and n != self._codim:
                     raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
                                            f' conditional Kind of codimension {self._codim}.')
-                if not self._trivial_domain and not self._domain(value):
+                if (not self._trivial_domain and not self._domain(value)) or value not in self._mapping:
                     raise MismatchedDomain(f'Supplied value {value} not in domain of conditional Kind.')
 
                 return self._mapping[value]
@@ -1612,7 +1611,7 @@ class ConditionalKind:
                 if self._codim is not None and n != self._codim:
                     raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
                                            f' conditional Kind of codimension {self._codim}.')
-                if not self._trivial_domain and not self._domain(value):
+                if (not self._trivial_domain and not self._domain(value)) or value not in self._targets:
                     raise MismatchedDomain(f'Supplied value {value} not in domain of conditional Kind.')
 
                 return self._targets[value]
@@ -1742,6 +1741,9 @@ class ConditionalKind:
         "Returns this conditional Kind's target associated with the key."
         return self._target_fn(*value)
 
+    def target(self, *value) -> Kind:
+        return self._target_fn(*value)
+
     @property
     def dim(self):
         return self._dim
@@ -1777,9 +1779,6 @@ class ConditionalKind:
     def clone(self) -> 'ConditionalKind':
         "Returns a clone of this conditional kind, which being immutable is itself."
         return self
-
-    def target(self, *value) -> Kind:
-        return self._target_fn(*value)
 
     def map(self, transform) -> dict | Callable:
         """Returns a dictionary or function like this conditional Kind applying `transform` to each target Kind.
@@ -1837,7 +1836,8 @@ class ConditionalKind:
 
     def __str__(self) -> str:
         pad = ': '
-        tbl = '\n\n'.join([show_labeled(self.target(k), str(k) + pad) for k in self._mapping])
+        tbl = '\n\n'.join([show_labeled(self.target(k), str(k) + pad)
+                           for k in sorted(self._mapping.keys(), key=tuple) if self._domain(k)])
         dlabel = f' with domain={str(self._domain_set)}.' if self._has_domain_set else ''
         tlabel = f' of type {self.type}'
 
@@ -1869,9 +1869,9 @@ class ConditionalKind:
         else:
             label = label + f', domain={repr(self._domain)}'
         if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
-            return f'ConditionalKind({repr(self._mapping)}{label})'
+            return f'ConditionalKind({repr(self._targets)}{label})'
         else:
-            return f'ConditionalKind({repr(self._fn)}{label})'
+            return f'ConditionalKind({repr(self._target_fn)}{label})'
 
     # Kind operations lifted to Conditional Kinds
 
@@ -1897,8 +1897,15 @@ class ConditionalKind:
             f_mapping = {k: statistic(v) for k, v in self._mapping.items()}
             return ConditionalKind(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain)
 
-        def transformed(*value):
-            return statistic(self._fn(*value))
+        if self._dim is not None:
+            def transformed(*value):
+                return statistic(self._fn(*value))
+        else:
+            def transformed(*value):
+                try:
+                    return statistic(self._fn(*value))
+                except Exception:
+                    raise KindError(f'Statistic {statistic.name} appears incompatible with this conditional Kind.')
         return ConditionalKind(transformed, codim=self._codim, target_dim=s_dim, domain=domain)
 
     def __xor__(self, statistic):
@@ -1938,7 +1945,7 @@ class ConditionalKind:
             return NotImplemented
 
         if self._dim != ckind._codim:
-            raise OperationError('Incompatible mixture of conditional kinds, '
+            raise OperationError('Incompatible mixture of conditional Kinds, '
                                  f'{self.type} does not match {ckind.type}')
 
         if self._has_domain_set:

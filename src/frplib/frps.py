@@ -23,9 +23,13 @@ from frplib.protocols  import Projection, SupportsExpectation
 from frplib.quantity   import as_quant_vec
 from frplib.statistics import Statistic, compose2, infinity, tuple_safe, Proj
 from frplib.symbolic   import Symbolic
-from frplib.utils      import scalarize
-from frplib.vec_tuples import VecTuple, as_scalar, as_vec_tuple, vec_tuple
+from frplib.utils      import const, is_tuple, scalarize
+from frplib.vec_tuples import (VecTuple, as_scalar, as_scalar_weak, as_vec_tuple, vec_tuple, value_set_from)
 
+
+#
+# Types
+#
 
 QuantityType: TypeAlias = Union[Numeric, Symbolic]
 ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
@@ -35,7 +39,35 @@ ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 # Helpers
 #
 
+def join_values(values: Iterable[ValueType]) -> ValueType:
+    combined = []
+    for value in values:
+        combined.extend(list(value))
+    return VecTuple(combined)
 
+def drop_input(codim):
+    "A simple projection factory for extracting targets from Conditional Kinds."
+    def f(v):
+        return v[codim:]
+    return f
+
+def scalar_safe(f):
+    "Wraps a scalar function so that it can accept scalars or tuples."
+    def g(v):
+        return f(as_scalar_weak(v))
+
+    return g
+
+def vector_safe(f):
+    "Wraps a function taking a single VecTuple so that it can accept more flexible inputs."
+    def g(v):
+        return f(as_vec_tuple(v))
+
+    return g
+
+
+#
+# FRP Demos
 #
 # FRP.sample can return either all the sampled values
 # or a summary table. The latter is the default and
@@ -342,14 +374,13 @@ class MixtureExpression(FrpExpression):
     def sample1(self, want_value=False) -> ValueType:
         mixer_value = self._mixer.sample1()
         target_frp = self._target(mixer_value)
-        target_value = FRP.sample1(target_frp)
-        return join_values([mixer_value, target_value])
+        return FRP.sample1(target_frp)  # Input pass through includes mixer_value
 
     def value(self) -> ValueType:
         if self._cached_value is None:
             mixer_value = self._mixer.value()
             target_frp = self._target(mixer_value)
-            self._cached_value = join_values([mixer_value, target_frp.value])
+            self._cached_value = target_frp.value  # Input pass through includes mixer_value
         return self._cached_value
 
     def kind(self) -> Kind:
@@ -472,110 +503,345 @@ class ConditionalFRP:
             *,
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,
-            domain: Iterable[ValueType] | None = None
+            domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
+            target_dim: int | None = None,
+            cache: bool = True,
+            auto_clone: bool = False   # ATTN: Not yet used, if True, clone on every evaluation, e.g., in simulation
     ) -> None:
-        # These are optional hints, useful for checking compatibility (codim=1 is significant though)
-        self._codim = codim
-        self._dim = dim
-        self._domain: set | None = set(domain) if domain else None  # ATTN: add value_set functionality here, including accepting iterator or generator expression
-        self._is_dict = True
-        self._original_fn: Callable[[ValueType], 'FRP'] | None = None
-
         if isinstance(mapping, ConditionalKind):
-            mapping = mapping.map(frp)
+            codim = mapping._codim if codim is None else codim
+            dim = mapping._dim if dim is None else dim
+            target_dim = mapping._target_dim if target_dim is None else target_dim
+            if domain is None and not mapping._trivial_domain:
+                domain = mapping._domain_set if mapping._has_domain_set else mapping._domain
+            mapping = mapping.map(frp)  # dictionary of target FRPs
+
+        self._cached = cache          # save these for cloning, copying, etc
+        self._auto_clone = auto_clone
+
+        has_domain_set = False
+        if domain is not None:
+            if callable(domain):
+                self._domain: Callable[[ValueType], bool] = domain
+            else:
+                _domain_set: set = value_set_from(domain)  # Accessed in the following closure
+                self._domain_set: set = _domain_set
+                self._domain = lambda v: v in _domain_set
+                has_domain_set = True
+            self._trivial_domain = False
+        else:
+            # Infer domain set in the dict case later if possible
+            self._domain = const(True)  # If unknown, accept everything
+            self._trivial_domain = True
 
         if isinstance(mapping, dict):
-            self._mapping: dict[ValueType, 'FRP'] = {as_vec_tuple(k): v for k, v in mapping.items()}
+            self._is_dict = True
+            self._mapping: dict[ValueType, 'FRP'] = {}
+            self._targets: dict[ValueType, 'FRP'] = {}  # NB: Trading space for time by keeping these
+            for k, v in mapping.items():
+                kin = as_quant_vec(k)
+                vout = v.transform(lambda u: VecTuple.concat(kin, u))  # Input pass through
+                self._mapping[kin] = vout
+                self._targets[kin] = v
+            self._original_fn: Callable[[ValueType], 'FRP'] | None = None
+
+            # Attempt to infer codimension and domain if needed and possible.
+            # We allow a) the dictionary to have extra keys, b) the FRPs to have
+            # multiple dims if dim is supplied, c) the supplied domain to be a
+            # subset of mapping's keys, d) the keys to have different dimensions
+            # if codim is supplied.
+            maybe_codims: set[int] = set()
+            for k, v in self._mapping.items():
+                maybe_codims.add(k.dim)
+
+            if codim is None:
+                if len(maybe_codims) == 1:
+                    _codim: int | None = list(maybe_codims)[0]
+                elif has_domain_set:
+                    domain_dims = set(x.dim for x in self._domain_set)
+                    if len(domain_dims) == 1:  # Known to have elements of only one dimension
+                        _codim = list(domain_dims)[0]
+                    else:
+                        # This should not happen so raise an error
+                        raise ConstructionError('Domain set for conditional FRP contains disparate dimensions')
+                else:
+                    _codim = None  # Cannot infer a single codim, accept any type of values
+            else:
+                _codim = codim
+
+            maybe_dims: set[int] = set()
+            for k, v in self._mapping.items():
+                if _codim is None or k.dim == _codim:
+                    maybe_dims.add(v.dim)  # ATTN: need to check v.is_kinded() status before v.dim
+                    # ATTN: do we need to restrict to common dims here?
+
+            if dim is None and target_dim is None:
+                if len(maybe_dims) == 1:
+                    _dim: int | None = list(maybe_dims)[0]
+                else:
+                    _dim = None
+            elif dim is None:
+                _dim = _codim + target_dim if _codim is not None else None  # type: ignore
+            elif target_dim is None:
+                if dim < min(maybe_dims):
+                    raise ConstructionError('Specified dim for conditional FRP too small (must include input length), '
+                                            'perhaps you meant to give the target_dim instead')
+                _dim = dim
+            elif _codim is not None and _codim != dim - target_dim:
+                raise ConstructionError('Both dim and target_dim given but inconsistent, '
+                                        'should have codim + target_dim = dim')
+            else:  # both dim and target_dim supplied, either consistent with codim or with no codim
+                if _codim is None:
+                    if target_dim >= dim:
+                        raise ConstructionError(f'target_dim {target_dim} should be smaller than dim {dim} '
+                                                'for a Conditional FRP')
+                    _codim = dim - target_dim  # Use this to infer codim, it's equivalent
+                _dim = dim
+
+            if domain is None:  # Infer domain set from keys
+                if _codim is not None:
+                    _domain_set = set(k for k in self._mapping.keys() if len(k) == _codim)
+                else:
+                    _domain_set = set(self._mapping.keys())
+                self._domain_set = _domain_set
+                self._domain = lambda v: v in _domain_set
+                has_domain_set = True
+                self._trivial_domain = False  # non-trivial domain specified implicitly
+            elif has_domain_set:  # check that domains are consistent
+                if _codim is not None:
+                    mapping_domain = set(k for k in self._mapping.keys() if len(k) == _codim)
+                else:
+                    mapping_domain = set(self._mapping.keys())
+                if not (self._domain_set <= mapping_domain):
+                    raise ConstructionError('The supplied domain for a conditional FRP is not a subset of '
+                                            'with the keys of the given dictionary.')
+
+            self._codim: int | None = _codim
+            self._dim: int | None = _dim
+            self._has_domain_set = has_domain_set
+            if target_dim is not None:
+                self._target_dim: int | None = target_dim
+            elif _codim is not None and _dim is not None:
+                self._target_dim = _dim - _codim
+            else:
+                self._target_dim = None
 
             def fn(*args) -> 'FRP':
-                if len(args) == 0:
-                    raise MismatchedDomain('A conditional FRP requires an argument, none were passed.')
-                if isinstance(args[0], tuple):
-                    if self._codim and len(args[0]) != self._codim:
-                        raise MismatchedDomain(f'A value of dimension {len(args[0])} passed to a'
-                                               ' conditional FRP of codim {self._codim}.')
-                    value = VecTuple(args[0])
-                elif self._codim and len(args) != self._codim:
-                    raise MismatchedDomain(f'A value of dimension {len(args)} passed to a '
-                                           'conditional FRP of codim {self._codim}.')
-                else:
-                    value = VecTuple(args)
-                if value not in self._mapping:
-                    raise MismatchedDomain(f'Value {value} not in the domain of this conditional FRP.')
+                n = len(args)
+                if n == 1 and is_tuple(args[0]):
+                    args = args[0]
+                    n = len(args)
+                value = as_quant_vec(args)  # ATTN: should this be as_vec_tuple??
+
+                if self._codim is not None and n != self._codim:
+                    raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
+                                           f' conditional FRP of codimension {self._codim}.')
+                if (not self._trivial_domain and not self._domain(value)) or value not in self._mapping:
+                    raise MismatchedDomain(f'Supplied value {value} not in domain of conditional FRP.')
+
                 return self._mapping[value]
 
-            self._fn: Callable[..., 'FRP'] = fn
+            def tfn(*args) -> 'FRP':
+                n = len(args)
+                if n == 1 and is_tuple(args[0]):
+                    args = args[0]
+                    n = len(args)
+                value = as_quant_vec(args)  # ATTN: should this be as_vec_tuple??
 
-            if (self._dim is not None and
-                any([v.is_kinded() and v.dim != self._dim
-                     for _, v in self._mapping.items()])):
-                raise ConstructionError('The FRPs produced by a conditional FRP are not all of the same dimension')
+                if self._codim is not None and n != self._codim:
+                    raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
+                                           f' conditional FRP of codimension {self._codim}.')
+                if (not self._trivial_domain and not self._domain(value)) or value not in self._targets:
+                    raise MismatchedDomain(f'Supplied value {value} not in domain of conditional FRP.')
+
+                return self._targets[value]
+
+            self._fn: Callable[..., 'FRP'] = fn
+            self._target_fn: Callable[..., 'FRP'] = tfn
+
+            # if (self._dim is not None and
+            #     any([v.is_kinded() and v.dim != self._dim
+            #          for _, v in self._mapping.items()])):
+            #     raise ConstructionError('The FRPs produced by a conditional FRP are not all of the same dimension')
         elif callable(mapping):         # Check to please mypy
-            self._mapping = {}
             self._is_dict = False
+            self._mapping = {}  # Cache, if used
+            self._targets = {}  # NB: Trading space for time by keeping these
             self._original_fn = mapping
 
-            def fn(*args) -> 'FRP':
-                if len(args) == 0:
-                    raise MismatchedDomain('A conditional FRP requires an argument, none were passed.')
-                if isinstance(args[0], tuple):
-                    if self._codim and len(args[0]) != self._codim:
-                        raise MismatchedDomain(f'A value of dimension {len(args[0])} passed to a'
-                                               f' conditional FRP of mismatched codim {self._codim}.')
-                    value = VecTuple(args[0])
-                elif self._codim and len(args) != self._codim:
-                    raise MismatchedDomain(f'A value of dimension {len(args)} passed to a '
-                                           f'conditional FRP of mismatched codim {self._codim}.')
-                else:
-                    value = VecTuple(args)
-                if self._domain and value not in self._domain:
-                    raise MismatchedDomain(f'Value {value} not in domain of conditional FRP.')
+            if codim is None:
+                domain_dims = set()
+                if has_domain_set:
+                    domain_dims = set(x.dim for x in self._domain_set)
 
-                if value in self._mapping:
+                if has_domain_set and len(domain_dims) == 1:  # Known to have elements of only one dimension
+                    _codim = list(domain_dims)[0]
+                else:
+                    _codim = None  # Cannot infer a single codim, accept any type of values
+            else:
+                _codim = codim
+
+            if _codim == 1:  # Account for scalar functions from user
+                if domain is not None and not has_domain_set:
+                    # domain is a function assumed to take a scalar, so we unwrap it
+                    original_domain = self._domain
+                    self._domain = lambda v: original_domain(as_scalar_weak(v))
+                # function is assumed to take a scalar, so we unwrap it
+                original_fn = mapping
+                mapping = scalar_safe(original_fn)
+
+            if dim is None and target_dim is None:
+                _dim = None
+            elif dim is None:
+                _dim = _codim + target_dim if _codim is not None else None  # type: ignore
+            elif target_dim is None:
+                if _codim is not None and dim <= _codim:
+                    raise ConstructionError('Specified dim for conditional FRPtoo small (must include input length), '
+                                            'perhaps you meant to give the target_dim instead')
+                _dim = dim
+            elif _codim is not None and _codim != dim - target_dim:
+                raise ConstructionError('Both dim and target_dim given but inconsistent, '
+                                        'should have codim + target_dim = dim')
+            else:
+                if _codim is None:
+                    if target_dim >= dim:
+                        raise ConstructionError(f'target_dim {target_dim} should be smaller than dim {dim} '
+                                                'for a Conditional FRP')
+                    _codim = dim - target_dim  # Use this to infer codim, it's equivalent
+                _dim = dim
+
+            self._codim = _codim
+            self._dim = _dim
+            self._has_domain_set = has_domain_set
+            if target_dim is not None:
+                self._target_dim = target_dim
+            elif _codim is not None and _dim is not None:
+                self._target_dim = _dim - _codim
+            else:
+                self._target_dim = None
+
+            assert callable(mapping)  # For mypy
+
+            def fn(*args) -> 'FRP':
+                n = len(args)
+                if n == 1 and is_tuple(args[0]):
+                    args = args[0]
+                    n = len(args)
+                value = as_quant_vec(args)  # ATTN: should this be as_vec_tuple??
+
+                if self._codim is not None and n != self._codim:
+                    raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
+                                           f' conditional FRP of codimension {self._codim}.')
+                if not self._trivial_domain and not self._domain(value):
+                    raise MismatchedDomain(f'Supplied value {value} not in domain of conditional FRP.')
+
+                if cache and value in self._mapping:
                     return self._mapping[value]
                 try:
-                    if self._codim == 1:  # pass a scalar
-                        result = mapping(value[0])
-                    else:
-                        result = mapping(value)
+                    result = cast('FRP', mapping(value))
                 except Exception as e:
                     raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP: {str(e)}')
-                self._mapping[value] = result   # Cache to ensure we get the same FRP every time with value
-                return result
+
+                extended = result.transform(lambda u: VecTuple.concat(value, u))  # Input pass through
+                if cache:
+                    self._mapping[value] = extended   # Cache, fn should be pure
+                    self._targets[value] = result     # Store unextended to ease some operations
+                return extended
+
+            def tfn(*args) -> 'FRP':
+                n = len(args)
+                if n == 1 and is_tuple(args[0]):
+                    args = args[0]
+                    n = len(args)
+                value = as_quant_vec(args)  # ATTN: should this be as_vec_tuple??
+
+                if self._codim is not None and n != self._codim:
+                    raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
+                                           f' conditional FRP of codimension {self._codim}.')
+                if not self._trivial_domain and not self._domain(value):
+                    raise MismatchedDomain(f'Supplied value {value} not in domain of conditional FRP.')
+
+                if cache and value in self._targets:
+                    return self._targets[value]
+                try:
+                    result = cast('FRP', mapping(value))
+                except Exception as e:
+                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP: {str(e)}')
+
+                extended = result.transform(lambda u: VecTuple.concat(value, u))  # Input pass through
+                if cache:
+                    self._mapping[value] = extended   # Cache, fn should be pure
+                    self._targets[value] = result     # Store unextended to ease some operations
+                return result   # on auto_clone do a clone() here
 
             self._fn = fn
+            self._target_fn = tfn
 
-    # ATTN:Bug 15: (?) should prepend the input value, e.g., map with a statistic (tuple_args(*value),)
-    #   for suitable tuple preprocessor tuple_args. See TODO for more discussion.
-    # The logic: Calling is equivalent to passing an input into the system. Pre wrap with the stat
-    # at creation time as the values are known in advance.
     def __call__(self, *value) -> 'FRP':
         return self._fn(*value)
 
+    def __getitem__(self, *value) -> 'FRP':
+        "Returns this conditional Kind's target associated with the key."
+        return self._target_fn(*value)
+
+    def target(self, *value) -> 'FRP':
+        return self._target_fn(*value)
+
+    @property
+    def dim(self):
+        return self._dim
+
+    @property
+    def codim(self):
+        return self._codim
+
+    @property
+    def type(self):
+        codim = f'{self._codim}' if self._codim is not None else '*'
+
+        if self._dim is not None:
+            dim = f'{self._dim}'
+        elif self._codim is None and self._dim is None and self._target_dim is not None:
+            dim = f'* + {self._target_dim}'
+        else:
+            dim = '*'
+
+        return f'{codim} -> {dim}'
+
+    def is_in_domain(self, v):
+        """Tests whether a value belongs to the specified domain of a Conditional Kind.
+
+        If the domain was not specified, this will return True for every value.
+
+        """
+        return self._domain(as_vec_tuple(v))
+
     def kind_of(self) -> 'ConditionalKind':
+        "Computes the conditional Kind of this conditional FRP. Warning: Evaluates target Kinds."
         if self._is_dict:
-            c_kind = {k: kind(v) for k, v in self._mapping.items()}
+            c_kind = {k: kind(v) for k, v in self._targets.items()}
             return ConditionalKind(c_kind, codim=self._codim, dim=self._dim, domain=self._domain)
 
         def c_kind_fn(value):
-            return kind(self._fn(value))  # ATTN! Note Bug 15's impact here
+            return kind(self._target_fn(value))
 
         return ConditionalKind(c_kind_fn, codim=self._codim, dim=self._dim, domain=self._domain)
 
     def clone(self) -> 'ConditionalFRP':
         if self._is_dict:
-            cloned = {k: v.clone() for k, v in self._mapping.items()}
-            return ConditionalFRP(cloned, dim=self._dim, codim=self._codim, domain=self._domain)
+            cloned = {k: v.clone() for k, v in self._targets.items()}
+            return ConditionalFRP(cloned, codim=self._codim, dim=self._dim, domain=self._domain,
+                                  cache=self._cached, auto_clone=self._auto_clone)
         else:
-            # ATTN! We clone here out of caution, in case a function returns an existing FRP
+            # NB! We clone here out of caution, in case a function returns an existing FRP
             # The ConditionalFRP will cache the results for each one, so clone will only
-            # be called at most one extra time.
+            # be called at most one extra time, assuming cache is True..
 
             def fn(value):
-                assert self._original_fn is not None
-                return self._original_fn(value).clone()
+                return self._target_fn(value).clone()
 
-            return ConditionalFRP(fn, dim=self._dim, codim=self._codim, domain=self._domain)
+            return ConditionalFRP(fn, codim=self._codim, dim=self._dim, domain=self._domain,
+                                  cache=self._cached, auto_clone=self._auto_clone)
 
     def expectation(self):
         """Returns a function from values to the expectation of the corresponding FRP.
@@ -591,14 +857,19 @@ class ConditionalFRP:
         """
         def fn(*x):
             try:
-                frp = self._fn(*x)
+                frp = self._target_fn(*x)
             except MismatchedDomain:
                 return None
             return frp.expectation()
 
         setattr(fn, 'codim', self._codim)
-        setattr(fn, 'dim', self._dim)
-        setattr(fn, 'domain', self._domain)
+        if self._codim is not None and self._dim is not None:
+            setattr(fn, 'dim', self._dim - self._codim)
+        elif self._target_dim is not None:
+            setattr(fn, 'dim', self._target_dim)
+        else:
+            setattr(fn, 'dim', None)
+        setattr(fn, 'domain', self._domain if not self._trivial_domain else None)
 
         return fn
 
@@ -617,14 +888,19 @@ class ConditionalFRP:
         """
         def fn(*x):
             try:
-                frp = self._fn(*x)
+                frp = self._target_fn(*x)
             except MismatchedDomain:
                 return None
             return frp.forced_expectation()
 
         setattr(fn, 'codim', self._codim)
-        setattr(fn, 'dim', self._dim)
-        setattr(fn, 'domain', self._domain)
+        if self._codim is not None and self._dim is not None:
+            setattr(fn, 'dim', self._dim - self._codim)
+        elif self._target_dim is not None:
+            setattr(fn, 'dim', self._target_dim)
+        else:
+            setattr(fn, 'dim', None)
+        setattr(fn, 'domain', self._domain if not self._trivial_domain else None)
 
         return fn
 
@@ -643,14 +919,19 @@ class ConditionalFRP:
         """
         def fn(*x):
             try:
-                frp = self._fn(*x)
+                frp = self._target_fn(*x)
             except MismatchedDomain:
                 return None
             return frp.approximate_expectation(tolerance)
 
         setattr(fn, 'codim', self._codim)
-        setattr(fn, 'dim', self._dim)
-        setattr(fn, 'domain', self._domain)
+        if self._codim is not None and self._dim is not None:
+            setattr(fn, 'dim', self._dim - self._codim)
+        elif self._target_dim is not None:
+            setattr(fn, 'dim', self._target_dim)
+        else:
+            setattr(fn, 'dim', None)
+        setattr(fn, 'domain', self._domain if not self._trivial_domain else None)
 
         return fn
 
@@ -658,24 +939,19 @@ class ConditionalFRP:
         # if dict put out a table of values and FRP summaries in dictionary order
         # if callable, put out what information we have
         tbl = '\n'.join('  {value:<16s}  {frp:<s}'.format(value=str(k), frp=str(v))
-                        for k, v in sorted(self._mapping.items(), key=lambda item: tuple(item[0])))
-        label = ''
-        dlabel = ''
-        if self._codim:
-            label = label + f' from values of dimension {str(self._codim)}'
-        if self._dim:
-            label = label + f' to values of dimension {str(self._dim)}'
-        if self._domain:
-            dlabel = f' with domain={str(self._domain)}'
+                        for k, v in sorted(self._targets.items(), key=lambda item: tuple(item[0]))
+                        if self._domain(k))
+        dlabel = f' with domain={str(self._domain_set)}.' if self._has_domain_set else ''
+        tlabel = f' of type {self.type}'
 
-        if self._is_dict or self._domain == set(self._mapping.keys()):
-            return f'A conditional FRP with mapping:\n{tbl}'
+        if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
+            return f'A conditional FRP{tlabel} with wiring:\n{tbl}'
         elif tbl:
             cont = '  {value:<16s}  {frp:<s}'.format(value='...', frp='...more FRPs')
-            mlabel = f'\nIt\'s mapping includes:\n{tbl}\n{cont}'
-            return f'A conditional FRP as a function{dlabel or label or mlabel}'
+            mlabel = f'\nIt\'s wiring includes:\n{tbl}\n{cont}'
+            return f'A conditional FRP{tlabel} as a function{dlabel or mlabel or "."}'
         else:
-            return f'A conditional FRP as a function{dlabel or label}'
+            return f'A conditional FRP as a function{dlabel or "."}'
 
     def __frplib_repr__(self):
         if environment.ascii_only:
@@ -686,16 +962,22 @@ class ConditionalFRP:
         if environment.is_interactive:
             return str(self)
         label = ''
-        if self._codim:
+        if self._codim is not None:
             label = label + f', codim={repr(self._codim)}'
-        if self._dim:
+        if self._dim is not None:
             label = label + f', dim={repr(self._dim)}'
-        if self._domain:
-            label = label + f', domain={repr(self._domain)}'
-        if self._is_dict or self._domain == set(self._mapping.keys()):
-            return f'ConditionalFRP({repr(self._mapping)}{label})'
+        if self._target_dim is not None:
+            label = label + f', dim={repr(self._target_dim)}'
+        if self._has_domain_set:
+            label = label + f', domain={repr(self._domain_set)}'
         else:
-            return f'ConditionalFRP({repr(self._fn)}{label})'
+            label = label + f', domain={repr(self._domain)}'
+        label += f', cache={self._cached}'
+        label += f', auto_clone={self._auto_clone}'
+        if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
+            return f'ConditionalFRP({repr(self._targets)}{label})'
+        else:
+            return f'ConditionalFRP({repr(self._target_fn)}{label})'
 
     # FRP operations lifted to Conditional FRPs
 
@@ -705,10 +987,22 @@ class ConditionalFRP:
                            ' Consider passing this tranform to `conditional_frp` first.')
         lo, hi = statistic.codim
         if self._dim is not None and (self._dim < lo or self._dim > hi):
-            raise FrpError(f'Statistic {statistic.name} is incompatible with this FRP: '
+            raise FrpError(f'Statistic {statistic.name} is incompatible with this conditional FRP: '
                            f'acceptable dimension [{lo},{hi}] but kind dimension {self._dim}.')
+
+        if self._trivial_domain:
+            domain: set[ValueType] | Callable[[ValueType], bool] | None = None
+        elif self._has_domain_set:
+            domain = self._domain_set
+        else:
+            domain = self._domain
+
+        s_dim = statistic.dim
+
         if self._is_dict:
-            return ConditionalFRP({k: statistic(v) for k, v in self._mapping.items()})
+            f_mapping = {k: statistic(v) for k, v in self._mapping.items()}
+            return ConditionalFRP(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain,
+                                  cache=self._cached, auto_clone=self._auto_clone)
 
         if self._dim is not None:
             def transformed(*value):
@@ -718,41 +1012,127 @@ class ConditionalFRP:
                 try:
                     return statistic(self._fn(*value))
                 except Exception:
-                    raise FrpError(f'Statistic {statistic.name} appears incompatible with this FRP.')
+                    raise FrpError(f'Statistic {statistic.name} appears incompatible with this conditional FRP.')
 
-        return ConditionalFRP(transformed)
+        return ConditionalFRP(transformed, codim=self._codim, target_dim=s_dim, domain=domain,
+                              cache=self._cached, auto_clone=self._auto_clone)
 
     def __xor__(self, statistic):
         return self.transform(statistic)
 
-    # ATTN:Bug 15: needs to account for input value and output in updated map
+    def transform_targets(self, statistic):
+        if not isinstance(statistic, Statistic):
+            raise FrpError('A conditional FRP can be transformed only by a Statistic.'
+                           ' Consider passing this tranform to `conditional_frp` first.')
+        lo, hi = statistic.codim
+        have_dim_codim = self._dim is not None and self._codim is not None
+        if have_dim_codim or self._target_dim is not None:
+            d = self._dim - self._codim if have_dim_codim else self._target_dim  # type: ignore
+            if d < lo or d > hi:                                                 # type: ignore
+                raise FrpError(f'Statistic {statistic.name} is incompatible with this conditional FRP: '
+                               f'acceptable dimension [{lo},{hi}] but target FRP dimension {d}.')
+
+        if self._trivial_domain:
+            domain: set[ValueType] | Callable[[ValueType], bool] | None = None
+        elif self._has_domain_set:
+            domain = self._domain_set
+        else:
+            domain = self._domain
+
+        s_dim = statistic.dim
+
+        if self._is_dict:
+            f_mapping = {k: statistic(v) for k, v in self._targets.items()}
+            return ConditionalFRP(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain,
+                                  cache=self._cached, auto_clone=self._auto_clone)
+
+        if self._dim is not None:
+            def transformed(*value):
+                return statistic(self._target_fn(*value))
+        else:  # We have not vetted the dimension, so apply with care
+            def transformed(*value):
+                try:
+                    return statistic(self._target_fn(*value))
+                except Exception:
+                    raise FrpError(f'Statistic {statistic.name} appears incompatible with this conditional FRP.')
+
+        return ConditionalFRP(transformed, codim=self._codim, target_dim=s_dim, domain=domain,
+                              cache=self._cached, auto_clone=self._auto_clone)
+
     def __rshift__(self, cfrp):
         if not isinstance(cfrp, ConditionalFRP):
             return NotImplemented
-        if self._is_dict:
-            return ConditionalFRP({given: frp >> cfrp for given, frp in self._mapping.items()})
+
+        if self._dim != cfrp._codim:
+            raise FrpError('Incompatible mixture of conditional FRPs, '
+                           f'{self.type} does not match {cfrp.type}')
+
+        if self._has_domain_set:
+            domain: set[ValueType] | Callable[[ValueType], bool] | None = self._domain_set
+        elif not self._trivial_domain:
+            domain = self._domain
+        else:
+            domain = None
+
+        # ATTN: Can optimize for the case where self._codim is not None
+        # proj = drop_input(self._codim)
+
+        if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
+            mapping = {given: (frp >> cfrp).transform(drop_input(len(given)))
+                       for given, frp in self._mapping.items()}
+            return ConditionalFRP(mapping, codim=self._codim, dim=cfrp._dim, domain=domain,
+                                  cache=self._cached, auto_clone=self._auto_clone)
 
         def mixed(*given):
-            self(*given) >> cfrp
-        return ConditionalFRP(mixed)
+            return (self(*given) >> cfrp).transform(drop_input(len(given)))
+        return ConditionalFRP(mixed, codim=self._codim, dim=cfrp._dim, domain=domain,
+                              cache=self._cached, auto_clone=self._auto_clone)
 
     def __mul__(self, cfrp):
         if not isinstance(cfrp, ConditionalFRP):
             return NotImplemented
+
+        if self._codim is None or cfrp._codim != self._codim:
+            raise FrpError('For conditional FRPs, * requires both to have fixed codimensions')
+
+        if self._dim is None or cfrp._dim is None:
+            mdim: int | None = None
+        else:
+            mdim = self._dim + cfrp._dim - cfrp._codim
+
+        if self._codim is None or cfrp._codim != self._codim:
+            raise FrpError('For conditional Kinds, * requires both to have fixed codimensions')
+
+        if self._has_domain_set and cfrp._has_domain_set:
+            domain = self._domain_set & cfrp._domain_set
+        else:
+            # ATTN: domain function should also be checked and used where appropriate
+            domain = None
+
         if self._is_dict and cfrp._is_dict:
-            intersecting = self._mapping.keys() & cfrp._mapping.keys()
-            return ConditionalFRP({given: self._mapping[given] * cfrp._mapping[given] for given in intersecting})
+            s_domain = (self._has_domain_set and self._domain_set) or self._mapping.keys()
+            c_domain = (cfrp._has_domain_set and cfrp._domain_set) or cfrp._mapping.keys()
+            intersecting = s_domain & c_domain
+            mapping = {given: self._targets[given] * cfrp._targets[given] for given in intersecting}
+
+            return ConditionalFRP(mapping, codim=self._codim, dim=mdim, domain=domain,
+                                  cache=self._cached, auto_clone=self._auto_clone)
 
         def mixed(*given):
-            self(*given) * cfrp(*given)
-        return ConditionalFRP(mixed)
+            return self._target_fn(*given) * cfrp._target_fn(*given)
+
+        return ConditionalFRP(mixed, codim=self._codim, dim=mdim, domain=domain,
+                              cache=self._cached, auto_clone=self._auto_clone)
 
 def conditional_frp(
-        mapping: Callable[[ValueType], FRP] | dict[ValueType, FRP] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
+        mapping: Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
         *,
-        codim=None,
-        dim=None,
-        domain=None
+        codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
+        dim: int | None = None,
+        domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
+        target_dim: int | None = None,
+        cache: bool = True,
+        auto_clone: bool = False   # ATTN: Not yet used, if True, clone on every evaluation, e.g., in simulation
 ) -> ConditionalFRP | Callable[..., ConditionalFRP]:
     """Converts a mapping from values to FRPs into a conditional FRP.
 
@@ -775,17 +1155,22 @@ def conditional_frp(
 
     """
     if mapping is not None:
-        return ConditionalFRP(mapping, codim=codim, dim=dim, domain=domain)
+        return ConditionalFRP(mapping, codim=codim, dim=dim, target_dim=target_dim,
+                              domain=domain, cache=cache, auto_clone=auto_clone)
 
     def decorator(fn: Callable) -> ConditionalFRP:
-        return ConditionalFRP(fn, codim=codim, dim=dim, domain=domain)
+        return ConditionalFRP(fn, codim=codim, dim=dim, target_dim=target_dim,
+                              domain=domain, cache=cache, auto_clone=auto_clone)
     return decorator
 
 
-class EmptyFrpDescriptor:
+#
+# FRPs
+#
+
+class EmptyFrpDescriptor:  # Enables FRP.empty to belong to FRP class
     def __get__(self, obj, objtype=None):
         return objtype(Kind.empty)
-
 
 #
 # FRPs are logically immutable but the _kind and _expression properties
@@ -856,6 +1241,15 @@ class FRP:
         if self._kind is None:
             return len(self.value)  # The value is likely cheaper than the kind to produce here
         return self._kind.dim
+
+    @property
+    def codim(self):
+        "The codimension of this FRP."
+        return 0
+
+    @property
+    def type(self):
+        return f'0 -> {self.dim}'
 
     @property
     def kind(self) -> Kind:
@@ -991,23 +1385,27 @@ class FRP:
         return FRP(expr)
 
     def __rshift__(self, c_frp):
-        "Mixes this FRP with FRPs given for each value"
-        c_frp = conditional_frp(c_frp)  # Convert to proper form with a copy  ATTN: clone this?
+        "Mixes this FRP with a Conditional FRP (or a function giving for each value)"
+        # ATTN:BUG? had this unconditionally (Convert to proper form with a copy  ATTN: clone this?)
+        if not isinstance(c_frp, ConditionalFRP):
+            c_frp = conditional_frp(c_frp)
         resolved = False
         if self.is_kinded():
             assert self._kind is not None
             dim = self._kind.dim
-            targets = {branch.vs: c_frp(branch.vs) for branch in self._kind._branches}
+            if c_frp._codim is not None and c_frp._codim != dim:
+                FrpError(f'Incompatible mixture of dim {dim} FRP with codim {c_frp._codim} conditional FRP')
+            targets = {branch.vs: c_frp.target(branch.vs) for branch in self._kind._branches}
             viable = True
             for target in targets.values():
                 if not target.is_kinded() or (dim * target._kind.dim > self.COMPLEXITY_THRESHOLD):
                     viable = False
                     break
             if viable:   # Return a kinded FRP
-                c_kind = {k: frp.kind for k, frp in targets.items()}
+                c_kind = ConditionalKind({val: frp.kind for val, frp in targets.items()}, codim=dim)
                 result = FRP(self._kind >> c_kind)
                 # Since we're kinded, generate the values now
-                result._value = join_values([self.value, c_frp(self.value).value])
+                result._value = c_frp(self.value).value
                 resolved = True
             else:
                 resolved = False
@@ -1017,7 +1415,7 @@ class FRP:
             if self._value is not None:
                 frp = c_frp(self._value)
                 if frp._value is not None:
-                    result._value = join_values([self._value, frp._value])
+                    result._value = frp._value
         return result
 
     def transform(self, f_mapping):
@@ -1153,7 +1551,7 @@ class FRP:
         return NotImplemented
 
 #
-# Constructors
+# Constructors and Tests
 #
 
 def frp(spec) -> FRP:
@@ -1261,8 +1659,6 @@ def evolve(start, next_state, n_steps=1):
         current = next_state // current
     return current
 
-
-
 class FisherYates(FrpExpression):
     def __init__(self, items: Iterable):
         super().__init__()
@@ -1325,12 +1721,6 @@ def _expectation_from_expr(expr: FrpExpression):
     if expr._cached_kind is not None:
         return expr._cached_kind.expectation()
     raise ComplexExpectationWarning('The expectation of this FRP could not be computed without first finding its kind.')
-
-def join_values(values: Iterable[ValueType]) -> ValueType:
-    combined = []
-    for value in values:
-        combined.extend(list(value))
-    return VecTuple(combined)
 
 
 #
