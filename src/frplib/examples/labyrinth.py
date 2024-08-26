@@ -70,7 +70,7 @@ def from_latest(steps: ConditionalKind):
     def mixture(path):
         latest = path[-1]
         return steps[latest]
-    return conditional_kind(mixture)
+    return conditional_kind(mixture, target_dim=1)
 
 
 # Initial state mixer and state update targets
@@ -107,8 +107,8 @@ def theseus_latest(initial: Kind, moves: ConditionalKind) -> Generator:
     """
     current = initial
     while True:
-        current = (current >> moves)[2]
         yield current
+        current = (current >> moves)[2]   # same as moves // current
 
 T = TypeVar('T')
 

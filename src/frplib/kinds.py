@@ -811,6 +811,10 @@ class Kind:
     def repr_internal(self) -> str:
         return f'Kind({repr(self._canonical)})'
 
+    def serialize(self) -> str:
+        "Returns the s-expression string representation of the Kind for serialization."
+        return f'(<> {" ".join(str(b.p) + " " + str(b.vs) for b in self._canonical)})'
+
 # Tagged kinds for context in conditionals
 #
 # phi@k acts exactly like phi(k) except in a conditional, where
@@ -1735,7 +1739,8 @@ class ConditionalKind:
         return self._fn(*value)
 
     def __getitem__(self, *value) -> Kind:
-        return self._fn(*value)
+        "Returns this conditional Kind's target associated with the key."
+        return self._target_fn(*value)
 
     @property
     def dim(self):
