@@ -9,7 +9,7 @@
 on probability theory and statistics. It was written and designed for use in
 my class Stat 218 Probability Theory for Computer Scientists.
 The ideas represented by this library are described in detail in the draft chapter
-in [docs](docs/chapter0-draft.pdf).
+in [docs](docs/chapter0.pdf).
 
 **Table of Contents**
 
