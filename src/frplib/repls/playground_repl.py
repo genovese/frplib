@@ -104,7 +104,7 @@ playground_imports: dict[str, list[str]] = {
         'Constantly', 'Fork', 'MFork', 'ForEach', 'IfThenElse',
         'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
     ],
-    'expectations': ['E', 'D_'],
+    'expectations': ['E', 'Var', 'D_'],
     'frps': [
         'FRP', 'frp', 'conditional_frp', 'is_frp', 'evolve', 'shuffle',
     ],

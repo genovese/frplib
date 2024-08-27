@@ -856,10 +856,7 @@ class ConditionalFRP:
 
         """
         def fn(*x):
-            try:
-                frp = self._target_fn(*x)
-            except MismatchedDomain:
-                return None
+            frp = self._target_fn(*x)
             return frp.expectation()
 
         setattr(fn, 'codim', self._codim)

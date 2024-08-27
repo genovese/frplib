@@ -1806,10 +1806,7 @@ class ConditionalKind:
 
         """
         def fn(*x):
-            try:
-                k = self._target_fn(*x)
-            except MismatchedDomain:
-                return None
+            k = self._target_fn(*x)
             return k.expectation()
 
         setattr(fn, 'codim', self._codim)
