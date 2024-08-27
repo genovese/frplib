@@ -840,13 +840,19 @@ class Statistic:
 
         return Statistic(a_or_b, codim=0, name=label)
 
+    def __xor__(self, other):
+        "Chained composition of two statistics, self then other"
+        if not isinstance(other, Statistic):
+            return NotImplemented
+        return compose2(other, self)
+
 def is_statistic(x) -> TypeGuard[Statistic]:
     return isinstance(x, Statistic)
 
 def scalar_fn(stat: Statistic) -> Callable:
     "Converts a statistic into a regular scalar function."
     def as_fn(val):
-        return stat(val)[0]
+        return as_scalar_strict(stat(val))
     return as_fn
 
 class MonoidalStatistic(Statistic):

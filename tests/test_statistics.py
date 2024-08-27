@@ -4,6 +4,7 @@ import math
 import pytest
 
 from frplib.exceptions import DomainDimensionError, InputError
+from frplib.kinds      import Kind, either
 from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                is_statistic, statistic, condition, scalar_statistic,
                                tuple_safe, infinity, ANY_TUPLE,
@@ -20,7 +21,7 @@ from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                )
 from frplib.quantity   import as_quantity, qvec
 from frplib.symbolic   import symbol
-from frplib.utils      import codim
+from frplib.utils      import codim, dim
 from frplib.vec_tuples import vec_tuple
 
 
@@ -249,4 +250,11 @@ def test_tuple_safe():
     assert codim(Proj[1, 2, 4]) == (4, infinity)
     assert codim(Proj[2]) == (2, infinity)
     assert codim(Proj[-2, -1]) == (0, infinity)
+
+def test_stat_combinators():
+    k = either(0, 1) ** 4
+    assert Kind.equal(k ^ Proj[1, 2] ^ Sum, k ^ (Proj[1, 2] ^ Sum))
+    assert is_statistic(Proj[1, 2] ^ Sum)
+    assert codim(Proj[1, 2] ^ Sum) == (2, infinity)
+    assert dim(Proj[1, 2] ^ Sum) == 1
 
