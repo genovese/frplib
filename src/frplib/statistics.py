@@ -447,6 +447,23 @@ class Statistic:
         return self.arity
 
     @property
+    def type(self):
+        multi_arity = is_tuple(self.arity)
+        if multi_arity and self.arity[1] == infinity:
+            codim = f'{(self.arity[0], infinity)}'
+        elif multi_arity and self.arity[1] == self.arity[0]:
+            codim = f'{self.arity[0]}'
+        else:
+            codim = f'{self.arity}'
+
+        if self.dim is not None:
+            dim = f'{self.dim}'
+        else:
+            dim = '*'
+
+        return f'{codim} -> {dim}'
+
+    @property
     def description(self) -> str:
         return self.__doc__
 
@@ -976,7 +993,8 @@ def statistic(
         dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know
         description: Optional[str] = None,        # A description used as a __doc__ string for the Statistic
         monoidal=None,                            # If not None, the unit for a Monoidal Statistic
-        strict=True                               # If true, then strictly enforce dim upper bound
+        strict=True,                              # If true, then strictly enforce dim upper bound
+        arg_convert: Optional[Callable] = None    # If not None, a function applies to every input component
 ) -> Statistic | Callable[[Callable], Statistic]:
     """
     Statistics factory and decorator. Converts a function into a Statistic.
@@ -984,12 +1002,30 @@ def statistic(
     Can take the function as a first argument or be used as a decorator on a def.
 
     """
-    if maybe_fn and monoidal is None:
-        return Statistic(maybe_fn, codim, dim, name, description, strict=strict)
-    elif maybe_fn:
-        return MonoidalStatistic(maybe_fn, monoidal, codim, dim, name, description, strict=strict)
 
-    if monoidal is None:
+    if maybe_fn is not None:
+        if monoidal is None:
+            s = Statistic(maybe_fn, codim, dim, name, description, strict=strict)
+        else:
+            s = MonoidalStatistic(maybe_fn, monoidal, codim, dim, name, description, strict=strict)
+
+        if arg_convert is not None:
+            convert = Statistic(lambda v: map(arg_convert, v), codim=s.codim)   # type: ignore
+            s = compose2(s, convert)
+        return s
+
+    if arg_convert is not None:
+        if monoidal is None:
+            def decorator(fn: Callable) -> Statistic:     # Function to be converted to a statistic
+                s = Statistic(fn, codim, dim, name, description, strict=strict)
+                convert = Statistic(lambda v: map(arg_convert, v), codim=s.codim)
+                return compose2(s, convert)
+        else:
+            def decorator(fn: Callable) -> Statistic:     # Function to be converted to a statistic
+                s = MonoidalStatistic(fn, monoidal, codim, dim, name, description, strict=strict)
+                convert = Statistic(lambda v: map(arg_convert, v), codim=s.codim)
+                return compose2(s, convert)
+    elif monoidal is None:
         def decorator(fn: Callable) -> Statistic:     # Function to be converted to a statistic
             return Statistic(fn, codim, dim, name, description, strict=strict)
     else:
@@ -1006,6 +1042,7 @@ def scalar_statistic(
         description: Optional[str] = None,        # A description used as a __doc__ string for the Statistic
         monoidal=None,                            # If not None, the unit of a Monoidal Statistic
         strict=True                               # If true, then strictly enforce dim upper bound
+        # ATTN: could add arg_convert here too
 ):
     """
     Statistics factory and decorator. Converts a function into a Statistic that returns a scalar.
@@ -1134,7 +1171,7 @@ def compose(*statistics: Statistic) -> Statistic:
 #
 
 Id = Statistic(identity, codim=ANY_TUPLE, name='identity', description='returns the value given as is')
-Scalar = Statistic(lambda x: x[0] if is_tuple(x) else x, codim=1, strict=True,
+Scalar = Statistic(lambda x: x[0] if is_tuple(x) else x, codim=1, dim=1, strict=True,
                    name='scalar', description='represents a scalar value')
 __ = Statistic(identity, codim=ANY_TUPLE, name='__', description='represents the value given to the statistic')
 _x_ = Scalar
