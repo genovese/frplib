@@ -505,8 +505,7 @@ class ConditionalFRP:
             dim: int | None = None,
             domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
             target_dim: int | None = None,
-            cache: bool = True,
-            auto_clone: bool = False   # ATTN: Not yet used, if True, clone on every evaluation, e.g., in simulation
+            auto_clone: bool = False   # ISSUE 28: Not yet supported, if True, clone on every evaluation, e.g., in simulation
     ) -> None:
         if isinstance(mapping, ConditionalKind):
             codim = mapping._codim if codim is None else codim
@@ -516,6 +515,7 @@ class ConditionalFRP:
                 domain = mapping._domain_set if mapping._has_domain_set else mapping._domain
             mapping = mapping.map(frp)  # dictionary of target FRPs
 
+        cache = True                  # no cache without auto_clone makes not sense
         self._cached = cache          # save these for cloning, copying, etc
         self._auto_clone = auto_clone
 
@@ -570,13 +570,20 @@ class ConditionalFRP:
                 _codim = codim
 
             maybe_dims: set[int] = set()
+            # all_kinded = True
             for k, v in self._mapping.items():
                 if _codim is None or k.dim == _codim:
-                    maybe_dims.add(v.dim)  # ATTN: need to check v.is_kinded() status before v.dim
+                    if v.is_kinded():
+                        maybe_dims.add(v.dim)
+                    else:  # ISSUE 27: can we risk getting a value here or just bail on inferring dim
+                        # all_kinded = False
+                        # break  # Cannot definitely determine dim in this case
+                        ## Do it for now
+                        maybe_dims.add(len(v.value))
                     # ATTN: do we need to restrict to common dims here?
 
             if dim is None and target_dim is None:
-                if len(maybe_dims) == 1:
+                if len(maybe_dims) == 1:  # and all_kinded:
                     _dim: int | None = list(maybe_dims)[0]
                 else:
                     _dim = None
@@ -831,7 +838,7 @@ class ConditionalFRP:
         if self._is_dict:
             cloned = {k: v.clone() for k, v in self._targets.items()}
             return ConditionalFRP(cloned, codim=self._codim, dim=self._dim, domain=self._domain,
-                                  cache=self._cached, auto_clone=self._auto_clone)
+                                  auto_clone=self._auto_clone)
         else:
             # NB! We clone here out of caution, in case a function returns an existing FRP
             # The ConditionalFRP will cache the results for each one, so clone will only
@@ -841,7 +848,7 @@ class ConditionalFRP:
                 return self._target_fn(value).clone()
 
             return ConditionalFRP(fn, codim=self._codim, dim=self._dim, domain=self._domain,
-                                  cache=self._cached, auto_clone=self._auto_clone)
+                                  auto_clone=self._auto_clone)
 
     def expectation(self):
         """Returns a function from values to the expectation of the corresponding FRP.
@@ -969,7 +976,6 @@ class ConditionalFRP:
             label = label + f', domain={repr(self._domain_set)}'
         else:
             label = label + f', domain={repr(self._domain)}'
-        label += f', cache={self._cached}'
         label += f', auto_clone={self._auto_clone}'
         if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
             return f'ConditionalFRP({repr(self._targets)}{label})'
@@ -999,7 +1005,7 @@ class ConditionalFRP:
         if self._is_dict:
             f_mapping = {k: statistic(v) for k, v in self._mapping.items()}
             return ConditionalFRP(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain,
-                                  cache=self._cached, auto_clone=self._auto_clone)
+                                  auto_clone=self._auto_clone)
 
         if self._dim is not None:
             def transformed(*value):
@@ -1012,7 +1018,7 @@ class ConditionalFRP:
                     raise FrpError(f'Statistic {statistic.name} appears incompatible with this conditional FRP.')
 
         return ConditionalFRP(transformed, codim=self._codim, target_dim=s_dim, domain=domain,
-                              cache=self._cached, auto_clone=self._auto_clone)
+                              auto_clone=self._auto_clone)
 
     def __xor__(self, statistic):
         return self.transform(statistic)
@@ -1041,7 +1047,7 @@ class ConditionalFRP:
         if self._is_dict:
             f_mapping = {k: statistic(v) for k, v in self._targets.items()}
             return ConditionalFRP(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain,
-                                  cache=self._cached, auto_clone=self._auto_clone)
+                                  auto_clone=self._auto_clone)
 
         if self._dim is not None:
             def transformed(*value):
@@ -1054,7 +1060,7 @@ class ConditionalFRP:
                     raise FrpError(f'Statistic {statistic.name} appears incompatible with this conditional FRP.')
 
         return ConditionalFRP(transformed, codim=self._codim, target_dim=s_dim, domain=domain,
-                              cache=self._cached, auto_clone=self._auto_clone)
+                              auto_clone=self._auto_clone)
 
     def __rshift__(self, cfrp):
         if not isinstance(cfrp, ConditionalFRP):
@@ -1078,12 +1084,12 @@ class ConditionalFRP:
             mapping = {given: (frp >> cfrp).transform(drop_input(len(given)))
                        for given, frp in self._mapping.items()}
             return ConditionalFRP(mapping, codim=self._codim, dim=cfrp._dim, domain=domain,
-                                  cache=self._cached, auto_clone=self._auto_clone)
+                                  auto_clone=self._auto_clone)
 
         def mixed(*given):
             return (self(*given) >> cfrp).transform(drop_input(len(given)))
         return ConditionalFRP(mixed, codim=self._codim, dim=cfrp._dim, domain=domain,
-                              cache=self._cached, auto_clone=self._auto_clone)
+                              auto_clone=self._auto_clone)
 
     def __mul__(self, cfrp):
         if not isinstance(cfrp, ConditionalFRP):
@@ -1113,13 +1119,13 @@ class ConditionalFRP:
             mapping = {given: self._targets[given] * cfrp._targets[given] for given in intersecting}
 
             return ConditionalFRP(mapping, codim=self._codim, dim=mdim, domain=domain,
-                                  cache=self._cached, auto_clone=self._auto_clone)
+                                  auto_clone=self._auto_clone)
 
         def mixed(*given):
             return self._target_fn(*given) * cfrp._target_fn(*given)
 
         return ConditionalFRP(mixed, codim=self._codim, dim=mdim, domain=domain,
-                              cache=self._cached, auto_clone=self._auto_clone)
+                              auto_clone=self._auto_clone)
 
 def conditional_frp(
         mapping: Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
@@ -1153,11 +1159,11 @@ def conditional_frp(
     """
     if mapping is not None:
         return ConditionalFRP(mapping, codim=codim, dim=dim, target_dim=target_dim,
-                              domain=domain, cache=cache, auto_clone=auto_clone)
+                              domain=domain, auto_clone=auto_clone)
 
     def decorator(fn: Callable) -> ConditionalFRP:
         return ConditionalFRP(fn, codim=codim, dim=dim, target_dim=target_dim,
-                              domain=domain, cache=cache, auto_clone=auto_clone)
+                              domain=domain, auto_clone=auto_clone)
     return decorator
 
 
