@@ -20,6 +20,7 @@ from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                )
 from frplib.quantity   import as_quantity, qvec
 from frplib.symbolic   import symbol
+from frplib.utils      import codim
 from frplib.vec_tuples import vec_tuple
 
 
@@ -239,3 +240,13 @@ def test_tuple_safe():
         v3(4)
     with pytest.raises(DomainDimensionError):
         v3()
+
+    with pytest.raises(DomainDimensionError):
+        Proj[1, 2, 4](1, 2)
+    with pytest.raises(DomainDimensionError):
+        Proj[1, 2, 4]((1, 2))
+
+    assert codim(Proj[1, 2, 4]) == (4, infinity)
+    assert codim(Proj[2]) == (2, infinity)
+    assert codim(Proj[-2, -1]) == (0, infinity)
+

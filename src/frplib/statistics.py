@@ -228,8 +228,8 @@ def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, stric
                     args = x
                 if len(args) < arities[0]:
                     raise DomainDimensionError(f'A function (probably a Statistic)'
-                                               f' expects at least {arities[0]}'
-                                               f' arguments but {len(args)} were given.')
+                                               f' expects input of dimension at least {arities[0]}'
+                                               f' dimension {len(args)} was given.')
                 return as_quant_vec(fn(args))
         else:
             @wraps(fn)
@@ -240,8 +240,8 @@ def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, stric
                     args = x
                 if len(args) < arities[0]:
                     raise DomainDimensionError(f'A function (probably a Statistic)'
-                                               f' expects at least {arities[0]}'
-                                               f' arguments but {len(args)} were given.')
+                                               f' expects input of dimension at least {arities[0]}'
+                                               f' dimension {len(args)} was given.')
                 return as_quant_vec(fn(*args))
         setattr(h, 'arity', arities)
         setattr(h, 'strict_arity', strict)
@@ -257,12 +257,12 @@ def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, stric
             nargs = len(args)
             if nargs < arities[0]:
                 raise DomainDimensionError(f'A function (probably a Statistic)'
-                                           f' expects at least {arities[0]}'
-                                           f' arguments but {nargs} were given.')
+                                           f' expects input of dimension at least {arities[0]}'
+                                           f' dimension {nargs} was given.')
             if strict and nargs > arities[1]:
                 raise DomainDimensionError(f'A function (probably a Statistic)'
-                                           f' expects at most {arities[1]}'
-                                           f' arguments but {nargs} were given.')
+                                           f' expects input of dimension at most {arities[1]}'
+                                           f' but dimension {nargs} was given.')
 
             take = cast(int, min(arities[1], nargs))  # Implicit project if not strict
 
@@ -277,12 +277,12 @@ def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, stric
             nargs = len(args)
             if nargs < arities[0]:
                 raise DomainDimensionError(f'A function (probably a Statistic)'
-                                           f' expects at least {arities[0]}'
-                                           f' arguments but {nargs} were given.')
+                                           f' expects input of dimension at least {arities[0]}'
+                                           f' but dimension {len(args)} was given.')
             if strict and nargs > arities[1]:
                 raise DomainDimensionError(f'A function (probably a Statistic)'
-                                           f' expects at most {arities[1]}'
-                                           f' arguments but {nargs} were given.')
+                                           f' expects input of dimension at most {arities[1]}'
+                                           f' but dimension {nargs} was given.')
 
             take = cast(int, min(arities[1], nargs))  # Implicit project if not strict
 
@@ -877,7 +877,7 @@ class ProjectionStatistic(Statistic, Projection):
             onto: Iterable[int] | slice | Self,  # 1-indexed projection indices
             name: Optional[str] = None           # A user-facing name for the statistic
     ) -> None:
-        codim = 0
+        codim: Optional[int | ArityType] = 0
         dim = None
         if isinstance(onto, ProjectionStatistic):
             indices: Iterable[int] | slice | 'ProjectionStatistic' = onto.subspace
@@ -886,7 +886,7 @@ class ProjectionStatistic(Statistic, Projection):
 
         if isinstance(onto, Iterable):
             indices = list(onto)
-            codim = max(indices)
+            codim = (max(0, max(indices)), infinity)
             dim = len(indices)
             label = ", ".join(map(str, indices))
             if any([index == 0 for index in indices]):  # Negative from the end OK
@@ -903,7 +903,7 @@ class ProjectionStatistic(Statistic, Projection):
         description = textwrap.wrap(f'''A statistic that projects any value of dimension >= {codim or 1}
                                         to extract the {dim} components with indices {label}.''')
         # ATTN: Just pass project here, don't take an fn arg!
-        super().__init__(fn, 0, dim, name, '\n'.join(description))
+        super().__init__(fn, codim, dim, name, '\n'.join(description))
         self._components = indices
 
     @property
