@@ -116,7 +116,7 @@ playground_imports: dict[str, list[str]] = {
     'utils': [
         'clone', 'compose', 'const', 'every', 'frequencies',
         'identity', 'index_of', 'irange', 'iterate', 'lmap',
-        'values', 'dim', 'codim', 'size', 'show', 'some',
+        'values', 'dim', 'codim', 'size', 'typeof', 'show', 'some',
     ],
     'vec_tuples': [
         'VecTuple',

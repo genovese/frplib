@@ -1600,7 +1600,6 @@ def project(*indices_or_tuple) -> ProjectionStatistic:
     if len(indices_or_tuple) == 0:  # ATTN:Error here instead?
         return ProjectionStatistic(lambda _: (), (), name='Null projection')
 
-    # ATTN:Support slice objects here
     # In that sense, it would be good if the projection statistic could also get
     # the dimension of the input tuple, then we could use Proj[2:-1] to mean
     # all but the first and Proj[1:-2] for all but the last regardless of

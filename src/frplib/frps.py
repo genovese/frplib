@@ -988,7 +988,7 @@ class ConditionalFRP:
         lo, hi = statistic.codim
         if self._dim is not None and (self._dim < lo or self._dim > hi):
             raise FrpError(f'Statistic {statistic.name} is incompatible with this conditional FRP: '
-                           f'acceptable dimension [{lo},{hi}] but kind dimension {self._dim}.')
+                           f'acceptable dimensions [{lo},{hi}] but dimension is {self._dim}.')
 
         if self._trivial_domain:
             domain: set[ValueType] | Callable[[ValueType], bool] | None = None
@@ -1492,7 +1492,7 @@ class FRP:
             return as_vec_tuple(map(lambda i: value[i - 1] if i > 0 else value[i], indices))
 
         if self.is_kinded():
-            stat = Statistic(marginalize, dim=0, codim=len(indices))
+            stat = Statistic(marginalize, codim=0, dim=len(indices))
             return stat(self)
 
         assert self._expr is not None
