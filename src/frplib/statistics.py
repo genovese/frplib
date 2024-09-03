@@ -1443,39 +1443,102 @@ def MFork(stat: MonoidalStatistic | ScalarQ, *other_stats: MonoidalStatistic | S
     return cast(MonoidalStatistic, Fork(stat, *other_stats))
 
 # ATTN: fix up (cycle notation and straight) but keeping it simple for now
-def Permute(*p: int | tuple[int, ...]):
+def _find_cycles(inds: list[int], drop_singletons=True) -> list[list[int]]:
+    """Find a list of cycles in 0-based index list by cycle convention
+
+    Cycles are arranged in order of increasing biggest element with the
+    biggest element first. Indices are 0-based and non-negative.
+
+    """
+    cycles = []
+    max_so_far = -1
+    thresh = 1 if drop_singletons else 0
+    current: list[int] = []
+    for ind in inds:
+        if ind > max_so_far:
+            max_so_far = ind
+            if len(current) > thresh:
+                cycles.append(current)
+            current = [ind]
+        else:
+            current.append(ind)
+    if len(current) > thresh:
+        cycles.append(current)
+    return cycles
+
+
+def Permute(*p: int | tuple[int, ...], cycle=True):
     """A statistics factory that produces permutation statistics.
 
     Accepts a list of (1-indexed) component indices (either as
-    individual arguments or as a single iterable). These indices
-    indicate the index of the original component is in each index.
-    For example, Permute(3, 2, 1) means that the original 3rd
+    individual arguments or as a single iterable).
+    By default, indices are interpreted as a cycle specification,
+    i.e., cycle=True.
+
+    If cycle=True, the indices are interpreted as a cycle
+    specification, where each cycle is listed with
+    its largest element first and cycles are listed
+    in increasing orderof their largest element.
+
+    For example, Permute(4, 2, 7, 3, 1, 5, cycle=True)
+    maps <1, 2, ..., 8> to <3, 4, 7, 2, 1, 6, 5, 8>,
+    with cycles (42) and (7315).
+
+    Similarly, Permute(3, 1, 2) takes the third element
+    to position one, the first to position two, and 
+    the second to position three.
+
+    If cycle=False, the indices should contain all values 1..n
+    exactly once for some positive integer n. Each index indicates
+    which value of the input vector goes in that position.
+
+    For example, Permute(4, 2, 7, 3, 1, 5, 6, cycle=False)
+    maps <1, 2, ..., 8> to <4, 2, 7, 3, 1, 5, 6, 8>.
+
+    Similarly, Permute(3, 2, 1) means that the original 3rd
     component is first and the original 1st component is third.
     Similarly, Permute(3, 1, 2) rearranges in the order third,
     first, second.
 
-    The index list should contain all values 1..n exactly once for
-    some positive integer n. The permutation applies to vectors of
-    any length, keeping any values at index > n in place. Thus,
-    Permute(3,2,1) rearranges the first three components and leaves
-    any others unchanged.
+    In either case, if m is the maximum index given,
+    then the permutation has codimension k for every k >= m.
+    Values above the maximum index are left in their original
+    place.
 
-    See PermuteWithCycles for an alternative input format.
-    (Note: Not yet available.)
+    More Examples:
 
-    Examples:
-
-    + Permute(4, 1, 2, 3) takes <a, b, c, d> to <d, a, b, c>
+    + Permute(3, 1, 4, 2) takes <a, b, c, d> to <c, d, a, b>
+    + Permute(4, 1, 2, 3, cycle=False) takes <a, b, c, d> to <d, a, b, c>
 
     """
-    # TEMP: assert p contains all unique values from 1..n
 
-    if len(p) == 1 and isinstance(p[0], tuple):
-        p_realized = list(map(lambda k: k - 1, p[0]))
+    # Move to 0-indexed base for internal calculations
+    if len(p) == 1 and is_tuple(p[0]):
+        p_realized = [k - 1 for k in p[0]]
     else:
-        p_realized = list(map(lambda k: k - 1, cast(tuple[int], p)))
+        p_realized = [k - 1 for k in cast(tuple[int], p)]
     p_max = max(p_realized)
-    n = p_max + 1
+    n = p_max + 1    # Minimum codimension
+
+    if cycle:
+        cycles = _find_cycles(p_realized)
+        @statistic(name='permute', codim=(n, infinity))
+        def permute(value):
+            permuted = list(value)
+            for c in cycles:  # c has len > 1
+                n_c = len(c)
+                for i in range(1, n_c):
+                    permuted[c[i]] = value[c[i-1]]
+                permuted[c[0]] = value[c[n_c - 1]]
+            return VecTuple(permuted)
+        return permute
+
+    n_unique = len(set(p_realized))
+    if n_unique < n:
+        raise StatisticError('Non-cycle Permute specification should contain '
+                             f'all indices from 1 to {n}')
+    if n_unique < len(p_realized):
+        raise StatisticError('Permute specification contains repeated indices')
 
     # pos = list(range(n))
     # iperm = list(range(n))
@@ -1493,15 +1556,14 @@ def Permute(*p: int | tuple[int, ...]):
     # # ATTN
     # Old
     perm = p_realized
-    assert n == len(perm)  # TEMP
 
-    @statistic(name='Permutation', codim=ANY_TUPLE)
-    def permute(value):
+    @statistic(name='permute', codim=(n, infinity))
+    def permute_direct(value):
         m = len(value)
-        if m < n:
-            raise StatisticError(f'Permutation of {n} items applied to tuple of dimension {m} < {n}.')
+        # if m < n:
+        #     raise StatisticError(f'Permutation of {n} items applied to tuple of dimension {m} < {n}.')
         return VecTuple(value[perm[i]] if i < n else value[i] for i in range(m))
-    return permute
+    return permute_direct
 
 def IfThenElse(
         cond: Statistic,

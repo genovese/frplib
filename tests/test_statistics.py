@@ -14,6 +14,7 @@ from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                Sqrt, Floor, Ceil,
                                Exp, Log, Log2, Log10,
                                Sin, Cos, Tan, ATan2, Sinh, Cosh, Tanh,
+                               FromDegrees,
                                Diff, Diffs, Permute,
                                SumSq, Norm, Dot, Ascending, Descending,
                                Constantly, Fork, ForEach, IfThenElse,
@@ -139,6 +140,17 @@ def test_builtin_statistics():
 
     assert Sqrt(4) == vec_tuple(2)
     assert Sqrt(1.44) == vec_tuple(as_quantity(1.2))
+
+    assert Sin(FromDegrees(30)) == as_quantity(0.5)
+
+    p1 = Permute(4, 2, 7, 3, 1, 5)
+    p2 = Permute(4, 2, 7, 3, 1, 5, 6, cycle=False)
+
+    assert p1(1, 2, 3, 4, 5, 6, 7, 8) == vec_tuple(3, 4, 7, 2, 1, 6, 5, 8)
+    assert p2(1, 2, 3, 4, 5, 6, 7, 8) == vec_tuple(4, 2, 7, 3, 1, 5, 6, 8)
+    assert Permute(2, 1)(1, 2, 3) == vec_tuple(2, 1, 3)
+    assert Permute(2, 1, cycle=False)(1, 2, 3) == vec_tuple(2, 1, 3)
+    
 
 def test_tuple_safe():
     def sc_fn(x):
