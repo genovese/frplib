@@ -450,11 +450,13 @@ class Statistic:
     def type(self):
         multi_arity = is_tuple(self.arity)
         if multi_arity and self.arity[1] == infinity:
-            codim = f'{(self.arity[0], infinity)}'
+            codim = f'[{self.arity[0]}..)'  # {infinity}
         elif multi_arity and self.arity[1] == self.arity[0]:
             codim = f'{self.arity[0]}'
+        elif multi_arity:
+            codim = f'[{self.arity[0]}..{self.arity[1]}]'
         else:
-            codim = f'{self.arity}'
+            codim = f'{self.arity}'  # ATTN: this case should not happen
 
         if self.dim is not None:
             dim = f'{self.dim}'
@@ -1273,6 +1275,18 @@ def Descending(v):
 def ATan2(x, y=1):
     return as_quantity(math.atan2(x, y))
 
+Pi = Decimal('3.1415926535897932384626433832795')
+
+@scalar_statistic(codim=1)
+def FromDegrees(degs):
+    "converts a scalar in degrees to radians"
+    return Pi * degs / 180
+
+@scalar_statistic(codim=1)
+def FromRadians(rads):
+    "converts a scalar in radians to degrees"
+    return 180 * rads / Pi
+
 @scalar_statistic(name='Phi', codim=1, strict=True,
                   description='returns the cumulative distribution function of the standard Normal distribution')
 def NormalCDF(x):
@@ -1396,7 +1410,8 @@ def Fork(stat: Statistic | ScalarQ, *other_stats: Statistic | ScalarQ) -> Statis
     # Treat constants like statistics
     if not isinstance(stat, Statistic):
         stat = Constantly(as_quantity(stat))
-    more_stats = [s if isinstance(s, Statistic) else Constantly(as_quantity(s)) for s in other_stats]
+    more_stats: list[Statistic] = [s if isinstance(s, Statistic) else Constantly(as_quantity(s))
+                                   for s in other_stats]
 
     if len(more_stats) == 0:
         return stat

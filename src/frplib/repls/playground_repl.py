@@ -97,6 +97,7 @@ playground_imports: dict[str, list[str]] = {
         'Sqrt', 'Floor', 'Ceil', 'NormalCDF',
         'Exp', 'Log', 'Log2', 'Log10',
         'Sin', 'Cos', 'Tan', 'ATan2', 'Sinh', 'Cosh', 'Tanh',
+        'Pi', 'FromDegrees', 'FromRadians',
         'Mean', 'StdDev', 'Variance',
         'SumSq', 'Norm', 'Dot',
         'ArgMin', 'ArgMax', 'Ascending', 'Descending',
@@ -137,6 +138,9 @@ def import_playground(globals) -> None:
         globals[module_name] = module
         for symbol_name in playground_imports[module_name]:
             globals[symbol_name] = getattr(module, symbol_name)
+    d = import_module('decimal')
+    globals['decimal'] = d
+    globals['Decimal'] = getattr(d, 'Decimal')
 
 def remove_playground(globals) -> None:
     modules = playground_imports.keys()
