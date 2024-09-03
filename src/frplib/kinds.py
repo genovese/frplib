@@ -7,7 +7,7 @@ import re
 from collections.abc   import Collection, Iterable
 from dataclasses       import dataclass
 from enum              import Enum, auto
-from itertools         import chain, combinations, permutations, product
+from itertools         import chain, combinations, permutations, product, starmap
 from typing            import Literal, Callable, overload, Union, cast
 from typing_extensions import Any, TypeAlias, TypeGuard
 
@@ -1444,10 +1444,24 @@ def without_replacement(n: int, xs: Iterable) -> Kind:
     """
     return Kind([KindBranch.make(vs=comb, p=1) for comb in combinations(xs, n)])
 
-def subsets(xs: Collection) -> Kind:
-    "Kind of an FRP whose values are subsets of a given collection."
+def subsets(xs: Collection, outside_element) -> Kind:
+    """Kind of an FRP whose values are subsets of a given collection.
+
+    Because the dimension needs to be consistent, outside_element,
+    a value not in the collection, should be supplied to pad
+    out the values.  This value should be comparable to the
+    elements in the collection.
+
+    The padding elements are placed at the beginning of the tuples
+    so that the Kind sorts nicely. This may be changed in the future.
+
+    """
     coll = list(xs)
-    return without_replacement(len(coll), coll)
+    n = len(coll)
+    power_set = chain.from_iterable(combinations(coll, n) for n in range(len(coll) + 1))
+    annotated = starmap(lambda *v: as_vec_tuple((outside_element,) * (n - len(v)) + v), power_set)
+
+    return Kind([KindBranch.make(vs=sub, p=1) for sub in annotated])
 
 def ordered_samples(n: int, xs: Iterable) -> Kind:
     "Kind of an FRP whose values are all ordered samples of size `n` from the given collection."
