@@ -22,7 +22,7 @@ from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
 from frplib.numeric    import (Numeric, ScalarQ, as_nice_numeric, as_numeric, as_real,
-                               is_numeric, numeric_abs, numeric_floor, numeric_log2)
+                               is_numeric, numeric_abs, numeric_floor, numeric_log2, numeric_ln)
 from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection, SupportsKindOf
 from frplib.quantity   import as_quantity, as_nice_quantity, as_quant_vec, show_quantities, show_qtuples
@@ -566,16 +566,55 @@ class Kind:
                 ex[i] += branch.p * v
         return ex[0] if self.dim == 1 else as_vec_tuple(ex)
 
-    def log_likelihood(self, data: Iterable[ValueType | ScalarQ]) -> QuantityType:
-        weights = self.weights
+    def kernel(self, *v: ScalarQ | tuple[ScalarQ | QuantityType, ...], as_float=True ):
+        """The kernel function associated with this Kind.
+
+        The components of the value can be specified by a single tuple or multiple arguments.
+
+        Parameters
+          v : either a tuple or multiple arguments giving the components of tuple.
+              Components can be any value that can be converted into a quantity,
+              including symbols and numeric strings (e.g., '2/5').
+
+          as_float [=True] : if True, convert result to a float; otherwise,
+              returns a high-precision numeric quantity (Decimal)
+
+        Returns the weight associated with value v, or 0 if not a possible value.
+
+        """
+        if len(v) == 1 and is_tuple(v[0]):
+            value = v[0]
+        else:
+            value = v
+        w = self.weights.get(as_quant_vec(value), 0)
+        return float(w) if as_float else w
+
+    def log_likelihood(self, data: Iterable[tuple[ScalarQ | ValueType, ...] | ScalarQ]) -> QuantityType:
+        """The log-likelihood function for independent observations from this Kind.
+
+        Accepts an iterable of n possible values of this Kind K, which are treated
+        as an observation from (i.e., a possible value of) the Kind K ** n.
+
+        Returns the log_likelihood of this observation from K ** n.
+
+        This requires a Kind with numeric weights. (Not currently checked.)
+
+        """
         log_likelihood = as_real('0')
         try:
             for datum in data:
-                xi = as_quant_vec(datum)
-                log_likelihood += numeric_log2(weights[xi])
+                log_likelihood += numeric_ln(self.kernel(datum, as_float=False))  # type: ignore
         except Exception as e:
             raise KindError(f'Could not compute log likelihood for kind: {str(e)}')
         return log_likelihood
+
+    @property
+    def entropy(self) -> QuantityType:
+        "The entropy of this Kind. Requires numeric weights."
+        entropy = as_real(0)
+        for branch in self._canonical:
+            entropy += -branch.p * numeric_log2(branch.p)
+        return entropy
 
     # Overloads
 
@@ -1819,6 +1858,20 @@ class ConditionalKind:
         setattr(fn, 'domain', self._domain if not self._trivial_domain else None)
 
         return fn
+
+    def kernel(self, v, x, as_float=True):
+        """The kernel function K(v | x) of this conditional Kind.
+
+        Returns the weight on the v branch of the target associated
+        with x or 0 if there is no v branch. By default this
+        is converted to a float, but set as_float=False for a
+        high-precision Decimal.
+
+        Raises an error if x is not a valid input value.
+
+        """
+        k = self.target(as_vec_tuple(x))
+        return k.kernel(v, as_float=as_float)
 
     def well_defined_on(self, values) -> Union[bool, str]:
         "If possible, check that every value is in the domain."
