@@ -18,7 +18,7 @@ def test_monty_hall():
     a, b = symbols('a b')
     K0 = outcome_by_strategy(left=a, middle=b, right=1 - a - b)
     K1 = weighted_as([vec_tuple(i, j) for i in irange(3) for j in irange(3)],
-                     weights=[a/3, (1 - a - b)/3, b/3, a/3, (1 - a - b)/3, b/3, a/3, (1 - a - b)/3, b/3])
+                     weights=[a/3, b/3, (1 - a - b)/3, a/3, b/3, (1 - a - b)/3, a/3, b/3, (1 - a - b)/3])
     assert Kind.equal(K0, K1)
 
 def test_circle_points():

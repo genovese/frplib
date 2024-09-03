@@ -17,8 +17,8 @@ chosen_door = arbitrary(1, 2, 3, names=['l', 'm', 'r'])  # l (ell) might look fu
 # Statitics used to decide whether you win under a strategy
 
 @condition
-def got_prize_door_initially(x):
-    monty, you = x
+def got_prize_door_initially(outcome):
+    monty, you = outcome
     return monty == you
 
 didnt_get_prize_door_initially = Not(got_prize_door_initially)    # type: ignore
@@ -53,7 +53,7 @@ def outcome_by_strategy(left=1, middle=1, right=1, *, switch=None):
       where you choose Don't Switch.
 
     """
-    outcome = game_outcome.bimap(identity, substitute_with({'l': left, 'm': right, 'r': middle}))
+    outcome = game_outcome.bimap(identity, substitute_with({'l': left, 'm': middle, 'r': right}))
 
     if switch is True:
         return got_prize_door_initially(outcome)

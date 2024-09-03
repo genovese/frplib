@@ -1409,7 +1409,7 @@ def Fork(stat: Statistic | ScalarQ, *other_stats: Statistic | ScalarQ) -> Statis
     codim = (arity_lo, arity_hi)
     dim: Optional[int] = 0
     if stat.dim is not None and stat.dim > 0 and all(s.dim is not None and s.dim > 0 for s in more_stats):
-        dim = stat.dim + sum(s.codim for s in more_stats)  # type: ignore
+        dim = stat.dim + sum(s.dim for s in more_stats)  # type: ignore
     if dim == 0:
         dim = None
 
