@@ -20,5 +20,14 @@ in mind.)
 
 Expectations of these kinds will be symbolic expressions.
 
+The function `symbols` takes a space-separated sequence
+of names and returns a tuple of corresponding symbols.
+Numeric sequences of symbols can be specified by
+a pair of names with a numeric suffice separated by a '...'.
 
+As an example:
+```
+x, y, z = symbols('x y z')
+u = symbols('u0 ... u9)
+```
 

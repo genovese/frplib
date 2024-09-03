@@ -116,7 +116,7 @@ playground_imports: dict[str, list[str]] = {
     'symbolic': ['gen_symbol', 'is_symbolic', 'is_zero', 'symbol', 'symbols'],
     'utils': [
         'clone', 'compose', 'const', 'every', 'frequencies',
-        'identity', 'index_of', 'irange', 'iterate', 'lmap',
+        'identity', 'index_of', 'index_where', 'irange', 'iterate', 'lmap',
         'values', 'dim', 'codim', 'size', 'typeof', 'show', 'some',
     ],
     'vec_tuples': [

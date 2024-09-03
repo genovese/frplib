@@ -25,6 +25,8 @@ like kinds, FRPs, etc. in a uniform way.
 
 + `values` :: `values(x)` returns the *set* of `x`'s values, if available; applies to kinds
 
++ `typeof` :: `typeof(x)` returns the type of a statistic, conditional Kind, conditional FRP
+
 
 ## Symbolic Manipulation
 
@@ -64,11 +66,15 @@ like kinds, FRPs, etc. in a uniform way.
 
 + `iterate(f, n, start)` :: returns nth item in sequence `f(start), f(f(start)), ...`
 
++ `is_zero(x)` :: test if a quantity is zero
+
 ## Sequence Helpers
 
 + `irange` :: create inclusive integer ranges with optional gaps
 
 + `index_of` :: find the index of a value in a sequence
+
++ `index_where` :: find the index in a sequence where a predicate is first True
 
 + `every(f, iterable)` :: returns true if `f(x)` is truthy for every `x` in `iterable`
 

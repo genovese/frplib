@@ -190,6 +190,21 @@ def index_of(value, xs, not_found=-1, *, start=0, stop=sys.maxsize):
                 return i
         return not_found
 
+def index_where(predicate, xs, not_found=-1, *, start=0, stop=sys.maxsize):
+    """Returns index in `xs` where `predicate` is first True, or `not_found` if none.
+
+    If xs is a list or tuple, restrict attention to the slice
+    from start to stop, exclusive, where start <= stop.
+
+    """
+    if stop <= start:
+        return not_found
+
+    for i, v in enumerate(xs):
+        if i >= start and i < stop and predicate(v):
+            return i
+    return not_found
+
 def frequencies(xs: Iterable[Hashable], counts_only=False) -> Union[dict[Hashable, int], tuple[int, ...]]:
     """Computes frequencies of the values in some iterable collection.
 
