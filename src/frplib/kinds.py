@@ -96,12 +96,12 @@ def value_map(f, kind=None):  # ATTN: make in coming maps tuple safe; add dimens
     # We require that all kinds returned by f are the same dimension
     # But do not check if None is passed explicitly for kind
     if callable(f):
-        # ATTN: second clause requires a conditional kind; this is fragile
+        # ATTN: second clause requires a conditional Kind; this is fragile
         if kind is not None:
             dim_image = set([f(as_vec_tuple(vs)).dim for vs in kind.value_set])
             if len(dim_image) != 1:
                 raise KindError('All values for a transform or mixture must be '
-                                'associated with a kind of the same dimension')
+                                'associated with a Kind of the same dimension')
         return f
     elif isinstance(f, dict):
         # ATTN?? Use dict_as_value_map(f, kind.value_set) here instead of the following code
@@ -110,7 +110,7 @@ def value_map(f, kind=None):  # ATTN: make in coming maps tuple safe; add dimens
             if overlapping < kind.value_set:   # superset of values ok
                 raise KindError('All values for the kind must be present in a mixture')
             if len({k.dim for k in f.values()}) != 1:
-                raise KindError('All values for a mixture must be associated with a kind of the same dimension')
+                raise KindError('All values for a mixture must be associated with a Kind of the same dimension')
         scalars = [vs for vs in f.keys() if not is_tuple(vs) and (vs,) not in f]
         if len(scalars) > 0:  # Keep scalar keys but tuplize them as well
             f = f | {(vs,): f[vs] for vs in scalars}  # Note: not mutating on purpose
@@ -245,7 +245,7 @@ class Kind:
 
     @property
     def weights(self):
-        "A dictionary of a kinds canonical weights by value."
+        "A dictionary of a Kind's canonical weights by value. See also the `kernel` method."
         # ATTN: wrap this in a pretty_dict from output.py
         return {b.vs: b.p for b in self._canonical}
 
@@ -659,8 +659,8 @@ class Kind:
     def __rfloordiv__(self, other):
         """Kind Combinator: computes the kind of the target conditioned on the mixer.
 
-        This as the form  ckind // mixer  where mixer is a kind (this one) and
-        ckind is a conditional kind mapping values of the mixer to new kinds.
+        This as the form  ckind // mixer  where mixer is a Kind (this one) and
+        ckind is a conditional Kind mapping values of the mixer to new kinds.
 
         This is equivalent to, but more efficient than,
 
@@ -680,7 +680,7 @@ class Kind:
     def __rshift__(self, cond_kind):
         """Returns a mixture kind with this kind as the mixer and `cond_kind` giving the targets.
 
-        Here, `cond_kind` is typically a conditional kind, though it
+        Here, `cond_kind` is typically a conditional Kind, though it
         can be a suitable function or dictionary. It must give a
         kind of common dimension for every value of this kind.
 
@@ -693,7 +693,7 @@ class Kind:
         return self.mixture(cond_kind)
 
     def __xor__(self, statistic):
-        """Applies a statistic or other function to a kind and returns a transformed kind.
+        """Applies a statistic or other function to a Kind and returns a transformed kind.
 
         The ^ notation is intended to evoke an arrow signifying the flow of data
         from the kind through the transform.
@@ -761,7 +761,7 @@ class Kind:
         return self.marginal(indices)
 
     def __or__(self, predicate):  # Self -> ValueMap[ValueType, bool] -> Kind[ValueType, ProbType]
-        "Applies a conditional filter to a kind."
+        "Applies a conditional filter to a Kind."
         if isinstance(predicate, Condition):
             def keep(value):
                 return predicate.bool_eval(value)
@@ -786,7 +786,7 @@ class Kind:
             values = []
             for branch in self._canonical:
                 if is_symbolic(branch.p):
-                    raise EvaluationError(f'Cannot sample from a kind/FRP with symbolic weight {branch.p}.'
+                    raise EvaluationError(f'Cannot sample from a Kind/FRP with symbolic weight {branch.p}.'
                                           ' Try substituting values for the symbols first.')
                 weights.append(float(branch.p))
                 values.append(branch.vs)
@@ -899,7 +899,7 @@ def kind(any) -> Kind:
         return any
     # ATTN: Add case for conditional FRP to produce a conditional Kind
     #       Types(union) might be an issue downstream but probably not
-    #       Maybe add a kind property to ConditionalFRP to handle this?
+    #       Maybe add a Kind property to ConditionalFRP to handle this?
     if hasattr(any, 'kind'):
         return any.kind
 
@@ -914,7 +914,7 @@ def kind(any) -> Kind:
     try:
         return Kind(any)
     except Exception as e:
-        raise KindError(f'I could not create a kind from {any}: {str(e)}')
+        raise KindError(f'I could not create a Kind from {any}: {str(e)}')
 
 def is_kind(x) -> TypeGuard[Kind]:
     return isinstance(x, Kind)
@@ -981,17 +981,17 @@ def clean(k: Kind, tolerance: ScalarQ = '1e-16') -> Kind:
     return Kind(canonical)
 
 def bayes(observed_y, x, y_given_x):
-    """Applies Bayes's Rule to find x | y == observed_y, a kind or FRP.
+    """Applies Bayes's Rule to find x | y == observed_y, a Kind or FRP.
 
-    Takes an observed value of y, the kind/FRP x, and the conditional kind/FRP
+    Takes an observed value of y, the kind/FRP x, and the conditional Kind/FRP
     y_given_x, reversing the conditionals.
 
     + `observed_y` is a *possible* value of a quantity y
-    + `x` -- a kind or FRP for a quantity x
-    + `y_given_x` -- a conditional kind or FRP (if x is an FRP) of y
+    + `x` -- a Kind or FRP for a quantity x
+    + `y_given_x` -- a conditional Kind or FRP (if x is an FRP) of y
           given the value of x.
 
-    Returns a kind if `x` is a kind or FRP, if x is an FRP.
+    Returns a Kind if `x` is a Kind or FRP, if x is an FRP.
 
     """
     i = dim(x) + 1
@@ -1132,7 +1132,7 @@ def either(a, b, weight_ratio=1) -> Kind:
                  KindBranch.make(vs=as_quant_vec(b), p=1 - p_a)])
 
 def uniform(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis]) -> Kind:   # type: ignore
-    """Returns a kind with equal weights on the given values.
+    """Returns a Kind with equal weights on the given values.
 
     Values can be specified in a variety of ways:
       + As explicit arguments, e.g.,  uniform(1, 2, 3, 4)
@@ -1153,6 +1153,13 @@ def uniform(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ell
     Values can be numbers, tuples, symbols, or strings. In the latter case they
     are converted to numbers or symbols as appropriate.
 
+    Examples:
+    + uniform(1, 2, 3)
+    + uniform((0, 0), (0, 1), (1, 0), (1, 1)) 
+    + uniform(1, 2, ..., 16)
+    + uniform([10, 20, 30])
+    + uniform( (x, y) for x in irange(1, 3) for y in irange(1, 3) )
+
     """
     values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES, transform=as_quant_vec)
     if len(values) == 0:
@@ -1160,7 +1167,7 @@ def uniform(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ell
     return Kind([KindBranch.make(vs=x, p=1) for x in values])
 
 def symmetric(*xs, around=None, weight_by=lambda dist: 1 / dist if dist > 0 else 1) -> Kind:
-    """Returns a kind with the given values and weights a symmetric function of the values.
+    """Returns a Kind with the given values and weights a symmetric function of the values.
 
     Specifically, the weights are determined by the distance of each value
     from a specified value `around`:
@@ -1212,7 +1219,7 @@ def linear(
         first=1,
         increment=1
 ) -> Kind:
-    """Returns a kind with the specified values and weights varying linearly
+    """Returns a Kind with the specified values and weights varying linearly
 
     Parameters
     ----------
@@ -1250,7 +1257,7 @@ def geometric(
         first=1,
         r=0.5
 ) -> Kind:
-    """Returns a kind with the specified values and weights varying geometrically
+    """Returns a Kind with the specified values and weights varying geometrically
 
     Parameters
     ----------
@@ -1287,7 +1294,7 @@ def geometric(
     return Kind([KindBranch.make(vs=x, p=w) for x, w in zip(values, weights)])
 
 def weighted_by(*xs, weight_by: Callable) -> Kind:
-    """Returns a kind with the specified values weighted by a function of those values.
+    """Returns a Kind with the specified values weighted by a function of those values.
 
     Parameters
     ----------
@@ -1322,15 +1329,16 @@ def weighted_by(*xs, weight_by: Callable) -> Kind:
     return Kind([KindBranch.make(vs=as_quant_vec(x), p=as_quantity(weight_by(x))) for x in values])
 
 def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
-    """Returns a kind with the specified values weighted by given weights.
+    """Returns a Kind with the specified values weighted by given weights.
 
     Parameters
     ----------
     *xs: The values, see below.
-    weights: A list of weights, one per given value. This c
-        can include
+    weights: A list of weights, one per given value. This must
+        be specified as a named argument (e.g., weights=...)
+        to distinguish it from the values.
 
-    Values (and weights) can be specified in a variety of ways:
+    Values can be specified in a variety of ways:
       + As explicit arguments, e.g.,  weighted_as(1, 2, 3, 4)
       + As an implied sequence, e.g., weighted_as(1, 2, ..., 10)
         Here, two *numeric* values must be supplied before the ellipsis and one after;
@@ -1346,9 +1354,23 @@ def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
         flattened into a sequence of values. (Though note: all values
         should have the same dimension.)
 
+    The list of weights can be specified with these same patterns,
+    e.g., weights=[1, 2, ..., 4] or weights=[1, 2, [3, 4, 5], 6, 7, ..., 10],
+    contained in a list or tuple. Weights can be any quantity, including
+    symbols and strings representing fractions or high-precision decimals,
+    e.g., '1/3'.
+
     Values and weights can be numbers, tuples, symbols, or strings.
     In the latter case they are converted to numbers or symbols as
     appropriate.
+
+    Examples:
+    + weighted_as(0, 1, weights=[1 - p, p])
+    + weighted_as(1, 2, ..., 10, weights=[10, 9, ..., 1])
+    + weighted_as(1, 2, 3, weights=['1/3', '1/2', '1/6'])
+    + weighted_as( ((x, y) for x in irange(1, 3) for y in irange(1, 3)),
+                    weights=[x + y for x in irange(1, 3) for y in irange(1, 3)] )
+      (Note the parentheses around the value expression are needed here.)
 
     """
     if len(xs) == 1 and isinstance(xs[0], dict):
@@ -1369,7 +1391,7 @@ def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
                  for x, w in zip(values, kweights)])
 
 def weighted_pairs(xs: Iterable[tuple[ValueType | ScalarQ, ScalarQ]]) -> Kind:
-    """Returns a kind specified by a sequence of (value, weight) pairs.
+    """Returns a Kind specified by a sequence of (value, weight) pairs.
 
     Parameters
     ----------
@@ -1379,12 +1401,16 @@ def weighted_pairs(xs: Iterable[tuple[ValueType | ScalarQ, ScalarQ]]) -> Kind:
     to quantities. both can contain numbers, symbols, or strings.
     Repeated values will have their weights combined.
 
+    Examples: 
+    + weighted_pairs([(1, '1/2'), (2, '1/3'), (3, '1/6')])
+    + weighted_pairs(((x, y), x + y) for x in irange(1, 3) for y in irange(1, 3))
+
     """
     return Kind([KindBranch.make(vs=as_quant_vec(v), p=as_quantity(w))
                  for v, w in xs])
 
 def arbitrary(*xs, names: list[str] = []):
-    "Returns a kind with the given values and arbitrary symbolic weights."
+    "Returns a Kind with the given values and arbitrary symbolic weights."
     values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES, transform=as_numeric_vec)
     if len(values) == 0:
         return Kind.empty
@@ -1473,7 +1499,7 @@ def permutations_of(xs: Iterable, r=None) -> Kind:
 
 # ATTN: lower does not need to be lower just any bin boundary (but watch the floor below)
 def bin(scalar_kind, lower, width):
-    """Returns a kind similar to that given but with values binned in specified intervals.
+    """Returns a Kind similar to that given but with values binned in specified intervals.
 
     The bins are intervals of width `width` starting at `lower`.  So, for instance,
     `lower` to `lower` + `width`, and so on.
@@ -1512,7 +1538,7 @@ class ConditionalKind:
     (as a function from values to predictions). It is also more robust
     as this conversion performs checks and corrections.
 
-    To create a conditional kind, use the `conditional_kind` function,
+    To create a conditional Kind, use the `conditional_kind` function,
     which see.
 
     """
@@ -1830,7 +1856,7 @@ class ConditionalKind:
         return self
 
     def clone(self) -> 'ConditionalKind':
-        "Returns a clone of this conditional kind, which being immutable is itself."
+        "Returns a clone of this conditional Kind, which being immutable is itself."
         return self
 
     def map(self, transform) -> dict | Callable:
@@ -1894,7 +1920,7 @@ class ConditionalKind:
         has_codim = self._codim is not None
         for v in val_set:
             if (has_codim and v.dim != self._codim) or (non_trivial and not self._domain(v)):
-                return (f'A conditional kind is not defined on all the values requested of it, '
+                return (f'A conditional Kind is not defined on all the values requested of it, '
                         f'including {v}')
         return True
 
@@ -1941,7 +1967,7 @@ class ConditionalKind:
 
     def transform(self, statistic) -> ConditionalKind:
         if not isinstance(statistic, Statistic):
-            raise KindError('A conditional kind can be transformed only by a Statistic.'
+            raise KindError('A conditional Kind can be transformed only by a Statistic.'
                             ' Consider passing this tranform to `conditional_kind` first.')
         lo, hi = statistic.codim
         if self._dim is not None and (self._dim < lo or self._dim > hi):

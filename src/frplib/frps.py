@@ -169,7 +169,7 @@ class FrpDemoSummary:
 #
 # FRP Expressions
 #
-# When an FRP is constructed from an expression rather than a kind,
+# When an FRP is constructed from an expression rather than a Kind,
 # we record the expression (including the FRP objects themselves,
 # which are logically immutable and thus held) and use that as a recipe
 # for both sampling and constructing a value.
@@ -857,7 +857,7 @@ class ConditionalFRP:
         so this will fail with a warning. See the forced_expectation and approximate_expectation
         methods for alternatives in that case.
 
-        The domain, dim, and codim of the conditional kind are each included as an
+        The domain, dim, and codim of the conditional Kind are each included as an
         attribute ('domain', 'dim', and 'codim', respetively) of the returned
         function. These may be None if not available.
 
@@ -885,7 +885,7 @@ class ConditionalFRP:
         approximate_expectation properties for alternatives in that
         case.
 
-        The domain, dim, and codim of the conditional kind are each included as an
+        The domain, dim, and codim of the conditional Kind are each included as an
         attribute ('domain', 'dim', and 'codim', respetively) of the returned
         function. These may be None if not available.
 
@@ -916,7 +916,7 @@ class ConditionalFRP:
         approximate_expectation properties for alternatives in that
         case.
 
-        The domain, dim, and codim of the conditional kind are each included as an
+        The domain, dim, and codim of the conditional Kind are each included as an
         attribute ('domain', 'dim', and 'codim', respetively) of the returned
         function. These may be None if not available.
 
@@ -1140,7 +1140,7 @@ def conditional_frp(
     """Converts a mapping from values to FRPs into a conditional FRP.
 
     The mapping can be a dictionary associating values (vector tuples)
-    to FRPs, a function associating values to FRPs, or a conditional kind.
+    to FRPs, a function associating values to FRPs, or a conditional Kind.
 
     The dictionaries can be specified with scalar keys as these are automatically
     wrapped in a tuple. If you want the function to accept a scalar argument
@@ -1212,6 +1212,20 @@ class FRP:
 
     @classmethod
     def sample(cls, n: int, frp: 'FRP | Kind', summary=True) -> FrpDemoSummary | FrpDemo:
+        """Run a demo of `n` FRPs and tabulate the results.
+
+        If an FRP is given, the FRPs in the demo are clones of the given FRP.
+        If a Kind is given, the FRPs in the demo have that Kind.
+
+        If summary is True, then the table gives counts and proportions.
+        Otherwise, it lists all the individual FRP's values.
+
+        Examples:
+        + FRP.sample(10_000, X_an_FRP)
+        + FRP.sample(10_000, K_a_Kind)
+        + FRP.sample(10, X_an_FRP, summary=False)
+
+        """
         if isinstance(frp, Kind):
             return _sample_from_kind(n, frp, summary)
         if frp._kind is not None:
@@ -1342,7 +1356,7 @@ class FRP:
     # Operations and Operators on FRPs that mirrors the same for Kinds
     # These all produce new FRPs. We use an expression for the FRPs
     # because these operations relate both the kinds *and* the values.
-    # ATTN: when a kind is useful but not demand, we will compute
+    # ATTN: when a Kind is useful but not demand, we will compute
     # the kind if the complexity is below a threshold.
 
     def independent_mixture(self, frp: 'FRP') -> 'FRP':
@@ -1404,7 +1418,7 @@ class FRP:
                 if not target.is_kinded() or (dim * target._kind.dim > self.COMPLEXITY_THRESHOLD):
                     viable = False
                     break
-            if viable:   # Return a kinded FRP
+            if viable:   # Return a Kinded FRP
                 c_kind = ConditionalKind({val: frp.kind for val, frp in targets.items()}, codim=dim)
                 result = FRP(self._kind >> c_kind)
                 # Since we're kinded, generate the values now
