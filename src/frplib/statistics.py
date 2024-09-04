@@ -52,7 +52,7 @@ ANY_TUPLE: ArityType = (0, infinity)
 
 
 #
-# Helpers
+# Helpful Utilities
 #
 
 def is_true(v) -> bool:
@@ -62,6 +62,51 @@ def is_true(v) -> bool:
 def is_false(v) -> bool:
     "Converts the complement of the value returned by a Condition to a boolean."
     return (is_vec_tuple(v) and not bool(v[0])) or not bool(v)
+
+
+#
+# Helpers
+#
+
+def _codim_str(arity: ArityType) -> str:
+    "Compute a nice string representation of a codim tuple."
+    multi_arity = is_tuple(arity)
+    if multi_arity and arity[1] == infinity:
+        codim = f'[{arity[0]}..)'  # {infinity}
+    elif multi_arity and arity[1] == arity[0]:
+        codim = f'{arity[0]}'
+    elif multi_arity:
+        codim = f'[{arity[0]}..{arity[1]}]'
+    else:
+        codim = f'{arity}'  # ATTN: this case should not happen
+    return codim
+
+def _reconcile_codims(stat1: Statistic, stat2: Statistic, op_name: str = '') -> ArityType:
+    """Returns largest range of codimensions consistent with both statistics, or raise an error.
+
+    Parameter op_name is included in an error message to identify the
+    source of any problem. It is intended to identify the combining
+    operation of the two statistics.
+
+    See also `combine_arities`.
+
+    """
+    codim1 = stat1.codim
+    codim2 = stat2.codim
+
+    lo1, hi1 = codim1
+    lo2, hi2 = codim2
+
+    if op_name:
+        op = f' (via {op_name})'
+    else:
+        op = ''
+
+    if hi1 < lo2 or hi2 < lo1:
+        raise StatisticError(f'Attempt to combine statistics{op} with incompatible '
+                             f'codims {_codim_str(codim1)} and {_codim_str(codim2)}')
+
+    return (max(lo1, lo2), min(hi1, hi2))
 
 def as_scalar_stat(x: ScalarQ | Symbolic):
     "Returns a quantity guaranteed to be a scalar for use in statistical math operations."
@@ -448,20 +493,8 @@ class Statistic:
 
     @property
     def type(self):
-        multi_arity = is_tuple(self.arity)
-        if multi_arity and self.arity[1] == infinity:
-            codim = f'[{self.arity[0]}..)'  # {infinity}
-        elif multi_arity and self.arity[1] == self.arity[0]:
-            codim = f'{self.arity[0]}'
-        elif multi_arity:
-            codim = f'[{self.arity[0]}..{self.arity[1]}]'
-        else:
-            codim = f'{self.arity}'  # ATTN: this case should not happen
-
-        if self.dim is not None:
-            dim = f'{self.dim}'
-        else:
-            dim = '*'
+        codim = _codim_str(self.arity)
+        dim = f'{self.dim}' if self.dim is not None else '*'
 
         return f'{codim} -> {dim}'
 
@@ -481,10 +514,12 @@ class Statistic:
     # Comparisons (macros would be nice here)
 
     def __eq__(self, other):
+        codim: int | ArityType = 0
         if isinstance(other, Statistic):
             def a_eq_b(*x):
                 return self(*x) == other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '==')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -495,15 +530,18 @@ class Statistic:
             def a_eq_b(*x):
                 return self(*x) == other
             label = str(other)
+            codim = self.codim
 
         # Break inheritance rules here, but it makes sense!
-        return Condition(a_eq_b, codim=0, name=f'{stat_label(self)} == {label}')
+        return Condition(a_eq_b, codim=codim, name=f'{stat_label(self)} == {label}')
 
     def __ne__(self, other):
+        codim: int | ArityType = 0
         if isinstance(other, Statistic):
             def a_ne_b(*x):
                 return self(*x) != other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '!=')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -514,17 +552,20 @@ class Statistic:
             def a_ne_b(*x):
                 return self(*x) != other
             label = str(other)
+            codim = self.codim
 
         # Break inheritance rules here, but it makes sense!
-        return Condition(a_ne_b, codim=0, name=f'{stat_label(self)} != {label}')
+        return Condition(a_ne_b, codim=codim, name=f'{stat_label(self)} != {label}')
 
     # ATTN:FIX labels for methods below, so e.g., ForEach(2*__+1) prints out nicely
 
     def __le__(self, other):
+        codim: int | ArityType = 0
         if isinstance(other, Statistic):
             def a_le_b(*x):
                 return self(*x) <= other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '<=')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -535,15 +576,18 @@ class Statistic:
             def a_le_b(*x):
                 return self(*x) <= other
             label = str(other)
+            codim = self.codim
 
         # Break inheritance rules here, but it makes sense!
-        return Condition(a_le_b, codim=0, name=f'{stat_label(self)} <= {label}')
+        return Condition(a_le_b, codim=codim, name=f'{stat_label(self)} <= {label}')
 
     def __lt__(self, other):
+        codim: int | ArityType = 0
         if isinstance(other, Statistic):
             def a_lt_b(*x):
                 return self(*x) < other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '<')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -554,15 +598,18 @@ class Statistic:
             def a_lt_b(*x):
                 return self(*x) < other
             label = str(other)
+            codim = self.codim
 
         # Break inheritance rules here, but it makes sense!
-        return Condition(a_lt_b, codim=0, name=f'{stat_label(self)} < {label}')
+        return Condition(a_lt_b, codim=codim, name=f'{stat_label(self)} < {label}')
 
     def __ge__(self, other):
+        codim: int | ArityType = 0
         if isinstance(other, Statistic):
             def a_ge_b(*x):
                 return self(*x) >= other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '>=')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -573,15 +620,18 @@ class Statistic:
             def a_ge_b(*x):
                 return self(*x) >= other
             label = str(other)
+            codim = self.codim
 
         # Break inheritance rules here, but it makes sense!
-        return Condition(a_ge_b, codim=0, name=f'{stat_label(self)} >= {label}')
+        return Condition(a_ge_b, codim=codim, name=f'{stat_label(self)} >= {label}')
 
     def __gt__(self, other):
+        codim: int | ArityType = 0
         if isinstance(other, Statistic):
             def a_gt_b(*x):
                 return self(*x) > other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '>')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -592,17 +642,20 @@ class Statistic:
             def a_gt_b(*x):
                 return self(*x) > other
             label = str(other)
+            codim = self.codim
 
         # Break inheritance rules here, but it makes sense!
-        return Condition(a_gt_b, codim=0, name=f'{stat_label(self)} > {label}')
+        return Condition(a_gt_b, codim=codim, name=f'{stat_label(self)} > {label}')
 
     # Numeric Operations (still would like macros)
 
     def __add__(self, other):
+        codim: int | ArityType = 0
         if isinstance(other, Statistic):
             def a_plus_b(*x):
                 return self(*x) + other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '+')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -613,10 +666,12 @@ class Statistic:
             def a_plus_b(*x):
                 return self(*x) + as_quant_vec(other)
             label = str(other)
+            codim = self.codim
 
-        return Statistic(a_plus_b, codim=0, name=f'{stat_label(self)} + {label}')
+        return Statistic(a_plus_b, codim=codim, name=f'{stat_label(self)} + {label}')
 
     def __radd__(self, other):
+        codim = self.codim
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
 
@@ -628,13 +683,15 @@ class Statistic:
                 return other + as_quant_vec(self(*x))
             label = str(other)
 
-        return Statistic(a_plus_b, codim=0, name=f'{label} + {stat_label(self)}')
+        return Statistic(a_plus_b, codim=codim, name=f'{label} + {stat_label(self)}')
 
     def __sub__(self, other):
+        codim: int | ArityType = 0
         if isinstance(other, Statistic):
             def a_minus_b(*x):
                 return self(*x) - other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '-')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -645,10 +702,12 @@ class Statistic:
             def a_minus_b(*x):
                 return self(*x) - as_quant_vec(other)
             label = str(other)
+            codim = self.codim
 
-        return Statistic(a_minus_b, codim=0, name=f'{stat_label(self)} - {label}')
+        return Statistic(a_minus_b, codim=codim, name=f'{stat_label(self)} - {label}')
 
     def __rsub__(self, other):
+        codim = self.codim
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
 
@@ -658,13 +717,15 @@ class Statistic:
             def a_minus_b(*x):
                 return other - as_quant_vec(self(*x))
 
-        return Statistic(a_minus_b, codim=0, name=f'{str(other)} - {stat_label(self)}')
+        return Statistic(a_minus_b, codim=codim, name=f'{str(other)} - {stat_label(self)}')
 
     def __mul__(self, other):
+        codim: int | ArityType = 0
         if isinstance(other, Statistic):
             def a_times_b(*x):
                 return self(*x) * other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '*')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -675,10 +736,12 @@ class Statistic:
             def a_times_b(*x):
                 return self(*x) * as_scalar_stat(other)  # ATTN!
             label = str(other)
+            codim = self.codim
 
-        return Statistic(a_times_b, codim=0, name=f'{stat_label(self)} * {label}')
+        return Statistic(a_times_b, codim=codim, name=f'{stat_label(self)} * {label}')
 
     def __rmul__(self, other):
+        codim = self.codim
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
 
@@ -688,13 +751,15 @@ class Statistic:
             def a_times_b(*x):
                 return as_scalar_stat(other) * self(*x)
 
-        return Statistic(a_times_b, codim=0, name=f'{str(other)} * {stat_label(self)}')
+        return Statistic(a_times_b, codim=codim, name=f'{str(other)} * {stat_label(self)}')
 
     def __truediv__(self, other):
+        codim: int | ArityType = 0
         if isinstance(other, Statistic):
             def a_div_b(*x):
                 return self(*x) / other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '/')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -705,10 +770,12 @@ class Statistic:
             def a_div_b(*x):
                 return self(*x) / as_real(as_scalar_strict(other))
             label = str(other)
+            codim = self.codim
 
-        return Statistic(a_div_b, codim=0, name=f'{stat_label(self)} / {label}')
+        return Statistic(a_div_b, codim=codim, name=f'{stat_label(self)} / {label}')
 
     def __rtruediv__(self, other):
+        codim = self.codim
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
 
@@ -718,13 +785,15 @@ class Statistic:
             def a_div_b(*x):
                 return as_quantity(other) / as_quantity(as_scalar_strict(self(*x)))  # type: ignore
 
-        return Statistic(a_div_b, codim=0, name=f'{str(other)} / {stat_label(self)}')
+        return Statistic(a_div_b, codim=codim, name=f'{str(other)} / {stat_label(self)}')
 
     def __floordiv__(self, other):
+        codim = self.codim
         if isinstance(other, Statistic):
             def a_div_b(*x):
                 return self(*x) // other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '//')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -736,9 +805,10 @@ class Statistic:
                 return self(*x) // as_scalar_stat(other)
             label = str(other)
 
-        return Statistic(a_div_b, codim=0, name=f'{stat_label(self)} // {label}')
+        return Statistic(a_div_b, codim=codim, name=f'{stat_label(self)} // {label}')
 
     def __rfloordiv__(self, other):
+        codim = self.codim
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
 
@@ -748,13 +818,15 @@ class Statistic:
             def a_div_b(*x):
                 return other // as_scalar_stat(self(*x))
 
-        return Statistic(a_div_b, codim=0, name=f'{str(other)} // {stat_label(self)}')
+        return Statistic(a_div_b, codim=codim, name=f'{str(other)} // {stat_label(self)}')
 
     def __mod__(self, other):
+        codim = self.codim
         if isinstance(other, Statistic):
             def a_mod_b(*x):
                 return self(*x) % other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '%')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -779,9 +851,10 @@ class Statistic:
                 except Exception as e:
                     raise OperationError(f'Could not compute {self.name} % {other}: {str(e)}')
             label = str(other)
-        return Statistic(a_mod_b, codim=0, name=f'{stat_label(self)} % {label}')
+        return Statistic(a_mod_b, codim=codim, name=f'{stat_label(self)} % {label}')
 
     def __rmod__(self, other):
+        codim = self.codim
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
 
@@ -791,13 +864,15 @@ class Statistic:
             def a_mod_b(*x):
                 return as_quantity(other) % scalarize(self(*x))
 
-        return Statistic(a_mod_b, codim=0, name=f'{str(other)} % {stat_label(self)}')
+        return Statistic(a_mod_b, codim=codim, name=f'{str(other)} % {stat_label(self)}')
 
     def __pow__(self, other):
+        codim = self.codim
         if isinstance(other, Statistic):
             def a_pow_b(*x):
                 return self(*x) ** other(*x)
             label = stat_label(other)
+            codim = _reconcile_codims(self, other, '**')
         elif callable(other):
             f = tuple_safe(other)
 
@@ -809,9 +884,10 @@ class Statistic:
                 return self(*x) ** as_quantity(other)
             label = str(other)
 
-        return Statistic(a_pow_b, codim=0, name=f'{stat_label(self)} ** {label}')
+        return Statistic(a_pow_b, codim=codim, name=f'{stat_label(self)} ** {label}')
 
     def __rpow__(self, other):
+        codim = self.codim
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
 
@@ -821,43 +897,7 @@ class Statistic:
             def a_pow_b(*x):
                 return as_quantity(other) ** self(*x)
 
-        return Statistic(a_pow_b, codim=0, name=f'{str(other)} ** {stat_label(self)}')
-
-    def __and__(self, other):
-        if isinstance(other, Statistic):
-            def a_and_b(*x):
-                return self(*x) and other(*x)
-            label = f'{stat_label(self)} and {stat_label(other)}'
-        elif callable(other):
-            f = tuple_safe(other)
-
-            def a_and_b(*x):
-                return self(*x) and f(*x)
-            label = f'{stat_label(self)} and {str(other)}'
-        else:
-            def a_and_b(*x):
-                return self(*x) and other
-            label = f'{stat_label(self)} and {str(other)}'
-
-        return Statistic(a_and_b, codim=0, name=label)
-
-    def __or__(self, other):
-        if isinstance(other, Statistic):
-            def a_or_b(*x):
-                return self(*x) or other(*x)
-            label = f'{stat_label(self)} or {stat_label(other)}'
-        elif callable(other):
-            f = tuple_safe(other)
-
-            def a_or_b(*x):
-                return self(*x) or f(*x)
-            label = f'{stat_label(self)} or {str(other)}'
-        else:
-            def a_or_b(*x):
-                return self(*x) or other
-            label = f'{self.name} and {str(other)}'
-
-        return Statistic(a_or_b, codim=0, name=label)
+        return Statistic(a_pow_b, codim=codim, name=f'{str(other)} ** {stat_label(self)}')
 
     def __xor__(self, other):
         "Chained composition of two statistics, self then other"
