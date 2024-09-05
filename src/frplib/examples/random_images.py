@@ -6,13 +6,15 @@ from PIL import ImageOps, ImageShow
 
 
 __all__ = [
+    'random_image', 'ImageModels', 'show_image',
     'empty_image', 'pixel0', 'pixel1', 'as_image', 'add_image',
     'clockwise', 'counter_clockwise', 'reflect_image_horizontally',
-    'reflect_image_vertically', 'largest_cluster_size',
-    'random_image', 'black_pixels', 'erode', 'dilate',
-    'ImageModels', 'image_distance', 'closest_image_to',
+    'reflect_image_vertically', 'invert_image',
+    'black_pixels', 'white_pixels', 'crop', 'expand',
+    'largest_cluster_size', # median_smooth, conway,
+    'erode', 'dilate',
+    'image_distance', 'closest_image_to',
     'reconstruct_image', 'max_likelihood_image', 'simulate_denoise',
-    'show_image',
 ]
 
 import math
@@ -177,8 +179,83 @@ def reflect_image_vertically(image: Image) -> Image:
 
     return as_image(reflected, wd, ht)
 
+@statistic
+def invert_image(image: Image) -> Image:
+    "A statistic that reflects an image across its horizontal midline."
+    wd, ht, data = image_data(image)
+
+    inverted = cast(list[Literal[0, 1]], [1 - pixel for pixel in data])
+    return as_image(inverted, wd, ht)
+
+def crop(width, height, left=1, top=1):
+    """A statistic factory that crops an image inside a specified frame.
+
+    width  -- width of the cropping frame
+    height -- height of the cropping frame
+    left   -- leftmost column of the cropping frame;
+                defaults to first column of the image
+    top    -- topmost row of the cropping frame;
+                defaults to first row of the image
+
+    If the image is completely contained in the specified frame
+    in one dimension, the original dimension is used.
+
+    """
+    row = top - 1
+    col = left - 1
+
+    @statistic(description=f'crops an image in a {width}x{height}+{left}+{top} frame')
+    def do_crop(image: Image) -> Image:
+        wd, ht, data = image_data(image)
+        w = min(width, max(wd - col, 0))
+        h = min(height, max(ht - row, 0))
+
+        cropped: list[Literal[0, 1]] = [0] * (w * h)
+        for i in range(h):
+            for j in range(w):
+                cropped[j + i * w] = data[(j + col) + (i + row) * wd]
+
+        return as_image(cropped, w, h)
+
+    return do_crop
+
+def expand(horizontal: int, vertical: int):
+    """A statistic factory that expands an image by a specified amount in each dimension.
+
+    Expansion repeats each pixel the specified number of times
+    in the specified direction.
+
+    horizontal -- expansion factor across columns
+    vertical   -- expansion factor across rows
+
+    Both must be positive integers.
+
+    """
+    if horizontal <= 0 or vertical <= 0:
+        raise OperationError('image expand: expansion factor must be non-negative')
+
+    @statistic(description=f'expands an image by {horizontal} x {vertical} factors')
+    def do_expand(image: Image) -> Image:
+        wd, ht, data = image_data(image)
+
+        expanded: list[Literal[0, 1]] = [0] * (wd * horizontal * ht * vertical)
+        w = wd * horizontal
+        h = ht * vertical
+        for i in range(ht):
+            for j in range(wd):
+                pixel = data[j + i * wd]
+                for dh in range(horizontal):
+                    for dv in range(vertical):
+                        expanded[dh + j * horizontal + (dv + i * vertical) * w] = pixel
+
+        return as_image(expanded, w, h)
+
+    return do_expand
+
+@statistic
 def largest_cluster_size(image: Image):
-    ...  # ATTN:MISSING
+    "Compute the number of pixels in the largest contiguous (N-S-E-W) cluster of black pixels."
+    raise OperationError('largest_cluster_size is temporarily unavailable')  # ATTN
 
 #
 # Main Image FRP Factory
@@ -188,9 +265,22 @@ def random_image(p='1/2', base: Union[Image, None] = None, width=None, height=No
     """Returns an FRP representing a width x height random binary image.
 
     The image is represented as a tuple stored row-wise from the top
-    left to the bottom right of the image.
+    left to the bottom right of the image. The width and height
+    are stored as the first two components of the tuple.
 
-    ATTN
+    Parameters
+    ----------
+    p: quantity -- a value in [0__1] that specifies the Kind of the noise at
+        each pixel, which equals weighted_as(0, 1, weights=[1 - p, p]).
+
+    base: Image | None -- the image to which the noise is "added" (via
+        pixelwise exclusive-or). If None, the empty image is used.
+
+    width: int | None -- the width of the image, if supplied. If None,
+        the width is taken from the base image, or 32 if no base image.
+
+    height: int | None -- the height of the image, if supplied. If None,
+        the width is taken from the base image, or 32 if no base image.
 
     """
     if width is None:
@@ -221,13 +311,25 @@ def black_pixels(image: Image):
     _, _, data = image_data(image)
     return sum(data)
 
+@statistic
+def white_pixels(image: Image):
+    "Statistic that counts the number of white pixels in an image."
+    m, n, data = image_data(image)
+    return m * n - sum(data)
+
 
 #
 # Erosion and Dilation
 #
 
 def erode(element: Union[int, Iterable[tuple[int, int]]] = 1) -> Statistic:
-    ""
+    """A statistic factory giving a statistic that erodes an image with the specified element.
+
+    The element can be specified as either a positive int, creating a square
+    of that size, or a sequence of integer coordinates in the element.
+
+
+    """
     if isinstance(element, int):
         s = abs(element)
         delta_xl = s
@@ -259,7 +361,12 @@ def erode(element: Union[int, Iterable[tuple[int, int]]] = 1) -> Statistic:
     return cast(Statistic, erosion)
 
 def dilate(element: Union[int, Iterable[tuple[int, int]]] = 1) -> Statistic:
-    ""
+    """A statistic factory giving a statistic that dilates an image with the specified element.
+
+    The element can be specified as either a positive int, creating a square
+    of that size, or a sequence of integer coordinates in the element.
+
+    """
     if isinstance(element, int):
         s = abs(element)
         delta_xl = s
@@ -619,7 +726,7 @@ def simulate_denoise(
 # Displaying Images
 #
 
-def show_image(image_in: Union[Image, FRP], border=30):
+def show_image(image_in: Union[Image, FRP], border=30, return_pil_image=False):
     """Display an image in a platform-appropriate viewer.
 
     The input can be an image tuple or an image FRP.
@@ -636,6 +743,8 @@ def show_image(image_in: Union[Image, FRP], border=30):
     Set to 0 if this is undesirable, but it seems
     to do no harm.
 
+    Returns the original input, tuple or FRP.
+
     """
     if isinstance(image_in, FRP):
         image = image_in.value
@@ -651,9 +760,9 @@ def show_image(image_in: Union[Image, FRP], border=30):
 
     pixels = img.load()
     ind = 0
-    for i in range(m):
-        for j in range(n):
-            pixels[i, j] = 1 - data[ind]
+    for i in range(n):
+        for j in range(m):
+            pixels[j, i] = 1 - data[ind]
             ind += 1
 
     # Put transparent border so whole image shows properly on
@@ -665,7 +774,10 @@ def show_image(image_in: Union[Image, FRP], border=30):
     img_x = ImageOps.expand(img_scaled.convert('RGBA'),
                             border=(0, border, 0, border // 6), fill=(0, 0, 0, 0))
     ImageShow.show(img_x)
-    return img   # For now
+
+    if return_pil_image:
+        return img
+    return image_in
 
 
 #
