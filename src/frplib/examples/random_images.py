@@ -1,5 +1,10 @@
 # Random Image Example in Chapter 0 Section 2.3
 
+import PIL
+from PIL import Image as PillowImage
+from PIL import ImageOps, ImageShow
+
+
 __all__ = [
     'empty_image', 'pixel0', 'pixel1', 'as_image', 'add_image',
     'clockwise', 'counter_clockwise', 'reflect_image_horizontally',
@@ -7,6 +12,7 @@ __all__ = [
     'random_image', 'black_pixels', 'erode', 'dilate',
     'ImageModels', 'image_distance', 'closest_image_to',
     'reconstruct_image', 'max_likelihood_image', 'simulate_denoise',
+    'show_image',
 ]
 
 import math
@@ -607,6 +613,59 @@ def simulate_denoise(
         score += distance
         prop_wrong += (distance > 0)  # 0 if correct, 1 if not
     return (prop_wrong / observations, score / observations)
+
+
+#
+# Displaying Images
+#
+
+def show_image(image_in: Union[Image, FRP], border=30):
+    """Display an image in a platform-appropriate viewer.
+
+    The input can be an image tuple or an image FRP.
+    The input is returned so that this can be used
+    transparently to view and operate simultaneously,
+    e.g.,
+
+        im = show_image(random_image())
+
+    The border argument is present to account for some
+    oddness on Mac platform, where Preview shifts the
+    image to obscure the top, requiring a manual zoom.
+    On other platforms, this maybe unnecessary.
+    Set to 0 if this is undesirable, but it seems
+    to do no harm.
+
+    """
+    if isinstance(image_in, FRP):
+        image = image_in.value
+    else:
+        image = image_in                # type: ignore
+
+    m, n, data = image_data(image)      # type: ignore
+
+    # Create binary image in Pillow and set pixels
+    # This is slow, but there is not an easy way
+    # in pillow to set it from a tuple.
+    img = PillowImage.new('1', (m, n), 1)
+
+    pixels = img.load()
+    ind = 0
+    for i in range(m):
+        for j in range(n):
+            pixels[i, j] = 1 - data[ind]
+            ind += 1
+
+    # Put transparent border so whole image shows properly on
+    # Macs Preview, which has to be manually centered for some reason.
+    # For other viewers, this should do no harm. Asymmetry is irksome
+    # but Preview messes up the top only.
+
+    img_scaled = img.resize((8*m, 8*n))
+    img_x = ImageOps.expand(img_scaled.convert('RGBA'),
+                            border=(0, border, 0, border // 6), fill=(0, 0, 0, 0))
+    ImageShow.show(img_x)
+    return img   # For now
 
 
 #

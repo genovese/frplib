@@ -25,6 +25,7 @@ classifiers = [
 dependencies = [
   "click >= 8.1.4",
   "parsy >= 2.1",
+  "pillow >= 10.1",
   "prompt-toolkit >= 3.0.36",
   "ptpython == 3.0.23",
   "Pygments >= 2.12.0",
