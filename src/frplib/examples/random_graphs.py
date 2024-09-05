@@ -8,21 +8,27 @@ __all__ = [
     'connected_components', 'connected_component_count', 'connected_component_sizes',
     'path_between', 'degrees', 'degrees_ordered', 'ForEachComponent',
     'fast_edge_count', 'exact_edge_count', 'exact_is_tree',
-    'adjacency_matrix', 'adjacency_list',
+    'adjacency_matrix', 'adjacency_list', 'show_graph',
 ]
 
 import math
+import os
+import subprocess
+import sys
 
-from typing            import cast
+from collections       import defaultdict
+from collections.abc   import Iterable
+from tempfile          import mkstemp
+from typing            import cast, Union
 
 from frplib.exceptions import StatisticError
-from frplib.frps       import frp, is_frp
+from frplib.frps       import FRP, frp, is_frp
 from frplib.kinds      import fast_mixture_pow, weighted_as
 from frplib.statistics import (Condition, Constantly, Id, Sum,
                                condition, is_true, scalar_statistic, statistic)
 from frplib.quantity   import as_quantity
 from frplib.utils      import frequencies
-from frplib.vec_tuples import VecTuple, as_vec_tuple, is_vec_tuple
+from frplib.vec_tuples import VecTuple, as_scalar_strict, as_vec_tuple, is_vec_tuple, vec_tuple
 
 
 #
@@ -395,4 +401,172 @@ def adjacency_list(graph, include_empty=False) -> dict[int, list[int]]:
             adj[i + 1] = [j + 1 for j in neighbors]
     return adj
 
-# show graph
+#
+# Graph Display
+#
+# We generate a temporary svg file and display it with
+# the default application for that type.  The layout
+# is fairly rudimentary as this is just for quick
+# visualization
+#
+
+def _svg_header(view_port: int) -> str:
+    return f'''
+<svg viewBox="0 0 {view_port} {view_port}" xmlns="http://www.w3.org/2000/svg">
+  <style type="text/css">
+    .nodes {{
+      font: Arial 12px sans-serif;
+      fill: "#5B84B1";
+      stroke: "#5B84B1";
+      color: "#5B84B1";
+      dominant-baseline: "middle";
+      text-anchor: "middle";
+    }}
+  </style>
+'''
+def _graph_svg(
+        n: int,
+        positions: list[tuple[float, float]],
+        edges: dict[int, list[int]],
+        view_port: int
+) -> str:
+    elements = [_svg_header(view_port)]
+
+    for node, neighbors in edges.items():
+        x1, y1 = positions[node]
+        for adj in neighbors:
+            x2, y2 = positions[adj]
+            edge = f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#FC766A" stroke-width="2" />'
+            elements.append(edge)
+
+    for node in range(n):
+        x, y = positions[node]
+        gnode = f'<circle cx="{x}" cy="{y}" r="25" fill="white" stroke="#5B84B1" stroke-width="3" />'
+        label = f'<text x="{x}" y="{y}" class="small" text-anchor="middle" dominant-baseline="middle">{node + 1}</text>'
+        elements.append(gnode)
+        elements.append(label)
+
+    elements.append('</svg>\n')  # footer
+    return "\n".join(elements)
+
+def open_file_with_default_app(filename):
+    if sys.platform == "win32":
+        os.startfile(filename)
+    else:
+        opener = "open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.call([opener, filename])
+
+def _circular_graph_layout(n, R, origin) -> list[tuple[float, float]]:
+    "Layout of small graph in a circle so that edges do not overlap nodes."
+    return [(origin + R * math.cos(2 * math.pi * j / n), origin - R * math.sin(2 * math.pi * j / n))
+            for j in range(n)]
+
+def _coulomb_graph_layout(n, graph, edges, components, view_port):
+    "Layout of graph using Coulomb forces between nodes and Hook forces on edges"
+    ambient, q, hook = (0.15, 5e5, 0.1)  # Need to calibrate these carefully. These do pretty well.
+    dt, anneal = (1.0, 0.999)
+    tol = 0.1
+    force_tol = 0.01
+    max_iter = 1024
+
+    # Initialize position in staggered circle by component
+    origin = view_port / 2
+    R = view_port / 4
+    pos = [vec_tuple(origin + R * math.cos(2 * math.pi * j / n),
+                     origin - R * math.sin(2 * math.pi * j / n))
+           for j in range(n)]
+    force = [vec_tuple(0.0, 0.0)] * n
+    step = dt
+
+    # Iterate using Coulomb and Hook forces towards equilibrium
+    for _ in range(max_iter):
+        for i in range(n):
+            force[i] = -ambient * (pos[i] - origin)
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                dx = pos[i] - pos[j]
+                dsq = as_scalar_strict(dx @ dx)
+                d = math.sqrt(dsq)
+                if d > tol:
+                    delta = q * dx / (d * dsq)
+                    force[i] += delta
+                    force[j] -= delta
+                else:
+                    jump = vec_tuple(math.copysign(25, dx[0]), math.copysign(25, dx[1]))
+                    force[i] += jump
+                    force[j] -= jump
+
+                if j in edges[i]:  # symmetric relation
+                    force[i] -= hook * dx
+                    force[j] += hook * dx
+                    
+        max_force = 0.0
+        for i in range(n):
+            max_force = max(max_force, math.sqrt(as_scalar_strict(force[i] @ force[i])))
+            pos[i] += step * force[i]
+
+        step *= anneal
+
+        if max_force < force_tol or step * max_force < force_tol:
+            break
+
+    return pos
+
+def show_graph(graph_spec: Union[Iterable, FRP]):
+    """Display the graph in graphical form in a separate window.
+
+    Note: This uses your platforms default application for opening SVG files.
+    You may need to set this default to an appropriate application, e.g.,
+    a modern browser like firefox or chrome.
+
+    The layout here is rudimentary, especially for graphs with more than 20 nodes.
+    This will improve in future versions.
+
+    Returns its argument, so you can use it as a wrapper to compute and view
+    simultaneously.
+
+    Example: g = show_graph(random_graph(8))
+    
+    """
+    if is_frp(graph_spec):
+        graph = cast(tuple[int, ...], graph_spec.value)
+    else:
+        graph = cast(tuple[int, ...], as_vec_tuple(graph_spec))
+
+    n = _node_count(graph)
+
+    # Using fixed r = 25 for now, so some silly constants are here for expedience
+    # ATTN: clean this up
+
+    if n < 20:
+        # Circular layout wide enough to avoid edges hitting nodes
+        edges = { node: _neighbors(n, node, graph) for node in range(n) }
+        # Fix node size r = 25 for now. Invert y coordinates for svg style
+        view_port = 3 * n * n + 50  # R (1 - cos(2pi/n)) > r = 25 with safety R >= 1.5 n^2
+        R = 1.5 * n * n
+        positions = _circular_graph_layout(n, R, origin=view_port / 2)
+    else:
+        # A simple Coulomb-Hook layout keeping connected components close
+        # This will get crowded much above 150 nodes
+        # ATTN: This case is a mess, calibration tough, vectors may be off
+        edges = { node: set(_neighbors(n, node, graph)) for node in range(n) }  # type: ignore
+        view_port = int(175 * math.ceil(math.sqrt(n))) + 50
+
+        comp_of: VecTuple = connected_components(graph)  # type: ignore
+        num_components = max(comp_of)
+        components = defaultdict(set)
+        for node in range(n):
+            components[comp_of[node]].add(node)
+
+        positions = _coulomb_graph_layout(n, graph, edges, components, view_port)
+
+    # Generate SVG and output to a temporary file
+    svg = _graph_svg(n, positions, edges, view_port)
+
+    fd, svg_file = mkstemp(suffix='.svg', prefix='graph-')
+    with os.fdopen(fd, 'w') as f:
+        f.write(svg)
+    open_file_with_default_app(svg_file)
+
+    return graph_spec
