@@ -133,6 +133,7 @@ def add_image(image1: Image, image2: Image) -> Image:
     n = wd * ht
     return as_image((image1[2 + i] ^ image2[2 + i] for i in range(n)), wd, ht)   # type: ignore
 
+@statistic
 def clockwise(image: Image) -> Image:
     "A statistic that rotates an image 90 degrees clockwise."
     wd, ht, data = image_data(image)
@@ -144,6 +145,7 @@ def clockwise(image: Image) -> Image:
 
     return as_image(rotated, ht, wd)
 
+@statistic
 def counter_clockwise(image: Image) -> Image:
     "A statistic that rotates an image 90 degrees counter-clockwise."
     wd, ht, data = image_data(image)
