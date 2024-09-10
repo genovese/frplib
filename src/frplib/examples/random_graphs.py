@@ -539,7 +539,7 @@ def show_graph(graph_spec: Union[Iterable, FRP]):
     # Using fixed r = 25 for now, so some silly constants are here for expedience
     # ATTN: clean this up
 
-    if n < 20:
+    if n < 25:
         # Circular layout wide enough to avoid edges hitting nodes
         edges = { node: _neighbors(n, node, graph) for node in range(n) }
         # Fix node size r = 25 for now. Invert y coordinates for svg style
