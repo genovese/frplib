@@ -15,6 +15,7 @@ in [docs](docs/chapter0.pdf).
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Cookbook](#cookbook)
 - [User Guide](#user-guide)
 - [License](#license)
 
@@ -128,9 +129,19 @@ There are two main sub-commands:
 
 More Coming Soon...
 
+## Cookbook
+
+The frplib [Cookbook](docs/frplib-cookbook.pdf) offers guidance on common tasks.
+
+An frplib [Cheatsheet](docs/frplib-cheatsheet.pdf) is also available.
+
+
 ## User Guide
 
-Coming Soon...
+The best current guide to using frplib are the extensive discussion and examples
+in [Chapter 0](docs/chapter0.pdf).
+
+More Coming Soon...
 
 ## License
 
