@@ -505,7 +505,7 @@ class ConditionalFRP:
             dim: int | None = None,
             domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
             target_dim: int | None = None,
-            auto_clone: bool = False   # ISSUE 28: Not yet supported, if True, clone on every evaluation, e.g., in simulation
+            auto_clone: bool = False
     ) -> None:
         if isinstance(mapping, ConditionalKind):
             codim = mapping._codim if codim is None else codim
@@ -515,8 +515,6 @@ class ConditionalFRP:
                 domain = mapping._domain_set if mapping._has_domain_set else mapping._domain
             mapping = mapping.map(frp)  # dictionary of target FRPs
 
-        cache = True                  # no cache without auto_clone makes not sense
-        self._cached = cache          # save these for cloning, copying, etc
         self._auto_clone = auto_clone
 
         has_domain_set = False
@@ -646,7 +644,10 @@ class ConditionalFRP:
                 if (not self._trivial_domain and not self._domain(value)) or value not in self._mapping:
                     raise MismatchedDomain(f'Supplied value {value} not in domain of conditional FRP.')
 
-                return self._mapping[value]
+                full = self._mapping[value]
+                if self._auto_clone:
+                    full = full.clone()
+                return full
 
             def tfn(*args) -> 'FRP':
                 n = len(args)
@@ -661,7 +662,10 @@ class ConditionalFRP:
                 if (not self._trivial_domain and not self._domain(value)) or value not in self._targets:
                     raise MismatchedDomain(f'Supplied value {value} not in domain of conditional FRP.')
 
-                return self._targets[value]
+                target = self._targets[value]
+                if self._auto_clone:
+                    target = target.clone()
+                return target
 
             self._fn: Callable[..., 'FRP'] = fn
             self._target_fn: Callable[..., 'FRP'] = tfn
@@ -742,7 +746,7 @@ class ConditionalFRP:
                 if not self._trivial_domain and not self._domain(value):
                     raise MismatchedDomain(f'Supplied value {value} not in domain of conditional FRP.')
 
-                if cache and value in self._mapping:
+                if not self._auto_clone and value in self._mapping:
                     return self._mapping[value]
                 try:
                     result = cast('FRP', mapping(value))
@@ -750,7 +754,10 @@ class ConditionalFRP:
                     raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP: {str(e)}')
 
                 extended = result.transform(lambda u: VecTuple.concat(value, u))  # Input pass through
-                if cache:
+
+                if self._auto_clone:
+                    extended = extended.clone()
+                else:
                     self._mapping[value] = extended   # Cache, fn should be pure
                     self._targets[value] = result     # Store unextended to ease some operations
                 return extended
@@ -768,15 +775,17 @@ class ConditionalFRP:
                 if not self._trivial_domain and not self._domain(value):
                     raise MismatchedDomain(f'Supplied value {value} not in domain of conditional FRP.')
 
-                if cache and value in self._targets:
+                if not self._auto_clone and value in self._targets:
                     return self._targets[value]
                 try:
                     result = cast('FRP', mapping(value))
                 except Exception as e:
                     raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP: {str(e)}')
 
-                extended = result.transform(lambda u: VecTuple.concat(value, u))  # Input pass through
-                if cache:
+                if self._auto_clone:
+                    result = result.clone()
+                else:
+                    extended = result.transform(lambda u: VecTuple.concat(value, u))  # Input pass through
                     self._mapping[value] = extended   # Cache, fn should be pure
                     self._targets[value] = result     # Store unextended to ease some operations
                 return result   # on auto_clone do a clone() here
@@ -1134,22 +1143,46 @@ def conditional_frp(
         dim: int | None = None,
         domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
         target_dim: int | None = None,
-        cache: bool = True,
         auto_clone: bool = False   # ATTN: Not yet used, if True, clone on every evaluation, e.g., in simulation
 ) -> ConditionalFRP | Callable[..., ConditionalFRP]:
     """Converts a mapping from values to FRPs into a conditional FRP.
 
-    The mapping can be a dictionary associating values (vector tuples)
+    The mapping can be a dictionary associating values (scalars or vector tuples)
     to FRPs, a function associating values to FRPs, or a conditional Kind.
+    This can also be used as a decorator on a function definition.
 
     The dictionaries can be specified with scalar keys as these are automatically
     wrapped in a tuple. If you want the function to accept a scalar argument
     rather than a tuple (even 1-dimensional), you should supply codim=1.
 
-    The `codim`, `dim`, and `domain` arguments are used for compatibility
-    checks, except for the codim=1 case mentioned earlier. `domain` is the
-    set of possible values which can be supplied when mapping is a function
-    (or used as a decorator).
+    The function *should* return the *same* FRP each time it is called with any
+    particular value, but by default, results are cached, so this should not
+    cause problems if violated.  The auto_clone option provides  a mechanism
+    for cloning on every evaluation, see below.
+
+    Currently, a function being wrapped should take a single argument
+    which will be a tuple, or if codim=1, a scalar.
+
+    Parameters:
+
+    codim: int | None -- the codimension of the conditional FRP, i.e., the dimension
+        of the input values. If not specified (None), then any length tuple
+        is accepted. If set explicitly to 1, then a wrapped function should accept
+        a scalar argument.  (Default: None)
+
+    dim: int | None -- the final dimension of the mixture FRP. If None, the dimension
+        is unknown and unconstrained.
+
+    target_dim: int | None -- the dimension of the target FRPs. This can be supplied
+        in lieu of dim and is often more convenient.
+
+    domain -- the domain of the conditional FRP; either an iterable or a predicate
+        that returns true for a valid input.
+
+    auto_clone: bool -- if True, every evaluation of the mapping or targets
+        are automatically cloned. The primary use case for this option, which
+        defaults to False, is for simulations one wants to reuse the conditional
+        FRPs. (Default: False)
 
     If mapping is missing, this function can acts as a decorator on the
     function definition following.
