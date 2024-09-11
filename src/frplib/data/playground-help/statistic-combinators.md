@@ -30,4 +30,9 @@ them into a new statistic.
 
 + `Xor` :: the logical exclusive or of its arguments (exactly one must be true);
     not short-circuiting
-    
+
++ `All` :: condition that returns true if all components of its input
+   satisfy the given condition
+   
++ `Any` :: condition that returns true if any components of its input
+   satisfy the given condition

@@ -34,6 +34,10 @@ like kinds, FRPs, etc. in a uniform way.
 
 + `gen_symbol()` :: returns a unique symbol name every time it is called
 
++ `symbols(names)` takes a string of space-separated names and returns a tuple
+      of tuples with those names. Supports automatically numbered symbols with
+      a `...` pattern.
+
 + `symbol(name)` takes a string and creates a symbolic term with that name
 
 + `substitute(quantity, mapping)` :: substitutes values from mapping for the
@@ -55,6 +59,9 @@ like kinds, FRPs, etc. in a uniform way.
 + `as_scalar` :: converts a 1-dimensional tuple to a scalar
 
 + `as_quantity` :: converts to a quantity, takes symbols, strings, or numbers.
+
++ `as_float` :: converts high-precision decimal tuples to Python floats,
+      and 1-dimensional tuples to scalar floats.
 
 ## Function Helpers
 

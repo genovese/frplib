@@ -6,8 +6,8 @@ operation (topic: *kind-combinators*), factories (topic:
 topic: *actions*). Kinds can be transformed directly by statistics,
 either with `psi(k)` or `k ^ psi`.
 
-When printed out, kinds display the tree in canonical form. Use
-`unfold` on the kind to see the unfolded tree in the
+When printed out, Kinds display the tree in canonical form. Use
+`unfold` on the Kind to see the unfolded tree in the
 multi-dimensional case.
 
-You can produce an FRP from a kind with `frp`.
+You can produce an FRP from a Kind with `frp`.

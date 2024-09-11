@@ -1,6 +1,6 @@
 # weighted_as
 
-`weighted_as(*xs, weights)` returns a kind with the specified values
+`weighted_as(*xs, weights)` returns a Kind with the specified values
 as associated weights as given.
 
 Values (and weights) can be specified in a variety of ways:
@@ -29,3 +29,14 @@ depending on the contents of the string.
 If the supplied weights vector is shorter than the list of values,
 the weights will be extended by repeated 1s. If the weights list
 is longer, extra weights will be ignored.
+
+Examples:
+ + `weighted_as(0, 1, weights=[1 - p, p])`
+ + `weighted_as(1, 2, ..., 10, weights=[10, 9, ..., 1])`
+ + `weighted_as(1, 2, 3, weights=['1/3', '1/2', '1/6'])`
+ + `weighted_as( ((x, y) for x in irange(1, 3) for y in irange(1, 3)),
+                 weights=[x + y for x in irange(1, 3) for y in irange(1, 3)] )`
+   (Note the parentheses around the value expression are needed here.)
+ + `weighted_as(0, 1, 2)`    -- same as uniform(0, 1, 2)
+ + `weighted_as({0: '1/2', 1: '1/3', 2: '1/6'})`
+ 

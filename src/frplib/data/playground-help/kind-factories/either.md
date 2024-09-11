@@ -6,3 +6,9 @@ If `weight_ratio` is not supplied, it defaults to 1.
 
 The values `a` and `b` can be numeric or symbolic (or a mixture),
 but must have the same dimension.
+
+Examples:
+  + `either(0, 1)`
+  + `either(0, 1, 4)`
+  + `either(0, 1, '1/4')`
+  + `either(0, 1, 0.25)`
