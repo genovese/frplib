@@ -49,7 +49,7 @@ from frplib.exceptions import (OperationError, NumericConversionError,
                                MismatchedDimensionError, MismatchedDomain)
 from frplib.numeric    import Numeric, NumericF, NumericD, NumericB, numeric_sqrt  # ATTN: Numeric+Symbolic+SupportsVec
 from frplib.numeric    import as_numeric as scalar_as_numeric
-from frplib.symbolic   import Symbolic, symbolic_sqrt
+from frplib.symbolic   import Symbolic, is_symbolic, symbolic_sqrt
 
 # SupportsVec  mixin can allow Symbolic and VecTuple automatically,   __plus__  __scalar_mul__
 # SupportsNumeric protocol __numeric__ with numeric conversion.
@@ -276,6 +276,11 @@ def as_scalar_weak(x):
         return x[0]
     return x
 
+def as_float(x):
+    "Converts non-symbolic components to floats; returns a float scalar for dimension 1."
+    if len(x) == 1 and not is_symbolic(x[0]):
+        return float(x[0])
+    return VecTuple(xi if is_symbolic(xi) else float(xi) for xi in x)
 
 #
 # Numeric/Quantified VecTuples
