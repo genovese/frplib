@@ -1465,29 +1465,70 @@ def integers(start, stop=None, step: int = 1, weight_fn=lambda _: 1):
         return Kind.empty
     return Kind([KindBranch.make(vs=as_numeric_vec(x), p=weight_fn(x)) for x in range(start, stop, step)])
 
-def evenly_spaced(start, stop=None, num: int = 2, weight_by=lambda _: 1):
+def evenly_spaced(start, stop=None, num: int = 2, by=None, weight_by=lambda _: 1):
     """Kind of an FRP whose values consist of evenly spaced numbers from `start` to `stop`.
 
-    If `stop` is None, then the values go from 0 to `tart`. Otherwise, the values
+    If `stop` is None, then the values go from 0 to `start`. Otherwise, the values
     go from `start` up to but not including `stop`.
+
+    If num < 1 or by is supplied and is inconsistent with the direction
+    of stop - start (or start if stop is None), this returns the empty Kind.
+
+    Otherwise, if `by` is not None, then it supersedes `num` and the
+    sequence goes from start to up to but not over stop (or 0 up to
+    start if stop is None), skipping by `by` at each step.
 
     The `weight_fn` argument (default the constant 1) should be a function; it is
     applied to each integer to determine the weights.
 
-    """
-    if stop is None:
-        stop = start
-        start = 0
-    if math.isclose(start, stop) or num < 1:
-        return Kind.empty
-    if num == 1:
-        return Kind.unit(start)
-    step = abs(start - stop) / (num - 1)
-    return Kind([KindBranch.make(vs=(x,), p=weight_by(x))
-                 for i in range(num) if (x := start + i * step) is not None])
+    Examples:
+    + evenly_spaced(1, 9, 5)     # values 1, 3, 5, 7, 9
+    + evenly_spaced(1, 9, by=3)  # values 1, 4, 7
+    + evenly_spaced(0.05, 0.95, by=0.05)  # 19 values from 0.05, 0.10, ..., 0.95
 
-def without_replacement(n: int, xs: Iterable) -> Kind:
+    """
+    # Prepare the boundaries
+    if stop is None:
+        stop = as_quantity(start)
+        start = as_quantity('0')
+    else:
+        start = as_quantity(start)
+        stop = as_quantity(stop)
+    if by is not None:
+        have_by = True
+        by = as_quantity(by)
+    else:
+        have_by = False
+
+    # Check for boundary conditions
+    if math.isclose(start, stop) or (have_by and by * (stop - start) <= 0) or num < 1:
+        return Kind.empty
+    if (have_by and math.isclose(by, 0)) or num == 1:
+        return Kind.unit(start)
+
+    # Generate sequence
+    if by is None:
+        step = abs(start - stop) / (num - 1)
+        return Kind([KindBranch.make(vs=(x,), p=weight_by(x))
+                     for i in range(num) if (x := start + i * step) is not None])
+    else:
+        sign = -1 if by < 0 else 1
+        vals = []
+        v = start
+        while v * sign <= stop * sign:
+            vals.append(v)
+            v += by
+        return Kind([KindBranch.make(vs=(x,), p=weight_by(x)) for x in vals])
+
+def without_replacement(n: int, *xs) -> Kind:
     """Kind of an FRP that samples n items from a set without replacement.
+
+    The set of values to sample from can a single iterable
+    (including generators or iterators) or multiple arguments. This
+    respects '...' patterns like `weighted_as` and other Kind
+    factories. Values are converted to quantities, and so can be
+    symbols or string numbers/fractions (which are converted to
+    high-precision decimals).
 
     The values of this kind do not distinguish between different orders
     of the sample. To get the kind of samples with order do
@@ -1496,8 +1537,26 @@ def without_replacement(n: int, xs: Iterable) -> Kind:
 
     See `ordered_samples` for the factory that does this.
 
+    Examples:
+    + without_replacement(2, 1, 2, 3, 4)
+      Same as without_replacement(2, [1, 2, 3, 4])
+
+    + without_replacement(3, [1, 2, 3, 4])
+      Returns Kind that is uniform on <1, 2, 3>, <1, 2, 4>, <1, 3, 4>, <2, 3, 4>
+
+    + without_replacement(2, [1, 2, ..., 10])
+      Returns the Kind whose values include all subsets of size 2 from [1..10]
+      with the tuples in increasing order.
+
+    + without_replacement(2, 1, 2, ..., 10)
+      Same as previous item, sets of size 2 from 1..10.
+
     """
-    return Kind([KindBranch.make(vs=comb, p=1) for comb in combinations(xs, n)])
+    if len(xs) == 1 and isinstance(xs, Iterable):
+        sample_from = sequence_of_values(*xs[0])
+    else:
+        sample_from = sequence_of_values(*xs)
+    return Kind([KindBranch.make(vs=as_quant_vec(comb), p=1) for comb in combinations(sample_from, n)])
 
 def subsets(xs: Collection, outside_element) -> Kind:
     """Kind of an FRP whose values are subsets of a given collection.
