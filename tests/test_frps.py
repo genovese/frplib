@@ -76,3 +76,17 @@ def test_conditional_frps():
 
     assert Kind.equal(kind(zz), uniform(0, 1, 2) >> k1 >> k2)
 
+
+def test_auto_clone():
+    "Testing caching and auto cloning in conditional FRPs"
+    fu = conditional_frp({0: frp(either(0, 1)), 1: frp(uniform(3, 4, 5))})  # type: ignore
+    fc = conditional_frp({0: frp(either(0, 1)), 1: frp(uniform(3, 4, 5))}, auto_clone=True)  # type: ignore
+
+    v0 = fu(0).value
+    assert all(fu(0).value == v0 for _ in range(32))
+
+    fc0 = fc(0)
+    vc0 = fc0.value
+    vck = kind(fc0)
+    assert not all(fc(0).value == vc0 for _ in range(128))
+    assert all(Kind.equal(vck, kind(fc(0))) for _ in range(16))

@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import pytest
 
-from frplib.exceptions import DomainDimensionError, InputError
+from frplib.exceptions import DomainDimensionError, InputError, MismatchedDomain
 from frplib.kinds      import Kind, either
 from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                is_statistic, statistic, condition, scalar_statistic,
@@ -14,11 +14,12 @@ from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                Sqrt, Floor, Ceil,
                                Exp, Log, Log2, Log10,
                                Sin, Cos, Tan, ATan2, Sinh, Cosh, Tanh,
-                               FromDegrees,
+                               FromDegrees, FromRadians,
                                Diff, Diffs, Permute,
                                SumSq, Norm, Dot, Ascending, Descending,
                                Constantly, Fork, ForEach, IfThenElse,
                                And, Or, Not, Xor, top, bottom,
+                               Cases, All, Any, ACos, ASin,
                                )
 from frplib.quantity   import as_quantity, qvec
 from frplib.symbolic   import symbol
@@ -152,9 +153,41 @@ def test_builtin_statistics():
     assert Permute(2, 1, cycle=False)(1, 2, 3) == vec_tuple(2, 1, 3)
     
 
+def test_more_builtins():
+    f = Cases({-1: 10, 1: 200, 3: 5}, default=0)
+    assert f(-1) == vec_tuple(10)
+    assert f(1) == vec_tuple(200)
+    assert f(3) == vec_tuple(5)
+    assert f(9) == vec_tuple(0)
+
+    g = Cases({(1, 2): (3, 4), (5, 6): (7, 8), (9, 10): (11, 12)})
+    assert g(1, 2) == vec_tuple(3, 4)
+    assert g(5, 6) == vec_tuple(7, 8)
+    assert g(9, 10) == vec_tuple(11, 12)
+
+    assert Cases({}, 0)(10) == 0
+
+    with pytest.raises(MismatchedDomain):
+        g(9, 9)
+
+    with pytest.raises(DomainDimensionError):
+        Cases({(1, 2): (3, 4), (5, 6): (7, 8), (9, 10): (11, 12, 13)})
+
+    assert All(__ == 2)(2, 2, 2, 2) == vec_tuple(1)
+    assert All(__ == 2)(2, 2, 3, 2) == vec_tuple(0)
+    assert Any(__ == 2)(2, 2, 3, 2) == vec_tuple(1)
+    assert Any(__ == 7)(2, 2, 3, 2) == vec_tuple(0)
+
+    assert math.isclose(FromRadians(ACos(0.5))[0], 60)
+    assert math.isclose(FromRadians(ASin(0.5))[0], 30)
+    assert math.isclose(FromRadians(ACos(0))[0], 90)
+    assert math.isclose(FromRadians(ASin(0))[0], 0)
+
+
+
 def test_tuple_safe():
     def sc_fn(x):
-        return as_quantity(x) + 1   # type: ignore
+        return as_quantity(x) + 1
 
     s1 = tuple_safe(sc_fn, arities=1, strict=False)
     s1s = tuple_safe(sc_fn, arities=1, strict=True)

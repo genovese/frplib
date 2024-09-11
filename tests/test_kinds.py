@@ -4,10 +4,10 @@ import pytest
 
 from frplib.exceptions import (EvaluationError, ConstructionError, KindError, MismatchedDomain)
 from frplib.kinds      import (Kind, ConditionalKind, kind, conditional_kind,
-                               constant, either, uniform,
+                               constant, either, uniform, binary,
                                symmetric, linear, geometric,
-                               weighted_by, weighted_as, arbitrary,
-                               integers, evenly_spaced, bin,
+                               weighted_by, weighted_as, weighted_pairs, arbitrary,
+                               integers, evenly_spaced, bin, without_replacement,
                                subsets, permutations_of,
                                sequence_of_values,
                                fast_mixture_pow)
@@ -15,7 +15,7 @@ from frplib.numeric    import as_numeric, numeric_log2
 from frplib.quantity   import as_quantity
 from frplib.statistics import __, Proj, Sum, Min, Max
 from frplib.symbolic   import symbol
-from frplib.utils      import every, frequencies, irange, lmap
+from frplib.utils      import every, frequencies, irange, lmap, size
 from frplib.vec_tuples import vec_tuple
 
 
@@ -73,6 +73,10 @@ def test_kinds_factories():
     assert values_of(w) == {vec_tuple(1), vec_tuple(2), vec_tuple(3)}
     assert weights_of(w) == pytest.approx([as_quantity('1/7'), as_quantity('2/7'), as_quantity('4/7')])
 
+    w = weighted_as({1: 1, 2: 2, 3: 4}).weights
+    assert values_of(w) == {vec_tuple(1), vec_tuple(2), vec_tuple(3)}
+    assert weights_of(w) == pytest.approx([as_quantity('1/7'), as_quantity('2/7'), as_quantity('4/7')])
+
     w = weighted_as(1, 2, 3, weights=[a, 2 * a, 4 * a]).weights
     assert values_of(w) == {vec_tuple(1), vec_tuple(2), vec_tuple(3)}
     assert weights_of(w) == pytest.approx([as_quantity('1/7'), as_quantity('2/7'), as_quantity('4/7')])
@@ -84,6 +88,44 @@ def test_kinds_factories():
     w = weighted_as(a, 2 * a, 3 * a, weights=[1, 2, 4]).weights
     assert lmap(str, values_of(w)) == ['<a>', '<2 a>', '<3 a>']
     assert weights_of(w) == pytest.approx([as_quantity('1/7'), as_quantity('2/7'), as_quantity('4/7')])
+
+    assert binary().values == {0, 1}
+    assert binary('1/3').kernel(0, as_float=False) == as_quantity('2/3')
+    assert binary('1/3').kernel(1, as_float=False) == as_quantity('1/3')
+    assert weights_of(binary('1/3').weights) == pytest.approx([as_quantity('2/3'), as_quantity('1/3')])
+    assert binary(a).kernel(1, as_float=False) == a
+    assert binary(a).kernel(0) == 1 - a
+
+    k = weighted_pairs([(1, 1), (2, 2), (3, 4)])
+    assert k.value_set == {vec_tuple(1), vec_tuple(2), vec_tuple(3)}
+    assert weights_of(k.weights) == pytest.approx([as_quantity('1/7'), as_quantity('2/7'), as_quantity('4/7')])
+
+    k = weighted_pairs([(1, 2), (2, 4), (4, 10)])
+    assert k.value_set == {vec_tuple(1), vec_tuple(2), vec_tuple(4)}
+    assert weights_of(k.weights) == pytest.approx([as_quantity('1/8'), as_quantity('1/4'), as_quantity('5/8')])
+
+    k = weighted_pairs((1, 2), (2, 4), (4, 10))
+    assert k.value_set == {vec_tuple(1), vec_tuple(2), vec_tuple(4)}
+    assert weights_of(k.weights) == pytest.approx([as_quantity('1/8'), as_quantity('1/4'), as_quantity('5/8')])
+
+    k = evenly_spaced(0.1, 0.5, by=0.1)
+    w = k.weights
+    assert size(k) == 5
+    assert k.value_set == set(vec_tuple(as_quantity(0.1 * x)) for x in range(1, 6))
+    assert weights_of(w) == pytest.approx([as_quantity(0.2) for _ in range(5)])
+
+    k = without_replacement(3, 1, 2, 3)
+    w = k.weights
+    assert size(k) == 1
+    assert k.value_set == {vec_tuple(1, 2, 3)}
+    assert weights_of(w) == [as_quantity('1')]
+
+    k = without_replacement(2, 1, 2, 3)
+    w = k.weights
+    assert size(k) == 3
+    assert k.value_set == {vec_tuple(1, 2), vec_tuple(1, 3), vec_tuple(2, 3)}
+    assert weights_of(w) == [as_quantity('1/3'), as_quantity('1/3'), as_quantity('1/3')]
+
 
 def test_mixtures():
     k0 = either(10, 20)
@@ -308,3 +350,18 @@ def test_conditional_kinds():
         k9d(100)
     with pytest.raises(MismatchedDomain):
         k9e(3)
+
+def test_kernel():
+    k = weighted_as({1: 2, 2: 4, 3: 8, 4: 2})
+    assert k.kernel(1) == 1/8
+    assert k.kernel(2) == 1/4
+    assert k.kernel(3) == 1/2
+    assert k.kernel(4) == 1/8
+    assert k.kernel(5) == 0
+    assert k.kernel(-1) == 0
+
+    assert k.kernel(1, as_float=False) == as_quantity('1/8') 
+    assert k.kernel(2, as_float=False) == as_quantity('1/4') 
+    assert k.kernel(3, as_float=False) == as_quantity('1/2') 
+    assert k.kernel(4, as_float=False) == as_quantity('1/8') 
+    assert k.kernel(5, as_float=False) == as_quantity('0')
