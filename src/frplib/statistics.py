@@ -13,7 +13,8 @@ from operator          import itemgetter
 from typing            import Callable, cast, Literal, Optional, overload, Union
 from typing_extensions import Self, TypeAlias, TypeGuard
 
-from frplib.exceptions import OperationError, StatisticError, DomainDimensionError, InputError
+from frplib.exceptions import (OperationError, StatisticError, DomainDimensionError,
+                               InputError, MismatchedDomain)
 from frplib.numeric    import (ScalarQ, Numeric, as_real, numeric_sqrt, numeric_exp,
                                numeric_ln, numeric_log10, numeric_log2,
                                numeric_abs, numeric_floor, numeric_ceil)
@@ -21,7 +22,7 @@ from frplib.numeric    import (ScalarQ, Numeric, as_real, numeric_sqrt, numeric_
 from frplib.protocols  import Projection, Transformable
 from frplib.quantity   import as_quant_vec, as_quantity
 from frplib.symbolic   import Symbolic
-from frplib.utils      import identity, is_interactive, is_tuple, scalarize
+from frplib.utils      import dim, identity, is_interactive, is_tuple, scalarize
 from frplib.vec_tuples import VecTuple, as_scalar, as_scalar_strict, as_vec_tuple, is_vec_tuple, vec_tuple
 
 # ATTN: conversion with as_real etc in truediv, pow to prevent accidental float conversion
@@ -1041,16 +1042,39 @@ def statistic(
         dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know
         description: Optional[str] = None,        # A description used as a __doc__ string for the Statistic
         monoidal=None,                            # If not None, the unit for a Monoidal Statistic
-        strict=True,                              # If true, then strictly enforce dim upper bound
+        strict=True,                              # If true, then strictly enforce codim upper bound
         arg_convert: Optional[Callable] = None    # If not None, a function applies to every input component
 ) -> Statistic | Callable[[Callable], Statistic]:
+    """Statistics factory and decorator. Converts a function into a Statistic.
+
+    This either takes a function as a first argument or can be used as a decorator
+    on a function definition.
+
+    Additional Arguments
+
+    name -- If supplied, a user-facing name for the statistic
+    codim -- If supplied, a constraint on the codimension of the statistic.
+        This can be an integer or a tuple. If a tuple (a, b) with a <= b
+        the codimension can be any value in this range. If b = infinity,
+        then any codimension a or above is allowed. An integer codim a
+        is equivalent to (a, a). If not supplied, the codimension is
+        unconstrained.
+
+    dim -- If supplied, the dimension of the statistic's return value.
+
+    description -- A descriptive label in the documentation of the statistic.
+        If not supplied and statistic is used as a decorator, the description
+        is taken from the docstring of the function.
+
+    monoidal -- The monoidal unit for a monoidal statistic. See `MonoidalStatistic`.
+
+    strict -- If true, then strictly enforce the codim upper bound. This is
+        redundant with a tuple-valued codim and may be removed in a future version.
+
+    arg_convert -- If supplied, a function that applies to every input component
+        before applying the statistic.
+
     """
-    Statistics factory and decorator. Converts a function into a Statistic.
-
-    Can take the function as a first argument or be used as a decorator on a def.
-
-    """
-
     if maybe_fn is not None:
         if monoidal is None:
             s = Statistic(maybe_fn, codim, dim, name, description, strict=strict)
@@ -1092,10 +1116,32 @@ def scalar_statistic(
         strict=True                               # If true, then strictly enforce dim upper bound
         # ATTN: could add arg_convert here too
 ):
-    """
-    Statistics factory and decorator. Converts a function into a Statistic that returns a scalar.
+    """Statistics factory and decorator. Converts a function into a Statistic that returns a scalar.
 
-    Can take the function as a first argument or be used as a decorator on a def.
+    This either takes a function as a first argument or can be used as a decorator
+    on a function definition. This is like `statistic` with the dimension set to 1.
+
+    Additional Arguments
+
+    name -- If supplied, a user-facing name for the statistic
+    codim -- If supplied, a constraint on the codimension of the statistic.
+        This can be an integer or a tuple. If a tuple (a, b) with a <= b
+        the codimension can be any value in this range. If b = infinity,
+        then any codimension a or above is allowed. An integer codim a
+        is equivalent to (a, a). If not supplied, the codimension is
+        unconstrained.
+
+    description -- A descriptive label in the documentation of the statistic.
+        If not supplied and statistic is used as a decorator, the description
+        is taken from the docstring of the function.
+
+    monoidal -- The monoidal unit for a monoidal statistic. See `MonoidalStatistic`.
+
+    strict -- If true, then strictly enforce the codim upper bound. This is
+        redundant with a tuple-valued codim and may be removed in a future version.
+
+    arg_convert -- If supplied, a function that applies to every input component
+        before applying the statistic.
 
     """
     return statistic(maybe_fn, name=name, codim=codim, dim=1,
@@ -1109,10 +1155,30 @@ def condition(
         description: Optional[str] = None,  # A description used as a __doc__ string for the Statistic
         strict=True                         # If true, then strictly enforce dim upper bound
 ) -> Condition | Callable[[Callable], Condition]:
-    """
-    Statistics factory and decorator. Converts a predicate into a Condition statistic.
+    """Statistics factory and decorator. Converts a predicate into a Condition.
 
-    Can take the function as a first argument or be used as a decorator on a def.
+    A Condition is a Boolean statistic returning <0> for False and <1> for True.
+    The dimension is always 1.
+
+    This either takes a function as a first argument or can be used as a decorator
+    on a function definition.
+
+    Additional Arguments
+
+    name -- If supplied, a user-facing name for the statistic
+    codim -- If supplied, a constraint on the codimension of the statistic.
+        This can be an integer or a tuple. If a tuple (a, b) with a <= b
+        the codimension can be any value in this range. If b = infinity,
+        then any codimension a or above is allowed. An integer codim a
+        is equivalent to (a, a). If not supplied, the codimension is
+        unconstrained.
+
+    description -- A descriptive label in the documentation of the statistic.
+        If not supplied and statistic is used as a decorator, the description
+        is taken from the docstring of the function.
+
+    strict -- If true, then strictly enforce the codim upper bound. This is
+        redundant with a tuple-valued codim and may be removed in a future version.
 
     """
     if maybe_predicate:
@@ -1234,6 +1300,10 @@ def Constantly(*x) -> Statistic:
     This accepts either a single tuple argument, which will be converted to a quantity vector,
     or multiple arguments that will be aggregated into a quantity vector.
 
+    Examples:
+    + Constantly(1)       -- a statistic that always returns <1>
+    + Constantly(1, 2, 3) -- a statistic that always returns <1, 2, 3>
+
     """
     if len(x) == 1 and is_tuple(x[0]):
         xvec = as_quant_vec(x[0])
@@ -1293,6 +1363,13 @@ def Abs(x):
     return numeric_sqrt(sum(u * u for u in x))
 
 def Dot(*vec):
+    """Statistic factory that takes the vector dot product with a specified vector tuple.
+
+    If the input tuple is empty, an error is raised.
+
+    Example: Dot(1, 2, 3)(10, 20, 30) == 1 * 10 + 2 * 20 + 3 * 30
+
+    """
     if len(vec) == 1 and is_tuple(vec[0]):
         v: Collection[QuantityType] = vec[0]
     elif len(vec) > 0:
@@ -1320,6 +1397,14 @@ def Descending(v):
 @scalar_statistic(name='atan2', codim=(1, 2), description='returns the sector correct arctangent')
 def ATan2(x, y=1):
     return as_quantity(math.atan2(x, y))
+
+@scalar_statistic(name='acos', codim=1, description='returns the arccosine of a number in [0_1]')
+def ACos(x):
+    return as_quantity(math.acos(x))
+
+@scalar_statistic(name='acos', codim=1, description='returns the arcsine of a number in [0_1]')
+def ASin(x):
+    return as_quantity(math.asin(x))
 
 Pi = Decimal('3.1415926535897932384626433832795')
 
@@ -1531,7 +1616,7 @@ def Permute(*p: int | tuple[int, ...], cycle=True):
     with cycles (42) and (7315).
 
     Similarly, Permute(3, 1, 2) takes the third element
-    to position one, the first to position two, and 
+    to position one, the first to position two, and
     the second to position three.
 
     If cycle=False, the indices should contain all values 1..n
@@ -1742,6 +1827,36 @@ def Xor(*stats: Statistic) -> Condition:
                      name=f'({" xor ".join(labels)})',
                      description=f'returns the logical exclusieve-or of {", ".join(labels)}')
 
+def All(cond: Condition) -> Condition:
+    """Do all components of the input satisfy a given condition?
+
+    Returns a condition applies a condition to all components of the input and
+    returns True only if all return True.  As usual for a condition, True
+    is <1> and False is <0>.
+
+    """
+    def all_comps(*x):
+        if len(x) == 1 and is_tuple(x[0]):
+            x = x[0]
+        return all(cond.bool_eval(y) for y in x)
+    return Condition(all_comps, codim=ANY_TUPLE,
+                     name=f'tests if {cond.name} is true for every component of input value')
+
+def Any(cond: Condition) -> Condition:
+    """Do any components of the input satisfy a given condition?
+
+    Returns a condition applies a condition to all components of the input and
+    returns True only if at least one returns True.  As usual for a condition, True
+    is <1> and False is <0>.
+
+    """
+    def any_comp(*x):
+        if len(x) == 1 and is_tuple(x[0]):
+            x = x[0]
+        return any(cond.bool_eval(y) for y in x)
+    return Condition(any_comp, codim=ANY_TUPLE,
+                     name=f'tests if {cond.name} is true for some component of input value')
+
 top = Condition(lambda _x: True, name='top', description='returns true for any value')
 
 bottom = Condition(lambda _x: False, name='bottom', description='returns false for any value')
@@ -1806,20 +1921,20 @@ class ProjectionFactory:
 
     Projections are statistics that extract one or more components
     from the tuple passed as input.
-    
+
     In frplib, `Proj` is a factory for creating projection statistics.
     We specify which projection is produced by indicating the
     components in brackets, like indexing an array. The components
     for a projection statistic are **1-based**, so the first component
     has index 1 (not 0 like in Python).
-    
+
     So for example, `Proj[1]` is the projection that returns the
     first component of a tuple and `Proj[1, 3, 5]` returns a new
     tuple with the first, third, and fifth components of its argument.
-    
+
     The `Proj` factory supports a variety of ways to select components.
     The following forms can be used within the `[]` brackets:
-    
+
     + a single, positive integer `i` selects the ith component
     + a single, negative integer `-i` selects the ith component
       *from the end*, with -1 being the last componet, -2 the
@@ -1835,13 +1950,13 @@ class ProjectionFactory:
     + a slice with one side missing, either `i:` or `:j`.
       The former selects from `i` to the end; the latter
       from the beginning up to but not including `j`.
-    + a slice with skip `i:j:k` selects from `i` up to 
+    + a slice with skip `i:j:k` selects from `i` up to
       but not including `j`, skipping by `k` components
       at each step.
-    
+
     The `Projbar` factory is like `Proj` but the specification
     in brackets indicates which components to *exclude*.
-    
+
     See Chapter 0, Section 2.3 for more detail.
 
     """
@@ -1876,6 +1991,81 @@ class ProjectionFactory:
         return project(*indices_or_tuple)
 
 Proj = ProjectionFactory()
+
+#
+# Additional Utility Statistics
+#
+
+def Cases(d, default=None):
+    """Statistic factory that constructs a statistic from a dictionary and optional default.
+
+    The dictionary specifies the mapping from inputs to outputs. The
+    statistic may have multiple codimensions, but all all outputs
+    with the same input dimension must share a common dimension. If
+    all inputs have the same dimension and default is supplied with
+    the same dimension as well, then the statistic will return the
+    default value for any input that is not a key of the dictionary.
+    Scalars are auto-converted and can be used for keys, values, and default.
+
+    Examples:
+    +   Cases({1: 0, 10: 1, 100: 2, 1000: 3}, default=-1) will return 0, 1, 2, or 3
+        for respective inputs 1, 10, 100, or 1000.  Any other input will return -1.
+
+    +   Cases({1: 0, 10: 1, 100: 2, 1000: 3}) will return 0, 1, 2, or 3
+        for respective inputs 1, 10, 100, or 1000.  Any other input will raise an error.
+
+    Returns a statistic with properly recorded type.
+
+    """
+    if len(d) == 0:
+        return Constantly(default)
+
+    my_d = {}
+    use_dims: dict[Union[int, None], Union[int, None]] = {}  # Ensure each codimension has common dimension
+    min_codim = 1000000000000  # A stand in for infinity to avoid type error (worth it?)
+    max_codim = 0
+    for k0, v0 in d.items():
+        k = as_vec_tuple(k0)
+        v = as_vec_tuple(v0)
+        my_d[k] = v
+
+        dim_k = dim(k)
+        dim_v = dim(v)
+        if dim_k in use_dims:
+            if use_dims[dim_k] != dim_v:
+                raise DomainDimensionError('Cases statistic has values of different dimensions for same codimension: '
+                                           f'({use_dims[dim_k]} != {dim_v} for value {v})')
+        else:
+            use_dims[dim_k] = dim_v
+
+        min_codim = int(min(min_codim, dim_k))
+        max_codim = int(max(max_codim, dim_k))
+
+    # my_hash = hash(frozenset(my_d.items()))
+    name = f'Cases({str(my_d)}, default={default})'
+
+    if len(use_dims) == 1:
+        my_dim = list(use_dims.values())[0]
+        otherwise: Union[VecTuple, None] = as_vec_tuple(default)
+        if default is None or my_dim != len(otherwise):             # type: ignore
+            otherwise = None
+    else:
+        my_dim = None
+        otherwise = None
+
+    if otherwise is not None:
+        @statistic(name=name, codim=(min_codim, max_codim), dim=my_dim)
+        def f(k):
+            return my_d.get(as_vec_tuple(k), otherwise)
+        return f
+
+    @statistic(name=name, codim=(min_codim, max_codim), dim=my_dim)
+    def g(k):
+        ky = as_vec_tuple(k)  # In codim 1 case this would be a scalar, standardize
+        if ky in my_d:
+            return my_d[ky]
+        raise MismatchedDomain(f'Value {k} not in domain of statistic {name}')
+    return g
 
 
 #
@@ -1916,6 +2106,8 @@ setattr(Log10, '__info__', 'statistic-builtins')
 setattr(Sin, '__info__', 'statistic-builtins')
 setattr(Cos, '__info__', 'statistic-builtins')
 setattr(Tan, '__info__', 'statistic-builtins')
+setattr(ACos, '__info__', 'statistic-builtins')
+setattr(ASin, '__info__', 'statistic-builtins')
 setattr(ATan2, '__info__', 'statistic-builtins')
 setattr(Sinh, '__info__', 'statistic-builtins')
 setattr(Cosh, '__info__', 'statistic-builtins')
@@ -1928,6 +2120,9 @@ setattr(Norm, '__info__', 'statistic-builtins')
 setattr(Dot, '__info__', 'statistic-builtins')
 setattr(StdDev, '__info__', 'statistic-builtins')
 setattr(Variance, '__info__', 'statistic-builtins')
+setattr(Cases, '__info__', 'statistic-builtins')
+setattr(top, '__info__', 'statistic-builtins')
+setattr(bottom, '__info__', 'statistic-builtins')
 
 setattr(Fork, '__info__', 'statistic-combinators')
 setattr(MFork, '__info__', 'statistic-combinators')
@@ -1937,3 +2132,5 @@ setattr(And, '__info__', 'statistic-combinators')
 setattr(Or, '__info__', 'statistic-combinators')
 setattr(Not, '__info__', 'statistic-combinators')
 setattr(Xor, '__info__', 'statistic-combinators')
+setattr(All, '__info__', 'statistic-combinators')
+setattr(Any, '__info__', 'statistic-combinators')
