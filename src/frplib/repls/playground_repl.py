@@ -81,7 +81,7 @@ playground_imports: dict[str, list[str]] = {
         'Kind', 'ConditionalKind',
         'kind', 'conditional_kind',
         'is_kind', 'unfold', 'clean', 'fast_mixture_pow', 'bayes',
-        'constant', 'uniform', 'either',
+        'constant', 'uniform', 'either', 'binary',
         'symmetric', 'linear', 'geometric',
         'weighted_by', 'weighted_as', 'weighted_pairs',
         'arbitrary', 'integers', 'evenly_spaced', 'bin',
@@ -96,7 +96,7 @@ playground_imports: dict[str, list[str]] = {
         'Sum', 'Product', 'Count', 'Max', 'Min', 'Abs', 'SumSq',
         'Sqrt', 'Floor', 'Ceil', 'NormalCDF',
         'Exp', 'Log', 'Log2', 'Log10',
-        'Sin', 'Cos', 'Tan', 'ATan2', 'Sinh', 'Cosh', 'Tanh',
+        'Sin', 'Cos', 'Tan', 'ACos', 'ASin', 'ATan2', 'Sinh', 'Cosh', 'Tanh',
         'Pi', 'FromDegrees', 'FromRadians',
         'Mean', 'StdDev', 'Variance',
         'SumSq', 'Norm', 'Dot',
@@ -104,6 +104,7 @@ playground_imports: dict[str, list[str]] = {
         'Diff', 'Diffs', 'Permute',
         'Constantly', 'Fork', 'MFork', 'ForEach', 'IfThenElse',
         'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
+        'All', 'Any', 'Cases',
     ],
     'expectations': ['E', 'Var', 'D_'],
     'frps': [
@@ -121,7 +122,7 @@ playground_imports: dict[str, list[str]] = {
     ],
     'vec_tuples': [
         'VecTuple',
-        'as_numeric_vec', 'as_scalar', 'as_vec_tuple',
+        'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float',
         'is_vec_tuple', 'vec_tuple',
     ],
     'extras': [
