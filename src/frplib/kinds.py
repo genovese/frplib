@@ -587,7 +587,7 @@ class Kind:
         else:
             value = v
         w = self.weights.get(as_quant_vec(value), 0)
-        return float(w) if as_float else w
+        return float(w) if as_float and not is_symbolic(w) else w
 
     def log_likelihood(self, data: Iterable[tuple[ScalarQ | ValueType, ...] | ScalarQ]) -> QuantityType:
         """The log-likelihood function for independent observations from this Kind.
@@ -1419,7 +1419,7 @@ def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
     return Kind([KindBranch.make(vs=as_quant_vec(x), p=as_quantity(w))
                  for x, w in zip(values, kweights) if not is_zero(w)])
 
-def weighted_pairs(xs: Iterable[tuple[ValueType | ScalarQ, ScalarQ]]) -> Kind:
+def weighted_pairs(*xs) -> Kind:     # Iterable[tuple[ValueType | ScalarQ, ScalarQ]]
     """Returns a Kind specified by a sequence of (value, weight) pairs.
 
     Parameters
@@ -1435,8 +1435,13 @@ def weighted_pairs(xs: Iterable[tuple[ValueType | ScalarQ, ScalarQ]]) -> Kind:
     + weighted_pairs(((x, y), x + y) for x in irange(1, 3) for y in irange(1, 3))
 
     """
+    if len(xs) == 1 and isinstance(xs[0], Iterable) and (not is_tuple(xs[0]) or len(xs[0]) != 2):
+        val_wgts = xs[0]
+    else:
+        val_wgts = xs
+
     return Kind([KindBranch.make(vs=as_quant_vec(v), p=as_quantity(w))
-                 for v, w in xs if not is_zero(w)])
+                 for v, w in val_wgts if not is_zero(w)])
 
 def arbitrary(*xs, names: list[str] = []):
     "Returns a Kind with the given values and arbitrary symbolic weights."
