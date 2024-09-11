@@ -29,7 +29,7 @@ from frplib.numeric    import (Numeric, ScalarQ,
 # I would prefer it to be elsewhere, but for now, this is the way.
 #
 
-def is_zero(quantity: ScalarQ, tolerance=0.0) -> bool:
+def is_zero(quantity: ScalarQ | Symbolic, tolerance=0.0) -> bool:
     if isinstance(quantity, int):
         return quantity == 0
 
