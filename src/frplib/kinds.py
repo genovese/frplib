@@ -27,7 +27,7 @@ from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection, SupportsKindOf
 from frplib.quantity   import as_quantity, as_nice_quantity, as_quant_vec, show_quantities, show_qtuples
 from frplib.statistics import Condition, MonoidalStatistic, Statistic, compose2, Proj
-from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol
+from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol, is_zero
 from frplib.utils      import compose, const, dim, identity, is_interactive, is_tuple, lmap
 from frplib.vec_tuples import (VecTuple, as_numeric_vec, as_scalar_strict, as_vec_tuple, vec_tuple,
                                as_scalar_weak, value_set_from)
@@ -1117,6 +1117,20 @@ def constant(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[El
         return Kind.empty
     value = as_quant_vec(sequence_of_values(*xs, flatten=Flatten.EVERYTHING))
     return Kind.unit(value)
+
+def binary(p='1/2'):
+    """A binary choice between 0 and 1 with respective weights 1 - p and p.
+
+    The weight p can be any quantity but if numeric should be 0 <= p <= 1.
+    The default is p = 1/2.
+
+    """
+    w = as_quantity(p)
+    if is_zero(w):
+        return constant(0)
+    if is_zero(1 - w):
+        return constant(1)
+    return weighted_as(0, 1, weights=[1 - w, w])
 
 def either(a, b, weight_ratio=1) -> Kind:
     """A choice between two possibilities a and b with ratio of weights (a to b) of `weight_ratio`.
