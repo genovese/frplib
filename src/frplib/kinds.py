@@ -1336,11 +1336,20 @@ def weighted_by(*xs, weight_by: Callable) -> Kind:
     appropriate. `weight_by` must return a valid weight for all
     specified values.
 
+    Examples:
+      + `weighted_by(1, 2, 3, weight_by=lambda x: x ** 2)`
+      + `weighted_by(1, 2, 3, weight_by=lambda x: 1 / x)`
+
     """
     values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES)
     if len(values) == 0:
         return Kind.empty
-    return Kind([KindBranch.make(vs=as_quant_vec(x), p=as_quantity(weight_by(x))) for x in values])
+    branches = []
+    for x in values:
+        w = as_quantity(weight_by(x))
+        if not is_zero(w):
+            branches.append(KindBranch.make(vs=as_quant_vec(x), p=w))
+    return Kind(branches)
 
 def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
     """Returns a Kind with the specified values weighted by given weights.
@@ -1372,11 +1381,15 @@ def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
     e.g., weights=[1, 2, ..., 4] or weights=[1, 2, [3, 4, 5], 6, 7, ..., 10],
     contained in a list or tuple. Weights can be any quantity, including
     symbols and strings representing fractions or high-precision decimals,
-    e.g., '1/3'.
+    e.g., '1/3'.  If the supplied list of weights is shorter than
+    the list of values, missing weights are set to 1.
 
     Values and weights can be numbers, tuples, symbols, or strings.
     In the latter case they are converted to numbers or symbols as
-    appropriate.
+    appropriate. Zero weights are excluded in the final Kind.
+
+    This also accepts a *single* dictionary argument that maps
+    values to weights, without a weights argument.
 
     Examples:
     + weighted_as(0, 1, weights=[1 - p, p])
@@ -1385,13 +1398,15 @@ def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
     + weighted_as( ((x, y) for x in irange(1, 3) for y in irange(1, 3)),
                     weights=[x + y for x in irange(1, 3) for y in irange(1, 3)] )
       (Note the parentheses around the value expression are needed here.)
+    + weighted_as(0, 1, 2)    # same as uniform(0, 1, 2)
+    + weighted_as({0: '1/2', 1: '1/3', 2: '1/6'})
 
     """
     if len(xs) == 1 and isinstance(xs[0], dict):
         # value: weight given in a dictionary
         val_wgt_map = xs[0]
         return Kind([KindBranch.make(vs=as_quant_vec(v), p=as_quantity(w))
-                     for v, w in val_wgt_map.items()])
+                     for v, w in val_wgt_map.items() if not is_zero(w)])
 
     values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES)
     if len(values) == 0:
@@ -1402,7 +1417,7 @@ def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
         kweights = [*kweights, *([1] * (len(values) - len(kweights)))]
 
     return Kind([KindBranch.make(vs=as_quant_vec(x), p=as_quantity(w))
-                 for x, w in zip(values, kweights)])
+                 for x, w in zip(values, kweights) if not is_zero(w)])
 
 def weighted_pairs(xs: Iterable[tuple[ValueType | ScalarQ, ScalarQ]]) -> Kind:
     """Returns a Kind specified by a sequence of (value, weight) pairs.
@@ -1421,7 +1436,7 @@ def weighted_pairs(xs: Iterable[tuple[ValueType | ScalarQ, ScalarQ]]) -> Kind:
 
     """
     return Kind([KindBranch.make(vs=as_quant_vec(v), p=as_quantity(w))
-                 for v, w in xs])
+                 for v, w in xs if not is_zero(w)])
 
 def arbitrary(*xs, names: list[str] = []):
     "Returns a Kind with the given values and arbitrary symbolic weights."

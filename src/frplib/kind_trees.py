@@ -19,7 +19,7 @@ from frplib.numeric              import (Numeric, ScalarQ, as_nice_numeric, as_r
 from frplib.parsing.kind_strings import canonical_tree, kind_sexp, validate_kind
 from frplib.parsing.parsy_adjust import parse_error_message
 from frplib.quantity             import as_quantity, as_quant_vec, as_real_quantity
-from frplib.symbolic             import Symbolic
+from frplib.symbolic             import Symbolic, is_symbolic
 from frplib.utils                import identity
 from frplib.vec_tuples           import VecTuple, as_vec_tuple, vec_tuple
 
@@ -77,7 +77,10 @@ class KindBranch(_KindBranch):
 
     @classmethod
     def make(cls, vs, p):
-        return KindBranch(vs=as_value(vs), p=as_weight(p))
+        w = as_weight(p)
+        if not is_symbolic(w) and w < 0:
+            raise KindError(f'Kinds cannot have negative weights ({w})')
+        return KindBranch(vs=as_value(vs), p=w)
 
     @property
     def value(self):
@@ -109,7 +112,7 @@ class KindBranch(_KindBranch):
         return self.make(vs=val, p=prob)
 
     def is_symbolic(self):
-        return isinstance(self.p, Symbolic) or any(isinstance(vi, Symbolic) for vi in self.vs)
+        return is_symbolic(self.p) or any(is_symbolic(vi) for vi in self.vs)
 
     # (va -> vb) -> (pa -> pb) -> (KindBranch -> KindBranch)
     @staticmethod
