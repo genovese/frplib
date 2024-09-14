@@ -38,7 +38,7 @@ ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 # Invariance of dict type causes incorrect type errors when constructing conditional FRPs
 # So we make the input type include the most common special cases individually
 # NOTE: This assumes NumericD for Numeric, which is why Decimal is used
-CondFrpInput: TypeAlias = Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | dict[int, 'FRP'] | dict[Decimal, 'FRP'] | dict[Symbolic, 'FRP'] | ConditionalKind | 'FRP'
+CondFrpInput: TypeAlias = Union[Callable[[ValueType], 'FRP'], dict[ValueType, 'FRP'], dict[QuantityType, 'FRP'], dict[int, 'FRP'], dict[Decimal, 'FRP'], dict[Symbolic, 'FRP'], ConditionalKind, 'FRP']
 
 #
 # Helpers

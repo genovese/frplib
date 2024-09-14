@@ -45,7 +45,7 @@ ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 # Invariance of dict type causes incorrect type errors when constructing conditional Kinds
 # So we make the input type include the most common special cases individually
 # NOTE: This assumes NumericD for Numeric, which is why Decimal is used
-CondKindInput: TypeAlias = Callable[[ValueType], 'Kind'] | dict[ValueType, 'Kind'] | dict[QuantityType, 'Kind'] | dict[int, 'Kind'] | dict[Decimal, 'Kind'] | dict[Symbolic, 'Kind'] | 'Kind'
+CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'], dict[ValueType, 'Kind'], dict[QuantityType, 'Kind'], dict[int, 'Kind'], dict[Decimal, 'Kind'], dict[Symbolic, 'Kind'], 'Kind']
 
 
 #
