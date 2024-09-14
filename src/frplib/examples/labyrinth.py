@@ -60,7 +60,7 @@ labyrinth: dict[int, list[int]] = {
 # Individual steps
 
 steps = conditional_kind({
-    juncture: uniform(neighbors)                    # type: ignore
+    juncture: uniform(neighbors)
     for juncture, neighbors in labyrinth.items()
 })
 
