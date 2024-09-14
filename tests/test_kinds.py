@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from frplib.exceptions import (EvaluationError, ConstructionError, KindError, MismatchedDomain)
+from frplib.frps       import frp
 from frplib.kinds      import (Kind, ConditionalKind, kind, conditional_kind,
                                constant, either, uniform, binary,
                                symmetric, linear, geometric,
@@ -365,3 +366,20 @@ def test_kernel():
     assert k.kernel(3, as_float=False) == as_quantity('1/2') 
     assert k.kernel(4, as_float=False) == as_quantity('1/8') 
     assert k.kernel(5, as_float=False) == as_quantity('0')
+
+def test_ops():
+    k = uniform(1, 2, ..., 6) ** 2
+    kp = Proj[2] @ k | (Proj[1] == 2)
+    assert Kind.equal(kp, uniform(1, 2, ..., 6))
+
+    with pytest.raises(TypeError):
+        k >> 2
+
+    with pytest.raises(TypeError):
+        k >> k
+
+    with pytest.raises(KindError):
+        k >> __
+
+    with pytest.raises(TypeError):
+        k * frp(k)

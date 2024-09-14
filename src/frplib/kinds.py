@@ -4,7 +4,7 @@ import math
 import random
 import re
 
-from collections.abc   import Collection, Iterable
+from collections.abc   import Collection, Iterable, Sequence
 from dataclasses       import dataclass
 from enum              import Enum, auto
 from itertools         import chain, combinations, permutations, product, starmap
@@ -17,7 +17,7 @@ from rich.panel        import Panel
 
 from frplib.env        import environment
 from frplib.exceptions import (ConstructionError, EvaluationError, KindError, MismatchedDomain,
-                               OperationError)
+                               DomainDimensionError, OperationError)
 from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
@@ -188,10 +188,15 @@ class Kind:
             branches = spec._canonical   # Shared structure OK, Kinds are immutable
         elif isinstance(spec, str):
             branches = canonical_from_sexp(spec)
-        elif len(spec) == 0 or isinstance(spec[0], KindBranch):  # CanonicalKind
+        elif isinstance(spec, Sequence) and (len(spec) == 0 or isinstance(spec[0], KindBranch)):  # CanonicalKind
             branches = normalize_branches(spec)
-        else:  # General KindTree
-            branches = canonical_from_tree(spec)
+        elif isinstance(spec, list):  # General KindTree
+            try:
+                branches = canonical_from_tree(spec)
+            except Exception as e:
+                raise KindError(f'Problem building a Kind a KindTree: {str(e)}')
+        else:
+            raise KindError(f'Cannot construct a Kind from object of type {type(spec).__name__}, {spec}')
 
         self._canonical: CanonicalKind = branches
         self._size = len(branches)
@@ -512,6 +517,7 @@ class Kind:
         """
         if isinstance(statistic, Statistic):
             lo, hi = statistic.codim
+            name = statistic.name
             if self.dim == 0 and lo == 0:
                 # On Kind.empty, MonoidalStatistics return constant of their unit
                 return constant(statistic())
@@ -521,12 +527,23 @@ class Kind:
                 try:
                     statistic(self._canonical[0].vs)
                     f = statistic
-                except Exception:
-                    raise KindError(f'Statistic {statistic.name} is incompatible with this kind: '
-                                    f'acceptable dimension [{lo},{hi}] but kind dimension {self.dim}.')
+                except DomainDimensionError:
+                    raise MismatchedDomain(f'Statistic {statistic.name} appears incompatible with this Kind, '
+                                           f'which has dimension {self.dim} outside of expected range '
+                                           f'[{lo}..{"" if hi == math.inf else hi}).')
+                except Exception as e:
+                    raise MismatchedDomain(f'Statistic {statistic.name} appears incompatible with this Kind, '
+                                           f'which has dimension {self.dim} outside of expected range '
+                                           f'[{lo}..{"" if hi == math.inf else hi}). {"(" + str(e) + ")"}')
         else:
             f = compose(as_vec_tuple, value_map(statistic))  # ATTN!
-        return self.map(f)
+            name = 'anonymous'
+        try:
+            return self.map(f)
+        except Exception as e:
+            raise KindError(f'Statistic {name} appears incompatible with this Kind. '
+                            f'({e.__class__.__name__}: {str(e)})')
+
 
     def conditioned_on(self, cond_kind):
         """Kind Combinator: computes the kind of the target conditioned on the mixer (this kind).
@@ -634,6 +651,8 @@ class Kind:
 
     def __mul__(self, other):
         "Mixes FRP with another independently"
+        if not isinstance(other, Kind):
+            return NotImplemented
         return self.independent_mixture(other)
 
     def __pow__(self, n, modulo=None):
@@ -690,7 +709,14 @@ class Kind:
         >> m without the values from k in the resulting kind.
 
         """
-        return self.mixture(cond_kind)
+        # We prefer a ConditionalKind (which is callable) but accept a callable or dict
+        if not callable(cond_kind) and not isinstance(cond_kind, dict):
+            return NotImplemented
+        try:
+            return self.mixture(cond_kind)
+        except Exception as e:
+            raise KindError('Problem computing mixture of a Kind and conditional Kind: '
+                            f'{str(e)}')
 
     def __xor__(self, statistic):
         """Applies a statistic or other function to a Kind and returns a transformed kind.
@@ -870,11 +896,12 @@ class TaggedKind(Kind):
         self._original = original
         self._stat = stat
 
+        # Note: Kind.transform is loose here; we could drop the following check
         lo, hi = stat.codim
-        if self.dim < lo or self.dim > hi:
+        if original.dim < lo or original.dim > hi:
             raise MismatchedDomain(f'Statistic {stat.name} is incompatible with this Kind, '
                                    f'which has dimension {self.dim} out of expected range '
-                                   f'[{lo}, {"infinity" if hi == math.inf else hi}].')
+                                   f'[{lo}..{"" if hi == math.inf else hi}).')
 
     def __or__(self, condition):
         return self._original.__or__(condition).transform(self._stat)
@@ -2087,8 +2114,9 @@ class ConditionalKind:
             def transformed(*value):
                 try:
                     return statistic(self._fn(*value))
-                except Exception:
-                    raise KindError(f'Statistic {statistic.name} appears incompatible with this conditional Kind.')
+                except Exception as e:
+                    raise KindError(f'Statistic {statistic.name} appears incompatible with this conditional Kind. '
+                                    f'({e.__class__.__name__}: {str(e)})')
         return ConditionalKind(transformed, codim=self._codim, target_dim=s_dim, domain=domain)
 
     def __xor__(self, statistic):
