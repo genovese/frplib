@@ -6,6 +6,7 @@ from frplib.frps       import frp, conditional_frp
 from frplib.kinds      import Kind, kind, conditional_kind, constant, either, uniform
 from frplib.statistics import __, Proj
 from frplib.utils      import dim, codim, typeof, clone, const
+from frplib.vec_tuples import as_vec_tuple
 
 def test_empty_conditional():
     X = frp(uniform(1, 2, ..., 8))
@@ -90,3 +91,22 @@ def test_auto_clone():
     vck = kind(fc0)
     assert not all(fc(0).value == vc0 for _ in range(128))
     assert all(Kind.equal(vck, kind(fc(0))) for _ in range(16))
+
+def test_ops():
+    k = uniform(1, 2, ..., 6) ** 2
+    X = frp(k)
+    v = X.value
+    Xc = Proj[2] @ X | (Proj[1] == v[0])
+    assert Xc.value == as_vec_tuple(v[1])
+
+    with pytest.raises(TypeError):
+        X >> 2
+
+    with pytest.raises(TypeError):
+        X >> X
+
+    with pytest.raises(TypeError):
+        X >> __
+
+    with pytest.raises(TypeError):
+        X * k

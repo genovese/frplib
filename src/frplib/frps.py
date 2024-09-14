@@ -1191,6 +1191,13 @@ def conditional_frp(
 
     """
     if mapping is not None:
+        # Accept ConditionalFRP and ConditionalKind (which are callable)
+        # and a general callable but not Statistics
+        if isinstance(mapping, Statistic):
+            raise ConstructionError('Cannot create Conditional FRP from a Statistic.')
+        elif not callable(mapping) and not isinstance(mapping, dict):
+            raise ConstructionError('Cannot create Conditional FRP from the given '
+                                    f'object of type {type(mapping).__name__}')
         return ConditionalFRP(mapping, codim=codim, dim=dim, target_dim=target_dim,
                               domain=domain, auto_clone=auto_clone)
 
@@ -1421,6 +1428,8 @@ class FRP:
 
     def __mul__(self, other):   # Self -> FRP -> FRP
         "Mixes FRP with another independently"
+        if not isinstance(other, FRP):
+            return NotImplemented
         return self.independent_mixture(other)
 
     def __pow__(self, n, modulo=None):  # Self -> int -> FRP
@@ -1438,7 +1447,13 @@ class FRP:
         "Mixes this FRP with a Conditional FRP (or a function giving for each value)"
         # ATTN:BUG? had this unconditionally (Convert to proper form with a copy  ATTN: clone this?)
         if not isinstance(c_frp, ConditionalFRP):
-            c_frp = conditional_frp(c_frp)
+            try:
+                c_frp = conditional_frp(c_frp)
+            except ConstructionError:
+                return NotImplemented
+            except Exception as e:
+                raise FrpError(f'In an mixture with an FRP, there was a problem '
+                               f'obtaining a conditional FRP: {str(e)}')
         resolved = False
         if self.is_kinded():
             assert self._kind is not None
@@ -1617,10 +1632,13 @@ def frp(spec) -> FRP:
     if isinstance(spec, str):
         return FRP(kind(spec))
 
+    if not isinstance(spec, (FRP, FrpExpression, Kind)):
+        raise FrpError(f'Cannot construct an FRP from object of type {type(spec).__name__}.')
+
     try:
         return FRP(spec)
     except Exception as e:
-        raise FrpError(f'I could not create an Frp from {spec}: {str(e)}')
+        raise FrpError(f'Could not create an FRP from {spec}: {str(e)}')
 
 def is_frp(x) -> TypeGuard[FRP]:
     return isinstance(x, FRP)
@@ -1639,14 +1657,20 @@ def is_conditional_frp(x) -> TypeGuard[Union[FRP, ConditionalFRP]]:
 #
 
 class TaggedFRP(FRP):
-    def __init__(self, createFrom, stat: Statistic):
-        original = frp(createFrom)
+    def __init__(self, createFrom: FRP | FrpExpression | Kind, stat: Statistic):
+        if is_frp(createFrom):
+            original = createFrom
+        elif isinstance(createFrom, (Kind, FrpExpression)):
+            original = frp(createFrom)
+        else:
+            raise FrpError(f'Cannot create an FRP from a value of type {type(createFrom).__name__}')
         super().__init__(original.transform(stat))
+
         self._original = original
         self._stat = stat
 
         lo, hi = stat.codim
-        if self.dim < lo or self.dim > hi:
+        if original.dim < lo or original.dim > hi:
             raise MismatchedDomain(f'Statistic {stat.name} is incompatible with this Kind, '
                                    f'which has dimension {self.dim} out of expected range '
                                    f'[{lo}, {"infinity" if hi == infinity else hi}].')
