@@ -6,6 +6,7 @@ import re
 
 from collections.abc   import Collection, Iterable, Sequence
 from dataclasses       import dataclass
+from decimal           import Decimal
 from enum              import Enum, auto
 from itertools         import chain, combinations, permutations, product, starmap
 from typing            import Literal, Callable, overload, Union, cast
@@ -40,6 +41,11 @@ from frplib.vec_tuples import (VecTuple, as_numeric_vec, as_scalar_strict, as_ve
 CanonicalKind: TypeAlias = list['KindBranch']
 QuantityType: TypeAlias = Union[Numeric, Symbolic]
 ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
+
+# Invariance of dict type causes incorrect type errors when constructing conditional Kinds
+# So we make the input type include the most common special cases individually
+# NOTE: This assumes NumericD for Numeric, which is why Decimal is used
+CondKindInput: TypeAlias = Callable[[ValueType], 'Kind'] | dict[ValueType, 'Kind'] | dict[QuantityType, 'Kind'] | dict[int, 'Kind'] | dict[Decimal, 'Kind'] | dict[Symbolic, 'Kind'] | 'Kind'
 
 
 #
@@ -1670,7 +1676,7 @@ class ConditionalKind:
     """
     def __init__(
             self,
-            mapping: Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind,
+            mapping: CondKindInput, # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind,
             *,
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,    # If not supplied, this inferred in dict case
@@ -2220,7 +2226,7 @@ class ConditionalKind:
         return ConditionalKind(mixed, codim=self._codim, dim=mdim, domain=domain)
 
 def conditional_kind(
-        mapping: Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind | None = None,
+        mapping: CondKindInput | ConditionalKind | None = None,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind | None = None,
         *,
         codim: int | None = None,
         dim: int | None = None,
@@ -2249,6 +2255,29 @@ def conditional_kind(
 
     """
     if mapping is not None:
+        if isinstance(mapping, Statistic):
+            raise ConstructionError('Cannot create Conditional Kind from a Statistic.')
+        elif not callable(mapping) and not isinstance(mapping, dict) and not isinstance(mapping, Kind):
+            raise ConstructionError('Cannot create Conditional Kind from the given '
+                                    f'object of type {type(mapping).__name__}')
+        elif hasattr(mapping, '_auto_clone'):  # Hack to detect ConditionalFRP and avoid circularity
+            raise ConstructionError('To create a Conditional Kind from a ConditionalFRP X '
+                                    'pass kind(X) to conditional_kind')
+
+        if isinstance(mapping, ConditionalKind):
+            if codim is None and dim is None and target_dim is None and domain is None:
+                return mapping  # No changes so return as is
+
+            codim = mapping._codim if codim is None else codim
+            dim = mapping._dim if dim is None else dim
+            target_dim = mapping._target_dim if target_dim is None else target_dim
+            if domain is None and not mapping._trivial_domain:
+                domain = mapping._domain_set if mapping._has_domain_set else mapping._domain
+            if mapping._is_dict:
+                mapping = mapping._targets
+            else:
+                mapping = mapping.target
+
         return ConditionalKind(mapping, codim=codim, dim=dim, domain=domain, target_dim=target_dim)
 
     def decorator(fn: Callable) -> ConditionalKind:

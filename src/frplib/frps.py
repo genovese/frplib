@@ -6,6 +6,7 @@ import random
 from abc               import ABC, abstractmethod
 from collections       import defaultdict
 from collections.abc   import Iterable
+from decimal           import Decimal
 from functools         import reduce
 from typing            import Callable, cast, overload, Union
 from typing_extensions import Self, Any, TypeAlias, TypeGuard
@@ -34,6 +35,10 @@ from frplib.vec_tuples import (VecTuple, as_scalar, as_scalar_weak, as_vec_tuple
 QuantityType: TypeAlias = Union[Numeric, Symbolic]
 ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 
+# Invariance of dict type causes incorrect type errors when constructing conditional FRPs
+# So we make the input type include the most common special cases individually
+# NOTE: This assumes NumericD for Numeric, which is why Decimal is used
+CondFrpInput: TypeAlias = Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | dict[int, 'FRP'] | dict[Decimal, 'FRP'] | dict[Symbolic, 'FRP'] | ConditionalKind | 'FRP'
 
 #
 # Helpers
@@ -499,7 +504,7 @@ class ConditionalFRP:
     """
     def __init__(
             self,
-            mapping: Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind,
+            mapping: CondFrpInput,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind,
             *,
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,
@@ -514,6 +519,9 @@ class ConditionalFRP:
             if domain is None and not mapping._trivial_domain:
                 domain = mapping._domain_set if mapping._has_domain_set else mapping._domain
             mapping = mapping.map(frp)  # dictionary of target FRPs
+        elif isinstance(mapping, FRP):
+            target_dim = target_dim or mapping.dim
+            mapping = const(mapping)
 
         self._auto_clone = auto_clone
 
@@ -1137,7 +1145,7 @@ class ConditionalFRP:
                               auto_clone=self._auto_clone)
 
 def conditional_frp(
-        mapping: Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
+        mapping: CondFrpInput | ConditionalFRP | None = None,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
         *,
         codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
         dim: int | None = None,
@@ -1198,6 +1206,18 @@ def conditional_frp(
         elif not callable(mapping) and not isinstance(mapping, dict):
             raise ConstructionError('Cannot create Conditional FRP from the given '
                                     f'object of type {type(mapping).__name__}')
+
+        if isinstance(mapping, ConditionalFRP):
+            codim = mapping._codim if codim is None else codim
+            dim = mapping._dim if dim is None else dim
+            target_dim = mapping._target_dim if target_dim is None else target_dim
+            if domain is None and not mapping._trivial_domain:
+                domain = mapping._domain_set if mapping._has_domain_set else mapping._domain
+            if mapping._is_dict:
+                mapping = mapping._targets
+            else:
+                mapping = mapping.target
+
         return ConditionalFRP(mapping, codim=codim, dim=dim, target_dim=target_dim,
                               domain=domain, auto_clone=auto_clone)
 

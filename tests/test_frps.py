@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from frplib.exceptions import ConstructionError
 from frplib.frps       import frp, conditional_frp
 from frplib.kinds      import Kind, kind, conditional_kind, constant, either, uniform
 from frplib.statistics import __, Proj
@@ -76,6 +77,15 @@ def test_conditional_frps():
     assert zz.value == f2(zf.value).value
 
     assert Kind.equal(kind(zz), uniform(0, 1, 2) >> k1 >> k2)
+
+    with pytest.raises(ConstructionError):
+        conditional_frp(__)
+
+    with pytest.raises(ConstructionError):
+        conditional_frp(2)
+
+    with pytest.raises(ConstructionError):
+        conditional_frp([])
 
 
 def test_auto_clone():

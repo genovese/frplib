@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from frplib.exceptions import (EvaluationError, ConstructionError, KindError, MismatchedDomain)
-from frplib.frps       import frp
+from frplib.frps       import frp, conditional_frp
 from frplib.kinds      import (Kind, ConditionalKind, kind, conditional_kind,
                                constant, either, uniform, binary,
                                symmetric, linear, geometric,
@@ -339,6 +339,9 @@ def test_conditional_kinds():
     assert Kind.equal(k8(0), uniform((0, 0, 0), (0, 0, 1), (0, 1, 0), (0, 1, 1)))
     assert Kind.equal(k8(1), uniform((1, 2, 2), (1, 2, 3), (1, 3, 2), (1, 3, 3)))
 
+    assert k7 == conditional_kind(k7)
+    assert k8 == conditional_kind(k8)
+
     # On a kind, we get a constant function
 
     k9 = conditional_kind(uniform(1, 2, 3), codim=1)
@@ -351,6 +354,20 @@ def test_conditional_kinds():
         k9d(100)
     with pytest.raises(MismatchedDomain):
         k9e(3)
+
+    with pytest.raises(ConstructionError):
+        conditional_kind(__)
+
+    with pytest.raises(ConstructionError):
+        conditional_kind(2)
+
+    with pytest.raises(ConstructionError):
+        conditional_kind([])
+
+    with pytest.raises(ConstructionError):
+        conditional_kind(conditional_frp({0: frp(uniform(1, 2, 3)), 1: frp(either(8, 9))}))
+
+
 
 def test_kernel():
     k = weighted_as({1: 2, 2: 4, 3: 8, 4: 2})
