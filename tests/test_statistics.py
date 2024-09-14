@@ -8,7 +8,7 @@ from frplib.kinds      import Kind, either
 from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                is_statistic, statistic, condition, scalar_statistic,
                                tuple_safe, infinity, ANY_TUPLE,
-                               fork, chain, compose,
+                               chain, compose,
                                Id, Scalar, __, Proj, _x_,
                                Sum, Count, Product, Max, Min, Mean, Abs,
                                Sqrt, Floor, Ceil,
@@ -23,7 +23,7 @@ from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                )
 from frplib.quantity   import as_quantity, qvec
 from frplib.symbolic   import symbol
-from frplib.utils      import codim, dim
+from frplib.utils      import codim, dim, identity
 from frplib.vec_tuples import vec_tuple
 
 
@@ -57,6 +57,13 @@ def test_builtin_statistics():
     assert Fork(__, Constantly(2), __ ** 2)(1) == vec_tuple(1, 2, 1)
     assert Fork(__, Constantly(2), __ ** 2)((1,)) == vec_tuple(1, 2, 1)
     assert Fork(__, Constantly(2), __ ** 2)((1, 2, 3)) == vec_tuple(1, 2, 3, 2, 1, 4, 9)
+
+    assert Fork(Id, 2, __ ** 2)(4) == vec_tuple(4, 2, 16)
+    assert Fork(identity, 2, __ ** 2)(4) == vec_tuple(4, 2, 16)
+    assert Fork(__ + 1, __ + 2, __ + 3)(10, 20) == vec_tuple(11, 21, 12, 22, 13, 23)
+
+    assert ForEach(__ ** 2)(1, 2, 3) == vec_tuple(1, 4, 9)
+    assert ForEach(9)(1, 2, 3) == vec_tuple(9, 9, 9)
 
     assert Cos(1)[0] == pytest.approx(as_quantity(math.cos(1)))
     assert Sin(1)[0] == pytest.approx(as_quantity(math.sin(1)))

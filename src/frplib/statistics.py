@@ -1474,41 +1474,73 @@ def Diffs(k: int):
 # Combinators
 #
 
-def ForEach(s: Statistic) -> Statistic:
-    """Statistics combinator. Produces a statistic that applies another statistic to each component of its argument.
+def _convert_to_statistic(const_or_func: Statistic | Callable | ScalarQ | Iterable ) -> Statistic:
+    if not isinstance(const_or_func, Statistic):
+        if callable(const_or_func):
+            return statistic(const_or_func)    # type: ignore
+        elif isinstance(const_or_func, Iterable):
+            return Constantly(*[as_quantity(c) for c in const_or_func])
+        else:
+            return Constantly(as_quantity(const_or_func))
+    else:
+        return const_or_func
 
-    This is typically applied to scalar statistics, where each application corresponds to one component,
-    but it accepts higher dim statistics. In this case, the tuples produced by the statistics
-    are concatenated in the result tuple.
+def ForEach(s: Statistic | Callable | ScalarQ | tuple ) -> Statistic:
+    """Statistics combinator. Returns a statistic that applies a statistic to each component of its input.
+
+    This is typically applied to scalar statistics, where each
+    application corresponds to one component, but it accepts higher
+    dim statistics. In this case, the tuples produced by the
+    statistics are concatenated in the result tuple.
+
+    Constant arguments are converted to Constantly statistics, and
+    callable arguments that are not statistics are wrapped in
+    statistic. It is recommended to use actual statistics except
+    in simple cases like idetity.
+
+    Examples:
+    + ForEach(__ ** 2)(1, 2, 3) == <1, 4, 9>
+    + ForEach(__ + 3)(1, 2, 3) == <4, 5, 6>
+    + ForEach(1)(1, 2, 3, 4) == <1, 1, 1, 1>
+    + ForEach((1, 2, 3))(10, 11, 12) == <1, 2, 3, 1, 2, 3, 1, 2, 3>
+
     """
+    stat = _convert_to_statistic(s)
+
     def foreach(*x):
         if len(x) > 0 and is_tuple(x[0]):
             x = x[0]
         result = []
         for xi in x:
-            result.extend(s(xi))
+            result.extend(stat(xi))
         return as_quant_vec(result)
-    return Statistic(foreach, codim=ANY_TUPLE, name=f'applies {s.name} to every component of input value')
+    return Statistic(foreach, codim=ANY_TUPLE, name=f'applies {stat.name} to every component of input value')
 
-def Fork(stat: Statistic | ScalarQ, *other_stats: Statistic | ScalarQ) -> Statistic:
+def Fork(stat: Statistic | Callable | ScalarQ | tuple, *other_stats: Statistic | Callable | ScalarQ | tuple) -> Statistic:
     """Statistics combinator. Produces a statistic that combines the values of other statistics into a tuple.
 
     If a statistic has dim > 1, the results are spliced into the tuple resulting from Fork.
+    Specifically, given input v, the statistic returned by Fork(s1, s2, ..., sn)
+    gives <s1(v), s2(v), ..., sn(v)> where the return values of the si's are concatenated
+    into one big tuple.
+
+    Constant arguments are wrapped in a Constantly statistics automatically.
+    Callable arguments that are not statistics are wrapped in statistic,
+    though it is recommended to pass actual statistics except in simple cases
+    like `identity`.
 
     Examples:
-
       + Fork(__, __ + 2, 2 * __ ) produes a statistic that takes a value x and returns <x, x + 2, 2 * x>.
       + Fork(Sum, Diff) produces a statistic that takes a tuple <x, y, z> and returns
             <x + y + z, y - x, z - y>
       + Fork(__, __) produces a statistic that takes a value <x1,x2,...,xn> and returns
             the tuple <x1,x2,...,xn,x1,x2,...,xn>
+      + Fork(Id, 1, Sum) takes a tuple and appends a 1 and the sum of the original
+        tuples.  Fork(identity, 1, Sum) would be equivalent, though Id is recommended.
 
     """
-    # Treat constants like statistics
-    if not isinstance(stat, Statistic):
-        stat = Constantly(as_quantity(stat))
-    more_stats: list[Statistic] = [s if isinstance(s, Statistic) else Constantly(as_quantity(s))
-                                   for s in other_stats]
+    stat = _convert_to_statistic(stat)
+    more_stats: list[Statistic] = [_convert_to_statistic(s) for s in other_stats]
 
     if len(more_stats) == 0:
         return stat
@@ -1664,8 +1696,8 @@ def Permute(*p: int | tuple[int, ...], cycle=True):
 
 def IfThenElse(
         cond: Statistic,
-        t: Statistic | tuple | float | int,
-        f: Statistic | tuple | float | int,
+        t: Statistic | Callable | ScalarQ | tuple,
+        f: Statistic | Callable | ScalarQ | tuple,
 ) -> Statistic:
     """Statistics combinator. Produces a statistic that uses one statistic to choose which other statistic to apply.
 
@@ -1679,14 +1711,15 @@ def IfThenElse(
     `f` :: A statistic to apply if `cond` returns a falsy value.
 
     All three statistics should have consistent codimensions.
+    When `t` and `f` are constants, they are converted to Constantly statistics.
+    When callable but not statistics, they are wrapped in statistic, though
+    actual statistics are recommended except in simple cases.
 
     Returns a new statistic with the largest possible range of codimensions.
 
     """
-    if not is_statistic(t):
-        t = Constantly(t)
-    if not is_statistic(f):
-        f = Constantly(f)
+    t = _convert_to_statistic(t)
+    f = _convert_to_statistic(f)
 
     arity_lo, arity_hi = combine_arities(cond, [t, f])
     if arity_lo > arity_hi:
