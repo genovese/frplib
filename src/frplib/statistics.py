@@ -1193,40 +1193,6 @@ def condition(
 # Statistics Combinators
 #
 
-def fork(*statistics: Statistic) -> Statistic:
-    """Statistic combinator. Produces a new statistic that combines others statistics' results in a tuple.
-
-    This is equivalent to the Fork combinator.
-    """
-    # ATTN: Only one of fork and Fork are needed
-    d = len(statistics)
-    if d == 0:
-        StatisticError('The fork combinator requires at least one and preferably two statistics, none given.')
-    if d == 1:
-        return statistics[0]
-
-    arity_lo, arity_hi = combine_arities(None, statistics)  # Arities must all be consistent
-
-    if arity_lo > arity_hi:
-        raise DomainDimensionError(f'fork must be called on statistics of consistent codimension,'
-                                   f' found min {arity_lo} > max {arity_hi}.')
-    codim = (arity_lo, arity_hi)
-    dim: Optional[int] = 0
-    if all(s.dim is not None and s.dim > 0 for s in statistics):
-        dim = sum(s.dim for s in statistics)  # type: ignore
-    if dim == 0:
-        dim = None
-
-    def forked(*x):
-        returns = []
-        for s in statistics:
-            returns.extend(s(*x))
-        return as_quant_vec(returns)
-    names = ", ".join([s.name for s in statistics])
-    return Statistic(forked, codim=codim, dim=dim,
-                     name=f'fork({names})',
-                     description=f'returns a tuple of the results of ({names})')
-
 def chain(*statistics: Statistic) -> Statistic:
     "Statistic combinator. Compose statistics in pipeline order: (f ; g)(x) = g(f(x)), read 'f then g'."
     if len(statistics) == 0:

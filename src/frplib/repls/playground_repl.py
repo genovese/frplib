@@ -91,7 +91,7 @@ playground_imports: dict[str, list[str]] = {
         'Statistic', 'Condition', 'MonoidalStatistic',
         'is_statistic', 'statistic', 'condition', 'scalar_statistic',
         'tuple_safe', 'infinity', 'is_true', 'is_false',
-        'fork', 'chain', 'compose', 'scalar_fn',
+        'chain', 'compose', 'scalar_fn',
         'Id', 'Scalar', '__', 'Proj', '_x_',
         'Sum', 'Product', 'Count', 'Max', 'Min', 'Abs', 'SumSq',
         'Sqrt', 'Floor', 'Ceil', 'NormalCDF',
