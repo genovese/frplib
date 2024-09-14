@@ -5,10 +5,18 @@ them into a new statistic.
 
 ## Component Combinators
 
-+ `ForEach` :: apply a statistic to every component of a value
++ `ForEach` :: apply a given statistic to every component of a value,
+    so  `ForEach(s)` maps `<v1, v2, ..., vn>` to `<s(v1), s(v2), ..., s(vn)>`,
+    where the results of the statistics are concatenated into
+    a single tuple.
+    If `s` is a constant, it is automatically wrapped in `Constantly`.
 
-+ `Fork` (also `fork`) :: `Fork(s1, s2, s3)` takes an input value v
-    and produces the tuple `<s1(v), s2(v), s3(v)>`.
++ `Fork` :: `Fork(s1, s2, s3, ..., sn)` takes an input value v
+    and produces the tuple `<s1(v), s2(v), s3(v), ..., sn(v)>`,
+    where the results of the statistics are concatenated into
+    a single tuple.
+    If `si` is a constant, it is automatically wrapped in `Constantly`,
+    so `Fork(Id, 1, s1, s2)` takes `v` to `<v, 1, s1(v), s2(v)>`.
 
 + `MFork` is exactly like `Fork` but is designed to accept only
    monoidal statistics. It's primary use is in the construction

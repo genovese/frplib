@@ -20,6 +20,8 @@ Values (and weights) can be specified in a variety of ways:
     should have the same dimension.)
   + As a single argument that is a dictionary mapping values to weights.
     (Scalar values will be wrapped in an appropriate vector tuple.)
+       weighted_as({0: 1, 1: 2, 2: 4})
+    has values 0, 1, and 2 with respective weights 1, 2, and 4.
 
 Value and weights can be numbers, tuples, symbols, or strings
 and are converted into quantities of the appropriate type.

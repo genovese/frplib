@@ -1358,14 +1358,19 @@ def weighted_by(*xs, weight_by: Callable) -> Kind:
         flattened into a sequence of values. (Though note: all values
         should have the same dimension.)
 
-    Values and weights can be numbers, tuples, symbols, or strings.
+    Values can be numbers, tuples, symbols, or strings.
     In the latter case they are converted to numbers or symbols as
     appropriate. `weight_by` must return a valid weight for all
     specified values.
 
+    The function `weight_by` should accept all the specified values
+    as valid inputs and should return a positive number.
+
     Examples:
       + `weighted_by(1, 2, 3, weight_by=lambda x: x ** 2)`
       + `weighted_by(1, 2, 3, weight_by=lambda x: 1 / x)`
+      + `weighted_by(1, 2, ..., 10, weight_by=const(1))` is equivalent
+         to `uniform(1, 2, ..., 10)`
 
     """
     values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES)
@@ -1459,6 +1464,7 @@ def weighted_pairs(*xs) -> Kind:     # Iterable[tuple[ValueType | ScalarQ, Scala
 
     Examples: 
     + weighted_pairs([(1, '1/2'), (2, '1/3'), (3, '1/6')])
+    + weighted_pairs((1, '1/2'), (2, '1/3'), (3, '1/6'))
     + weighted_pairs(((x, y), x + y) for x in irange(1, 3) for y in irange(1, 3))
 
     """
@@ -2277,9 +2283,10 @@ setattr(conditional_kind, '__info__', 'kind-factories')
 setattr(constant, '__info__', 'kind-factories::constant')
 setattr(uniform, '__info__', 'kind-factories::uniform')
 setattr(either, '__info__', 'kind-factories::either')
+setattr(binary, '__info__', 'kind-factories::binary')
 setattr(weighted_as, '__info__', 'kind-factories::weighted_as')
-setattr(weighted_by, '__info__', 'kind-factories')
-setattr(weighted_pairs, '__info__', 'kind-factories')
+setattr(weighted_by, '__info__', 'kind-factories::weighted_by')
+setattr(weighted_pairs, '__info__', 'kind-factories::weighted_pairs')
 setattr(symmetric, '__info__', 'kind-factories')
 setattr(linear, '__info__', 'kind-factories')
 setattr(geometric, '__info__', 'kind-factories')

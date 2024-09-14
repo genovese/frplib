@@ -12,7 +12,7 @@
 
 ## Functions on tuples
 
-+ `Sum`, `Count`, `Max`, `Min`,
++ `Sum`, `Count`, `Max`, `Min` :: Sum, count, maximum, or minimum of components.
 + `Abs` :: computes the Euclidean norm of a tuple, absolute value of a scalar.
 + `SumSq` :: computes the sum of squares of the components
 + `Diff` :: compute first order differences of the components in order,
@@ -21,7 +21,7 @@
 + `Mean`, `StdDev`, `Variance` :: computes the sample mean, standard deviation,
       and variance, respectively, of the tuple's components.
 + `SumSq` :: computes sum of squares of tuple's components
-+ `Norm` :: computes Euclidean norm of tuple
++ `Norm` :: computes Euclidean norm of tuple, the square root of the sum of squared components
 + `ArgMax` :: finds index (0-based) of biggest component
 + `ArgMin` :: finds index (0-based) of smallest component
 + `Ascending` :: sorts components in increasing order
@@ -34,18 +34,24 @@
 
 ## Standard Mathematical Functions
 
-`Abs`, `Sqrt`, `Floor`, `Ceil`, `Exp`, `Log`, `Log2`, `Log10`,
-`Sin`, `Cos`, `Tan`, `ACos`, `ASin`, `ATan2`, `Sinh`, `Cosh`, `Tanh`,
+Except for `Abs`, these functions expect a 1-dimensional input.
++ `Abs` :: absolute value of a scalar or the Euclidean norm (root sum of squares) of a tuple
++ `Sqrt` :: square root 
++ `Floor`, `Ceil` :: floor and ceiling -- greatest integer `<=` or least-integer `>=`
++ `Exp` :: exponential function
++ `Log`, `Log2`, `Log10` :: Logarithms, natural (base-e), base 2, and base 10
++ `Sin`, `Cos`, `Tan` :: standard trigonometric functions sine, cosine, and tangent
++ `ASin`, `ACos`, `ATan2` :: inverse sine, inverse cosine, inverse tangent (sector correct)
++ `Sinh`, `Cosh`, `Tanh` :: hyperbolic sine, hyperbolic cosine, hyperbolic tangent
 
 ## Other Functions
 
 + `FromDegrees` :: convert degrees to radians
 + `FromRadians` :: convert radians to degrees
 
-
 ## Special Mathematical Functions
 
-+ `NormalCDF` :: the standard normal Cumulative distribution function
++ `NormalCDF` :: the standard Normal cumulative distribution function
 
 ## Special values
 

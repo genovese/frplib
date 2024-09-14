@@ -33,4 +33,5 @@ patterns of weights on specified values.
 
 ## Available Sub-topics
 
-+ `kind`, `constant`, `uniform`, `either`, `weighted_as`, `evenly_spaced`, `without_replacement`
++ `kind`, `constant`, `uniform`, `either`, `weighted_as`, `evenly_spaced`, `without_replacement`,
+  `binary`, `weighted_pairs`, `weighted_by`
