@@ -319,14 +319,23 @@ def show(x, *, print_it=True, indent=0, render=True):
         ind0 = (" " * indent)
         ind = ind0 + "  "
         sep = "\n" + ind
-        init = "[\n" + ind
-        final = "\n" + ind0 + "]"
+        init = ind0 + "[\n" # + ind
+        final = "\n" + "]"  # "\n" + ind0 + "]"
         # Note: handle panels and block text
-        out = init + sep.join([show(xi, print_it=False, indent=indent + 2, render=False)
+        out = init + "\n".join([show(xi, print_it=False, indent=indent + 2, render=False).replace('\n', sep)
                                for xi in x]) + final
     elif isinstance(x, dict):
         ind0 = (" " * indent)
-        out = str({k: show(v, print_it=False) for k, v in x.items()})
+        ind = ind0 + "  "
+        sep = "\n" + ind + "  "
+        init = ind0 + "{"
+        final = "\n" + "}"
+        # Note: handle panels and block text
+        out = init
+        for k, v in x.items():
+            out += "\n" + ind + str(k) + ":\n" + show(v, print_it=False, indent=indent + 4, render=False).replace('\n', sep)
+        out += final
+        # out = str({k: show(v, print_it=False, render=False, indent=indent + 2).replace('\n', sep) for k, v in x.items()})
     else:
         ind0 = (" " * indent)
         out = ind0 + str(x)
