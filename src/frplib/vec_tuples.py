@@ -449,6 +449,7 @@ class VecTuple(tuple[T, ...]):
 
     @classmethod
     def join(cls: Type[Self], values: Iterable[Self]) -> Self:
+        "Concatenates a list of VecTuples in order into a single VecTuple."
         combined = []
         for value in values:
             combined.extend(list(value))
@@ -481,6 +482,33 @@ def as_numeric_vec(x):
 def is_vec_tuple(x) -> TypeGuard[VecTuple[T]]:
     "Is this a VecTuple?"
     return isinstance(x, VecTuple)
+
+def _is_sequence(x) -> TypeGuard[Iterable]:
+    return isinstance(x, Iterable) and not isinstance(x, str)
+
+def join(*x: T | VecTuple[T] | Iterable[T | tuple[T, ...]]) -> VecTuple[T]:
+    """Concatenates one or more values in order into a single VecTuple.
+
+    Values can be given as a single iterable argument (not a tuple or string)
+    containing tuples or scalars, or as multiple tuple or scalar arguments.
+
+    Returns a VecTuple joining all values in order.
+
+    Examples:
+    + join(1, 2, 3) => <1, 2, 3>
+    + join((1, 2), 3, (4, 5, 6)) => <1, 2, 3, 4, 5, 6>
+    + join([(1, 2), (3, 4), (5, 6)]) => <1, 2, 3, 4, 5, 6>
+
+    """
+    if len(x) == 0:
+        return vec_tuple()
+
+    if len(x) == 1 and _is_sequence(x[0]) and not isinstance(x[0], tuple):
+        vtups: Iterable = x[0]
+    else:
+        vtups = x
+
+    return VecTuple.join(list(map(as_vec_tuple, vtups)))
 
 def value_set(*vals) -> set[VecTuple]:
     """Create a set of VecTuples from specified values or a single iterator.
