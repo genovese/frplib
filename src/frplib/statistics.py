@@ -1607,7 +1607,11 @@ def Fork(stat: Statistic | Callable | ScalarQ | tuple, *other_stats: Statistic |
                      name=f'fork({stat.name}, {", ".join([s.name for s in more_stats])})')
 
 def MFork(stat: MonoidalStatistic | ScalarQ, *other_stats: MonoidalStatistic | ScalarQ) -> MonoidalStatistic:
-    "Like Fork, but takes and returns Monoidal Statistics."
+    """Like Fork, but takes and returns Monoidal Statistics.
+
+    Deprecated in v0.2.6 as Fork now automatically checks for Monoidal Statistics.
+
+    """
     return cast(MonoidalStatistic, Fork(stat, *other_stats))
 
 # ATTN: fix up (cycle notation and straight) but keeping it simple for now
@@ -2107,6 +2111,52 @@ def Cases(d, default=None):
         raise MismatchedDomain(f'Value {k} not in domain of statistic {name}')
     return g
 
+def Append(*v):
+    """Statistics factory. The returned statistic appends given values to its input.
+
+    Values are specified as one or more scalars or tuples.
+    If no values are given, this is equivalent to Id.
+
+    Examples:
+    + Append(10)(1, 2, 3) => <1, 2, 3, 10>
+    + Append(10, 20, 30)(1, 2, 3) => <1, 2, 3, 10, 20, 30>
+    + Append(10, (20, 30))(1, 2, 3) => <1, 2, 3, 10, 20, 30>
+
+    Added in v0.2.6.
+
+    """
+    if len(v) == 0:
+        return Id
+
+    @statistic
+    def append(input):
+        return join(input, *v)
+
+    return append
+
+def Prepend(*v):
+    """Statistics factory. The returned statistic prepends given values to its input.
+
+    Values are specified as one or more scalars or tuples.
+    If no values are given, this is equivalent to Id.
+
+    Examples
+    + Prepend(10)(1, 2, 3) => <10, 1, 2, 3>
+    + Prepend(10, 20, 30)(1, 2, 3) => <10, 20, 30, 1, 2, 3>
+    + Prepend(10, (20, 30))(1, 2, 3) => <10, 20, 30, 1, 2, 3>
+
+    Added in v0.2.6.
+
+    """
+    if len(v) == 0:
+        return Id
+
+    @statistic
+    def prepend(input):
+        return join(*v, input)
+
+    return prepend
+
 
 #
 # Info tags
@@ -2118,7 +2168,8 @@ setattr(condition, '__info__', 'statistic-factories')
 setattr(Constantly, '__info__', 'statistic-factories')
 setattr(Permute, '__info__', 'statistic-factories')
 setattr(Proj, '__info__', 'statistic-factories::projections')
-
+setattr(Append, '__info__', 'statistic-factories')
+setattr(Prepend, '__info__', 'statistic-factories')
 
 setattr(__, '__info__', 'statistic-builtins')
 setattr(Id, '__info__', 'statistic-builtins')
