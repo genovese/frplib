@@ -104,7 +104,7 @@ playground_imports: dict[str, list[str]] = {
         'Diff', 'Diffs', 'Permute',
         'Constantly', 'Fork', 'MFork', 'ForEach', 'IfThenElse',
         'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
-        'All', 'Any', 'Cases',
+        'All', 'Any', 'Cases', 'Append', 'Prepend',
     ],
     'expectations': ['E', 'Var', 'D_'],
     'frps': [
@@ -123,7 +123,7 @@ playground_imports: dict[str, list[str]] = {
     'vec_tuples': [
         'VecTuple',
         'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float',
-        'is_vec_tuple', 'vec_tuple',
+        'is_vec_tuple', 'vec_tuple', 'join',
     ],
     'extras': [
         'components',

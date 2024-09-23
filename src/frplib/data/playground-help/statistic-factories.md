@@ -34,6 +34,10 @@
             giving the new positions, e.g., `Permute(3, 2, 1)` puts the 3rd component first,
             and the first component third.  (more features are coming soon to this)
 
++ `Append` :: Creates a statistic that appends one or more values to its input tuple.
+
++ `Prepend` :: Creates a statistic that prepends one or more values to its input tuple.
+
 
 ## Sub-topics
 
