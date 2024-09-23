@@ -3,11 +3,11 @@ from __future__ import annotations
 import pytest
 
 from frplib.exceptions import ConstructionError
-from frplib.frps       import frp, conditional_frp
+from frplib.frps       import frp, conditional_frp, PureExpression, MixtureExpression
 from frplib.kinds      import Kind, kind, conditional_kind, constant, either, uniform
 from frplib.statistics import __, Proj
 from frplib.utils      import dim, codim, typeof, clone, const
-from frplib.vec_tuples import as_vec_tuple
+from frplib.vec_tuples import as_vec_tuple, join
 
 def test_empty_conditional():
     X = frp(uniform(1, 2, ..., 8))
@@ -31,7 +31,7 @@ def test_frp_transform():
 #
 
 def test_conditional_frps():
-    u = conditional_frp({0: frp(either(0, 1)), 1: frp(uniform(1, 2, 3)), 2: frp(uniform(4, 5))})  # type: ignore
+    u = conditional_frp({0: frp(either(0, 1)), 1: frp(uniform(1, 2, 3)), 2: frp(uniform(4, 5))})
     v = frp(uniform(0, 1, 2))
 
     assert Kind.equal(kind(v >> u ^ Proj[2]), kind(u // v))  # tests fix of Bug 10
@@ -56,6 +56,17 @@ def test_conditional_frps():
     assert dim(f1 // z) == 1
     print(zf, dim(zf))
     assert (f1 // z).value == zf[2].value
+
+    f2 = conditional_frp(k1)
+    f12 = f1 * f2
+    assert f12(0).value == join(f1(0).value, f2.target(0).value)
+    assert f12(1).value == join(f1(1).value, f2.target(1).value)
+    assert f12(2).value == join(f1(2).value, f2.target(2).value)
+
+    f1_3 = f1 ** 3
+    assert f1_3(0).dim == 4
+    assert f1_3(1).dim == 4
+    assert f1_3(2).dim == 4
 
     k2 = conditional_kind({(0, 0): either(10, 20),
                            (0, 1): either(30, 40),
@@ -90,8 +101,8 @@ def test_conditional_frps():
 
 def test_auto_clone():
     "Testing caching and auto cloning in conditional FRPs"
-    fu = conditional_frp({0: frp(either(0, 1)), 1: frp(uniform(3, 4, 5))})  # type: ignore
-    fc = conditional_frp({0: frp(either(0, 1)), 1: frp(uniform(3, 4, 5))}, auto_clone=True)  # type: ignore
+    fu = conditional_frp({0: frp(either(0, 1)), 1: frp(uniform(3, 4, 5))})
+    fc = conditional_frp({0: frp(either(0, 1)), 1: frp(uniform(3, 4, 5))}, auto_clone=True)
 
     v0 = fu(0).value
     assert all(fu(0).value == v0 for _ in range(32))
@@ -120,3 +131,43 @@ def test_ops():
 
     with pytest.raises(TypeError):
         X * k
+
+def test_freshness():
+    "Tests that values and freshness of FRPs propagate properly."
+    U = frp(uniform(1, 2, ..., 5))
+    assert U.is_fresh
+    U1 = U ^ (__ ** 2 + 10)
+    assert U1.is_fresh
+    u1_v = U1.value
+    assert not U1.is_fresh and not U.is_fresh
+    assert u1_v[0] == U.value[0] ** 2 + 10
+
+    X = frp(uniform(1, 2, 3))
+    Y = frp(uniform(1, 2, 3))
+    assert X.is_fresh and Y.is_fresh
+    XY = X * Y
+    assert XY.is_fresh
+    
+    xy_val = join(X.value, Y.value)
+    assert not XY.is_fresh
+    assert XY.value == xy_val
+
+    ck = conditional_kind({0: uniform(1, 2, 3), 1: either(4, 5), 2: constant(10)})
+    cf = conditional_frp(ck)
+    R = frp(uniform(0, 1, 2))
+    assert R.is_fresh
+    assert cf(0).is_fresh and cf(1).is_fresh and cf(2).is_fresh
+    RC = R >> cf
+    assert RC.is_fresh
+    rc_val = cf(R.value).value
+    assert not RC.is_fresh
+    assert RC.value == rc_val
+
+def test_expressions():
+    u = PureExpression(frp(uniform(1, 2, 3)))
+    cf = conditional_frp({1: frp(either(2,3)), 2: frp(either(4, 5)), 3: frp(either(5, 6))})
+    v = MixtureExpression(u, cf)
+    r = uniform( (1, 2), (1, 3), (2, 4), (2, 5), (3, 5), (3, 6) )
+
+    assert Kind.equal(kind(u), uniform(1, 2, 3))
+    assert Kind.equal(kind(frp(v)), r)

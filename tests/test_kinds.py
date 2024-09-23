@@ -367,8 +367,6 @@ def test_conditional_kinds():
     with pytest.raises(ConstructionError):
         conditional_kind(conditional_frp({0: frp(uniform(1, 2, 3)), 1: frp(either(8, 9))}))
 
-
-
 def test_kernel():
     k = weighted_as({1: 2, 2: 4, 3: 8, 4: 2})
     assert k.kernel(1) == 1/8
