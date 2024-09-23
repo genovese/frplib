@@ -10,6 +10,10 @@ from frplib.numeric    import (NICE_DIGITS, Numeric, ScalarQ,
 from frplib.symbolic   import Symbolic, symbol
 from frplib.vec_tuples import VecTuple, vec_tuple
 
+
+INFINITY = numeric_q_from_str('Infinity').value
+NEGATIVE_INFINITY = numeric_q_from_str('-Infinity').value
+
 def as_quantity(
         x: ScalarQ | Symbolic = 0,
         convert_numeric=as_numeric  # as_nice_numeric  # ATTN: as_numeric instead??
@@ -60,6 +64,12 @@ def show_quantities(xs: Iterable[Numeric | Symbolic]) -> list[str]:
     for i, x in enumerate(xs):
         if isinstance(x, Symbolic):
             symbols.append(str(x))
+            place_at.append((i, False))
+        elif x == INFINITY:
+            symbols.append("\u221e")
+            place_at.append((i, False))
+        elif x == NEGATIVE_INFINITY:
+            symbols.append("-\u221e")
             place_at.append((i, False))
         else:
             numerics.append(x)
