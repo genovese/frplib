@@ -2241,6 +2241,31 @@ class ConditionalKind:
 
         return ConditionalKind(mixed, codim=self._codim, dim=mdim, domain=domain)
 
+    def __pow__(self, n, modulo=None):
+        if not isinstance(n, int):
+            return NotImplemented
+
+        if n < 0:
+            return KindError('For conditional Kinds, ** requires a non-negative power')
+
+        tdim = self._target_dim * n if self._target_dim is not None else None
+
+        if self._has_domain_set:
+            domain = self._domain_set
+        else:
+            domain = None
+
+        if self._is_dict:
+            s_domain = domain or self._mapping.keys()
+            mapping = {given: self._targets[given] ** n for given in s_domain}
+
+            return ConditionalKind(mapping, codim=self._codim, target_dim=tdim, domain=domain or self._domain)
+
+        def mixed(*given):
+            return self._target_fn(*given) ** n
+
+        return ConditionalKind(mixed, codim=self._codim, target_dim=tdim, domain=domain or self._domain)
+
 def conditional_kind(
         mapping: CondKindInput | ConditionalKind | None = None,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind | None = None,
         *,
