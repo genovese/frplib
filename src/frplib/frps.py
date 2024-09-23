@@ -1154,6 +1154,36 @@ class ConditionalFRP:
         return ConditionalFRP(mixed, codim=self._codim, dim=mdim, domain=domain,
                               auto_clone=self._auto_clone)
 
+    def __pow__(self, n, modulo=None):
+        if not isinstance(n, int):
+            return NotImplemented
+
+        if n < 0:
+            raise FrpError('For conditional FRPs, ** requires a non-negative power')
+
+        if self._target_dim is None:
+            tdim: int | None = None
+        else:
+            tdim = self._target_dim * n
+
+        if self._has_domain_set:
+            domain = self._domain_set
+        else:
+            domain = None
+
+        if self._is_dict:
+            s_domain = domain or self._mapping.keys()
+            mapping = {given: self._targets[given] ** n for given in s_domain}
+
+            return ConditionalFRP(mapping, codim=self._codim, target_dim=tdim, domain=domain or self._domain,
+                                  auto_clone=self._auto_clone)
+
+        def mixed(*given):
+            return self._target_fn(*given) ** n
+
+        return ConditionalFRP(mixed, codim=self._codim, target_dim=tdim, domain=domain or self._domain,
+                              auto_clone=self._auto_clone)
+
 def conditional_frp(
         mapping: CondFrpInput | ConditionalFRP | None = None,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
         *,
