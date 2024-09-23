@@ -22,7 +22,7 @@ from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
 from frplib.numeric    import Numeric, show_tuple, as_real
 from frplib.protocols  import Projection, SupportsExpectation
 from frplib.quantity   import as_quant_vec
-from frplib.statistics import Statistic, compose2, infinity, tuple_safe, Proj
+from frplib.statistics import Statistic, compose2, infinity, tuple_safe, Proj, Prepend
 from frplib.symbolic   import Symbolic
 from frplib.utils      import const, is_tuple, scalarize
 from frplib.vec_tuples import (VecTuple, as_scalar, as_scalar_weak, as_vec_tuple, vec_tuple, value_set_from)
@@ -199,8 +199,15 @@ class FrpExpression(ABC):
     def kind(self) -> Kind:
         ...
 
+    def kind_of(self) -> Kind:
+        return self.kind()
+
     @abstractmethod
     def clone(self) -> FrpExpression:
+        ...
+
+    @abstractmethod
+    def _refresh_cached_value(self) -> ValueType | None:
         ...
 
 class TransformExpression(FrpExpression):
@@ -238,6 +245,13 @@ class TransformExpression(FrpExpression):
         new_expr = TransformExpression(self._transform, self._target.clone())
         new_expr._cached_kind = self._cached_kind
         return new_expr
+
+    def _refresh_cached_value(self) -> ValueType | None:
+        if self._cached_value is None:
+            val = self._target._refresh_cached_value()
+            if val is not None:
+                self._cached_value = self._transform(val)
+        return self._cached_value
 
 class IMixtureExpression(FrpExpression):
     def __init__(self, terms: Iterable['FrpExpression']) -> None:
@@ -316,6 +330,21 @@ class IMixtureExpression(FrpExpression):
         raise ComplexExpectationWarning('The expectation of this FRP could not be computed '
                                         'without first finding its kind.')
 
+    def _refresh_cached_value(self) -> ValueType | None:
+        if self._cached_value is None:
+            vals = []
+            has_cached = True
+            for op in self._operands:
+                cv = op._refresh_cached_value()
+                if cv is None:
+                    has_cached = False
+                    break
+                vals.append(cv)
+
+            if has_cached:
+                self._cached_value = VecTuple.join(vals)
+        return self._cached_value
+
     @classmethod
     def append(cls, mixture: 'IMixtureExpression', other: 'FrpExpression') -> 'IMixtureExpression':
         "Returns a new IMixture with target as the last term."
@@ -369,6 +398,10 @@ class IMixPowerExpression(FrpExpression):
         raise ComplexExpectationWarning('The expectation of this FRP could not be computed '
                                         'without first finding its kind.')
 
+    def _refresh_cached_value(self) -> ValueType | None:
+        # Because these are cloned, there's nothing to probe here
+        return self._cached_value
+
 class MixtureExpression(FrpExpression):
     # ATTN: the target should be passed to conditional_frp before this
     def __init__(self, mixer: FrpExpression, target: 'ConditionalFRP') -> None:
@@ -390,7 +423,7 @@ class MixtureExpression(FrpExpression):
 
     def kind(self) -> Kind:
         if self._cached_kind is None:
-            self._cached_kind = self._mixer.kind() >> self._target
+            self._cached_kind = self._mixer.kind() >> kind(self._target)  # Fixes Bug 41
         return self._cached_kind
 
     def clone(self) -> 'MixtureExpression':
@@ -398,11 +431,23 @@ class MixtureExpression(FrpExpression):
         new_expr._cached_kind = self._cached_kind
         return new_expr
 
+    def _refresh_cached_value(self) -> ValueType | None:
+        if self._cached_value is None:
+            mix_val = self._mixer._refresh_cached_value()
+            if mix_val is not None:
+                target_val = self._target(mix_val)._get_cached_value()
+                if target_val is not None:
+                    self._cached_value = target_val
+        return self._cached_value
+
 class ConditionalExpression(FrpExpression):
     def __init__(self, target: FrpExpression, condition: Callable[[ValueType], Any]) -> None:  # Any is morally bool
         super().__init__()
         self._condition = condition   # This will typically be a statistic returning a bool
         self._target = target
+
+        if self._target._cached_kind is not None:
+            self._cached_kind = self._target._cached_kind | condition
 
     def sample1(self) -> ValueType:
         while True:  # If condition is always false, this will not terminate
@@ -437,11 +482,24 @@ class ConditionalExpression(FrpExpression):
         new_expr._cached_kind = self._cached_kind
         return new_expr
 
+    def _refresh_cached_value(self) -> ValueType | None:
+        if self._cached_value is None:
+            val = self._target._refresh_cached_value()
+            if val is not None:
+                satisfies = bool(as_scalar(self._condition(val)))
+                self._cached_value = val if satisfies else vec_tuple()
+        return self._cached_value
+
 class PureExpression(FrpExpression):
     """An expression representing a specific FRP.
 
     This acts as a leaf in the expression tree. Note that FRPs are logically
-    immutable, and we keep the *specific* FRP as part of the expression. ...ATTN
+    immutable, and we keep the *specific* FRP as part of the expression.
+    As a result, values should propagate properly through the entire expression
+    tree. If the target FRP is Kinded, we store the Kind, and we also
+    cache the value. See class method `fromKind` to create a PureExpression
+    from a Kind with a fresh FRP.
+
     """
     def __init__(self, frp: 'FRP') -> None:
         super().__init__()
@@ -451,15 +509,22 @@ class PureExpression(FrpExpression):
         if frp._value is not None:
             self._cached_value = frp._value
 
+    @classmethod
+    def from_kind(cls, k: Kind) -> PureExpression:
+        "Returns a PureExpression based on a *fresh* FRP built from the given Kind."
+        return PureExpression(frp(k))
+
     def sample1(self, want_value=False) -> ValueType:
         return FRP.sample1(self._target)
 
     def value(self) -> ValueType:
-        self._cached_value = self._target.value  # For checks in other expressions
+        if self._cached_value is None:
+            self._cached_value = self._target.value  # For checks in other expressions
         return self._cached_value
 
     def kind(self) -> Kind:
-        self._cached_kind = self._target.kind    # For checks in other expressions
+        if self._cached_kind is None:
+            self._cached_kind = self._target.kind    # For checks in other expressions
         return self._cached_kind
 
     def clone(self) -> 'PureExpression':
@@ -472,6 +537,14 @@ class PureExpression(FrpExpression):
             return self._target.kind.expectation()
         raise ComplexExpectationWarning('The expectation of this FRP could not be computed '
                                         'without first finding its kind.')
+
+    def _refresh_cached_value(self) -> ValueType | None:
+        if self._cached_value is None:
+            val = self._target._value or (self._target._expr and self._target._expr._refresh_cached_value())
+            if val is not None:
+                self._cached_value = val  # type: ignore
+        return self._cached_value
+
 
 def as_expression(frp: 'FRP') -> FrpExpression:
     """Returns an FRP expression that is equivalent to this FRP.
@@ -545,8 +618,10 @@ class ConditionalFRP:
             self._mapping: dict[ValueType, 'FRP'] = {}
             self._targets: dict[ValueType, 'FRP'] = {}  # NB: Trading space for time by keeping these
             for k, v in mapping.items():
+                if not is_frp(v):
+                    raise ConstructionError(f'Dictionary for a conditional FRP should map to FRPs, but {v} is not an FRP')
                 kin = as_quant_vec(k)
-                vout = v.transform(lambda u: VecTuple.concat(kin, u))  # Input pass through
+                vout = v.transform(Prepend(kin))  # Input pass through
                 self._mapping[kin] = vout
                 self._targets[kin] = v
             self._original_fn: Callable[[ValueType], 'FRP'] | None = None
@@ -576,20 +651,19 @@ class ConditionalFRP:
                 _codim = codim
 
             maybe_dims: set[int] = set()
-            # all_kinded = True
+            all_dims = True
             for k, v in self._mapping.items():
                 if _codim is None or k.dim == _codim:
-                    if v.is_kinded():
-                        maybe_dims.add(v.dim)
-                    else:  # ISSUE 27: can we risk getting a value here or just bail on inferring dim
-                        # all_kinded = False
-                        # break  # Cannot definitely determine dim in this case
-                        ## Do it for now
-                        maybe_dims.add(len(v.value))
-                    # ATTN: do we need to restrict to common dims here?
+                    if v.is_kinded() or v._get_cached_value() is not None:
+                        maybe_dims.add(v.dim)  # Do not compute the FRP's value if not available
+                    else:
+                        # If not all kinded, we give up on infering dim (resolves ISSUE 27)
+                        all_dims = False
+                        break
+                    # ATTN: Also, do we need to restrict to common dims here?
 
             if dim is None and target_dim is None:
-                if len(maybe_dims) == 1:  # and all_kinded:
+                if len(maybe_dims) == 1 and all_dims:
                     _dim: int | None = list(maybe_dims)[0]
                 else:
                     _dim = None
@@ -678,10 +752,6 @@ class ConditionalFRP:
             self._fn: Callable[..., 'FRP'] = fn
             self._target_fn: Callable[..., 'FRP'] = tfn
 
-            # if (self._dim is not None and
-            #     any([v.is_kinded() and v.dim != self._dim
-            #          for _, v in self._mapping.items()])):
-            #     raise ConstructionError('The FRPs produced by a conditional FRP are not all of the same dimension')
         elif callable(mapping):         # Check to please mypy
             self._is_dict = False
             self._mapping = {}  # Cache, if used
@@ -761,7 +831,7 @@ class ConditionalFRP:
                 except Exception as e:
                     raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP: {str(e)}')
 
-                extended = result.transform(lambda u: VecTuple.concat(value, u))  # Input pass through
+                extended = result.transform(Prepend(value))  # Input pass through
 
                 if self._auto_clone:
                     extended = extended.clone()
@@ -793,7 +863,7 @@ class ConditionalFRP:
                 if self._auto_clone:
                     result = result.clone()
                 else:
-                    extended = result.transform(lambda u: VecTuple.concat(value, u))  # Input pass through
+                    extended = result.transform(Prepend(value))  # Input pass through
                     self._mapping[value] = extended   # Cache, fn should be pure
                     self._targets[value] = result     # Store unextended to ease some operations
                 return result   # on auto_clone do a clone() here
@@ -969,7 +1039,7 @@ class ConditionalFRP:
     def __str__(self) -> str:
         # if dict put out a table of values and FRP summaries in dictionary order
         # if callable, put out what information we have
-        tbl = '\n'.join('  {value:<16s}  {frp:<s}'.format(value=str(k), frp=str(v))
+        tbl = '\n'.join('  {value:<16s}  {frp:<s}'.format(value=str(k), frp='A fresh FRP' if v.is_fresh else str(v))
                         for k, v in sorted(self._targets.items(), key=lambda item: tuple(item[0]))
                         if self._domain(k))
         dlabel = f' with domain={str(self._domain_set)}.' if self._has_domain_set else ''
@@ -1123,15 +1193,12 @@ class ConditionalFRP:
             return NotImplemented
 
         if self._codim is None or cfrp._codim != self._codim:
-            raise FrpError('For conditional FRPs, * requires both to have fixed codimensions')
+            raise FrpError('For conditional FRPs, * requires both to have same codimensions')
 
         if self._dim is None or cfrp._dim is None:
             mdim: int | None = None
         else:
             mdim = self._dim + cfrp._dim - cfrp._codim
-
-        if self._codim is None or cfrp._codim != self._codim:
-            raise FrpError('For conditional Kinds, * requires both to have fixed codimensions')
 
         if self._has_domain_set and cfrp._has_domain_set:
             domain = self._domain_set & cfrp._domain_set
@@ -1293,18 +1360,23 @@ class FRP:
             self._value: ValueType | None = vec_tuple()
             return
 
-        if isinstance(create_from, FRP):  # Like clone, value not copied
-            if create_from.is_kinded():
-                assert create_from._kind is not None
-                create_from = create_from._kind
+        if isinstance(create_from, FRP):
+            # Note: unlike frp() which is idempotent on FRPs, this gives a fresh copy
+            if create_from._expr is not None:
+                expr = create_from._expr
+                if create_from.is_kinded():
+                    expr._cached_kind = create_from.kind
+                expr._cached_value = None
+                create_from = expr
+            elif create_from.is_kinded():
+                create_from = create_from.kind
             else:
-                assert create_from._expr is not None
-                create_from = create_from._expr
+                raise ConstructionError('Cannot create an FRP without a Kind or expression')
 
         if isinstance(create_from, FrpExpression):
             self._expr = create_from
             self._kind = create_from._cached_kind    # Computed Lazily
-            self._value = create_from._cached_value  # Computed Lazily
+            self._value = None
         else:
             self._kind = Kind(create_from)
             self._expr = None
@@ -1354,9 +1426,14 @@ class FRP:
 
     @property
     def dim(self) -> int:
-        "Returns the dimension of the FRP's kind. The value is computed if it has not been already."
+        "Returns the FRP's dimension. The value is computed if the Kind is not available."
         if self._kind is None:
-            return len(self.value)  # The value is likely cheaper than the kind to produce here
+            if self._expr is not None and self._expr._cached_kind is not None:
+                return self._expr._cached_kind.dim
+            elif self._expr is not None and self._expr._cached_value is not None:
+                return len(self._expr._cached_value)
+            else:
+                return len(self.value)  # The value is likely cheaper than the kind to produce here
         return self._kind.dim
 
     @property
@@ -1374,6 +1451,17 @@ class FRP:
             assert self._expr is not None
             self._kind = self._expr.kind()
         return self._kind
+
+    @property
+    def is_fresh(self) -> bool:
+        """True if this FRP does not yet have a value.
+
+        Note that by default frp() produces ``eager'' FRPs that may be
+        implicitly activated when it is convenient.
+
+        """
+        val = self._get_cached_value()
+        return val is None
 
     def expectation(self):
         """Returns the expectation of this FRP, unless computationally inadvisable.
@@ -1435,22 +1523,50 @@ class FRP:
 
     def _get_value(self):
         "Like FRP.sample1 but gets actual value from an expression. Only call if _value is None."
+        # An expression can have a stored Kind, so we check its value first
+        if self._expr is not None:
+            return self._expr.value()
+
         if self._kind is not None:
             return FRP.sample1(self)
-        assert self._expr is not None
-        return self._expr.value()
+
+        # This would be a violation of the invariant that at least one of _kind or _expr exists
+        raise FrpError('FRP is missing both expression and Kind, so cannot get a value.')
+
+    def _get_cached_value(self):
+        """Refreshes cached value of an expression tree without generating a value.
+
+        If an expression has a cached value, this will update an empty ._value field .
+
+        """
+        if self._value is None and self._expr is not None:
+            val = self._expr._refresh_cached_value()
+            if val is not None:
+                self._value = val
+        return self._value
 
     def is_kinded(self):
-        "Returns true if this FRP has an efficiently available kind."
-        return self._expr is None and self._kind is not None
+        """Returns true if this FRP has a Kind that can be efficiently obtained.
+
+        This will be True if the FRP was constructed directly from a Kind,
+        but also if the FRP is built from an expression whose Kind has already
+        been found.
+
+        When this returns True, it is safe to use self.kind to look at the
+        Kind of this FRP as it will not spawn a potentially long calculation.
+        One should use the .kind property, not other internal fields, as
+        the Kind might be obtained in several ways.
+
+        """
+        return self._kind is not None or (self._expr is not None and self._expr._cached_kind is not None)
 
     def clone(self) -> FRP:
         if self.is_kinded():
             new_frp = FRP(self.kind)
         else:
-            assert self._expr is not None   # Grrr...
+            assert self._expr is not None   # Grrr mypy...
             new_frp = FRP(self._expr.clone())
-            new_frp._kind = self._kind  # If already computed, use it.
+            new_frp._kind = self._kind or self._expr._cached_kind  # If already computed, use it.
         return new_frp
 
     # Operations and Operators on FRPs that mirrors the same for Kinds
@@ -1460,30 +1576,43 @@ class FRP:
     # the kind if the complexity is below a threshold.
 
     def independent_mixture(self, frp: 'FRP') -> 'FRP':
-        we_are_kinded = self.is_kinded() and frp.is_kinded()
-
-        if self._value is not None and frp._value is not None:
-            value = join_values([self._value, frp._value])
-        else:
+        if self.is_fresh or frp.is_fresh:
             value = None
-
-        # Redundant assertions here because mypy doesn't know is_kinded => ._kind is not None
-        if we_are_kinded and self._kind is not None and frp._kind is not None and \
-           self._kind.size * frp._kind.size <= self.COMPLEXITY_THRESHOLD:
-            spec = self._kind * frp._kind
-            value = value or join_values([self.value, frp.value])  # Generate values if needed
-        elif isinstance(self._expr, IMixtureExpression) and isinstance(frp._expr, IMixtureExpression):
-            spec = IMixtureExpression.join(self._expr, frp._expr)
-        elif isinstance(self._expr, IMixtureExpression):
-            spec = IMixtureExpression.append(self._expr, as_expression(frp))
-        elif isinstance(frp._expr, IMixtureExpression):
-            spec = IMixtureExpression.prepend(frp._expr, as_expression(self))
         else:
-            spec = IMixtureExpression([as_expression(self), as_expression(frp)])
+            value = join_values([self.value, frp.value])
+
+        our_kind: Union[Kind, None] = None
+        if self.is_kinded() and frp.is_kinded():
+            k1 = self.kind
+            k2 = frp.kind
+            if k1.size * k2.size <= self.COMPLEXITY_THRESHOLD:
+                our_kind = k1 * k2
+
+        # ATTN:Issue 43 if self and frp are expressions that happen
+        # to be Kinded, we probably want to create this as an
+        # expression. Moreover, it's not obviously a good idea to
+        # generate the values in the first case.
+
+        if our_kind is not None and value is not None:
+            spec: Union[Kind, IMixtureExpression] = our_kind
+        else:
+            if isinstance(self._expr, IMixtureExpression) and isinstance(frp._expr, IMixtureExpression):
+                spec = IMixtureExpression.join(self._expr, frp._expr)
+            elif isinstance(self._expr, IMixtureExpression):
+                spec = IMixtureExpression.append(self._expr, as_expression(frp))
+            elif isinstance(frp._expr, IMixtureExpression):
+                spec = IMixtureExpression.prepend(frp._expr, as_expression(self))
+            else:
+                spec = IMixtureExpression([as_expression(self), as_expression(frp)])
+
+            spec._cached_kind = our_kind
+            spec._cached_value = value
 
         result = FRP(spec)
         if value is not None:
             result._value = value
+        if our_kind is not None and result._kind is None:
+            result._kind = our_kind
         return result
 
     def __mul__(self, other):   # Self -> FRP -> FRP
@@ -1504,8 +1633,14 @@ class FRP:
         return FRP(expr)
 
     def __rshift__(self, c_frp):
-        "Mixes this FRP with a Conditional FRP (or a function giving for each value)"
-        # ATTN:BUG? had this unconditionally (Convert to proper form with a copy  ATTN: clone this?)
+        "Mixes this FRP with a Conditional FRP (or a function/dict giving an FRP for each value)"
+        if isinstance(c_frp, ConditionalKind):
+            raise FrpError('A mixture with an FRP requires a conditional FRP on the right of >> '
+                           'but a conditional Kind was given. Try kind(f) >> c or f >> conditional_frp(c).')
+
+        if not callable(c_frp) and not isinstance(c_frp, dict):
+            return NotImplemented
+
         if not isinstance(c_frp, ConditionalFRP):
             try:
                 c_frp = conditional_frp(c_frp)
@@ -1514,62 +1649,87 @@ class FRP:
             except Exception as e:
                 raise FrpError(f'In an mixture with an FRP, there was a problem '
                                f'obtaining a conditional FRP: {str(e)}')
-        resolved = False
+
+        mix_kind: Kind | None = None
+        mixer_val = self._get_cached_value()
+        if mixer_val is not None:
+            try:
+                target_val = c_frp.target(mixer_val)._get_cached_value()
+            except Exception as e:
+                raise FrpError(f'In a mixture, conditional FRP appears incompatible with mixer '
+                               f'at value {mixer_val}: {str(e)}')
+        else:
+            target_val = None
+
         if self.is_kinded():
-            assert self._kind is not None
-            dim = self._kind.dim
+            my_kind = self.kind
+            dim = my_kind.dim
             if c_frp._codim is not None and c_frp._codim != dim:
                 FrpError(f'Incompatible mixture of dim {dim} FRP with codim {c_frp._codim} conditional FRP')
-            targets = {branch.vs: c_frp.target(branch.vs) for branch in self._kind._branches}
-            viable = True
-            for target in targets.values():
-                if not target.is_kinded() or (dim * target._kind.dim > self.COMPLEXITY_THRESHOLD):
-                    viable = False
+
+            make_kinded = True
+            targets = {}
+            for branch in my_kind._branches:
+                try:
+                    target = c_frp.target(branch.vs)
+                except Exception as e:
+                    raise FrpError(f'In a mixture, conditional FRP appears incompatible with mixer '
+                                   f'at value {branch.vs}: {str(e)}')
+
+                if not target.is_kinded() or (dim * target.kind.dim > self.COMPLEXITY_THRESHOLD):
+                    make_kinded = False
                     break
-            if viable:   # Return a Kinded FRP
+                targets[branch.vs] = target
+
+            if make_kinded:   # Return a Kinded FRP
                 c_kind = ConditionalKind({val: frp.kind for val, frp in targets.items()}, codim=dim)
-                result = FRP(self._kind >> c_kind)
-                # Since we're kinded, generate the values now
-                result._value = c_frp(self.value).value
-                resolved = True
-            else:
-                resolved = False
-        if not resolved:
+                mix_kind = my_kind >> c_kind
+
+        if mix_kind is not None and target_val is not None:
+            result = FRP(mix_kind)
+            result._value = VecTuple.concat(mixer_val, target_val)
+        else:
             expr = MixtureExpression(as_expression(self), c_frp)
             result = FRP(expr)
-            if self._value is not None:
-                frp = c_frp(self._value)
-                if frp._value is not None:
-                    result._value = frp._value
+            if target_val is not None:
+                result._value = VecTuple.concat(mixer_val, target_val)
+            if mix_kind is not None:
+                result._kind = mix_kind
         return result
 
     def transform(self, f_mapping):
         "Applies a transform/Statistic to an FRP"
-        # ATTN! Handle actual statistic here; error checking etc.
         if isinstance(f_mapping, Statistic):
-            if self.is_kinded():
+            if self.is_kinded():  # ensures dim check is cheap
                 fdim_lo, fdim_hi = f_mapping.codim
                 if self.dim < fdim_lo or self.dim > fdim_hi:
                     raise MismatchedDomain(f'Statistic {f_mapping.name} is incompatible with this FRP: '
                                            f'acceptable dimension [{fdim_lo},{fdim_hi}] but FRP dimension {self.dim}.')
-            elif self._value is not None:  # Should we just get the value here or risk an error? ATTN
-                try:
-                    f_mapping(self._value)
-                except Exception:
-                    raise MismatchedDomain(f'Statistic {f_mapping.name} is incompatible with this FRP: '
-                                           f'could not evaluate it on the FRPs value.')
-            stat: Callable = f_mapping
+            else:  # check compatibility if value available but do not generate it
+                val = self._get_cached_value()
+                if val is not None:
+                    try:
+                        f_mapping(val)
+                    except Exception:
+                        raise MismatchedDomain(f'Statistic {f_mapping.name} is incompatible with this FRP: '
+                                               f'could not evaluate it on the FRPs value.')
+            stat = f_mapping
+        elif callable(f_mapping) and not isinstance(f_mapping, (ConditionalKind, ConditionalFRP)):
+            stat = Statistic(f_mapping)
         else:
-            stat = tuple_safe(f_mapping)
-        if self.is_kinded():
-            assert self._kind is not None
-            result = FRP(self._kind ^ stat)
-            result._value = stat(self.value)
+            raise ConstructionError('Transforming an FRP requires a statistic or related function')
+
+        val = self._get_cached_value()
+        kinded = self.is_kinded()
+        if kinded and val is not None:
+            result = FRP(self.kind ^ stat)
+            result._value = stat(val)
         else:
             result = FRP(TransformExpression(stat, as_expression(self)))
-            # ATTN: this next might be handled by caching!
-            if self._value is not None:
-                result._value = stat(self._value)
+            if kinded:
+                result._kind = self.kind ^ stat
+            if val is not None:
+                result._value = stat(val)
         return result
 
     def __xor__(self, f_mapping):
@@ -1638,15 +1798,21 @@ class FRP:
         if isinstance(predicate, Statistic):
             condition: Callable = predicate
         elif callable(predicate):
-            condition = tuple_safe(predicate)   # ATTN: update?
+            condition = tuple_safe(predicate)   # ATTN: update?  Condition(predicate) ??
         else:
-            raise ConditionMustBeCallable('A conditional requires a condition after the given bar.')
+            raise ConditionMustBeCallable('A conditional constraint requires a condition after the given bar.')
 
-        # ATTN: Can avoid evaluating the value until asked by using the expression version
-        # But the cost here does not seem high in the kinded case, so we can activate it.
-        # And logically that makes sense; else how do we think about the conditional.
+        # If this FRP is fresh, we use a conditional expression to preserve both the
+        # Kind and the value when it is determined. This avoids forcing an empty
+        # FRP when nothing suggests it.
+        #
+        # There is a question about the value and meaning of conditionally constrained FRPs.
+        # We want the constrained FRP to be consistent with the original and still reflect
+        # the correct Kind, including for cloning. Sometimes these are in conflict.
+        # When the value is inconsistent, we set value and Kind to empty; at that point,
+        # cloning and kind() will not get back to the general Kind; it will have collapsed.
 
-        if self.is_kinded():
+        if self.is_kinded() and not self.is_fresh:
             relevant = condition(self.value)  # We evaluate the value here
             # Fixing Bug 11 27 Jul 2024  Require the condition/fn to return a scalar here
             if isinstance(relevant, tuple):
@@ -1682,13 +1848,15 @@ class FRP:
 def frp(spec) -> FRP:
     """A generic constructor for FRPs from a variety of objects.
 
-    Parameter `spec` can be a string, a Kind, another FRP, or an FRP
-    expression.
-
-    Returns a fresh FRP corresponding to spec. If the input is an
-    FRP, this returns a clone.
+    Parameter `spec` can be a string, a Kind, an FRP, or an FRP
+    expression. When `spec` is an FRP, it is returned as is;
+    use `clone` to get a fresh copy. Otherwise, returns
+    a fresh FRP matching spec.
 
     """
+    if isinstance(spec, FRP):
+        return spec
+
     if isinstance(spec, str):
         return FRP(kind(spec))
 
@@ -1820,6 +1988,9 @@ class FisherYates(FrpExpression):
         self._cached_value = None
         self.value()
         return self
+
+    def _refresh_cached_value(self) -> ValueType | None:
+        return self._cached_value
 
 def shuffle(items: Iterable) -> FRP:
     return frp(FisherYates(items))
