@@ -23,7 +23,8 @@ from frplib.protocols  import Projection, Transformable
 from frplib.quantity   import as_quant_vec, as_quantity
 from frplib.symbolic   import Symbolic
 from frplib.utils      import dim, identity, is_interactive, is_tuple, scalarize
-from frplib.vec_tuples import VecTuple, as_scalar, as_scalar_strict, as_vec_tuple, is_vec_tuple, vec_tuple
+from frplib.vec_tuples import (VecTuple, as_scalar, as_scalar_strict, as_vec_tuple,
+                               is_vec_tuple, vec_tuple, join)
 
 # ATTN: conversion with as_real etc in truediv, pow to prevent accidental float conversion
 # This could be mitigated by eliminating ints from as_numeric*, but we'll see how this
@@ -907,6 +908,7 @@ class Statistic:
         return compose2(other, self)
 
 def is_statistic(x) -> TypeGuard[Statistic]:
+    "Returns True if the given object is a Statistic."
     return isinstance(x, Statistic)
 
 def scalar_fn(stat: Statistic) -> Callable:
@@ -916,6 +918,27 @@ def scalar_fn(stat: Statistic) -> Callable:
     return as_fn
 
 class MonoidalStatistic(Statistic):
+    """A statistic that can be computed in parallel, typically one derived from an underlying monoid.
+
+    The basic equations for a monoidal statistic m are
+
+        m(a :: b) = m(m(a) :: m(b))
+        m() = unit
+
+    where :: is tuple concatenation and unit is the "monoidal unit" for the statistic.
+
+    The first equation allows m to be computed in parallel. For instance,
+    fast_mixture_pow uses this to compute m(k ** n) for a Kind k and large n.
+    When m is derived from an underlying monoid (e.g., Sum), unit is the identity
+    element for the monoid (e.g., 0)
+
+    An example of statistics that satisfy these equations formally
+    are the statistics Constantly(v). If m = Constantly(v),
+    then trivially m(a :: b) = v = m(v :: v). If we take unit = v,
+    we can think of this as the trivial one-element monoid,
+    but this is a formality.
+
+    """
     def __init__(
             self,
             fn: Callable | 'Statistic',               # Either a Statistic or a function to be turned into one
@@ -934,6 +957,10 @@ class MonoidalStatistic(Statistic):
         if len(args) == 0:
             return self.unit
         return super().__call__(*args)
+
+def is_monoidal(x) -> TypeGuard[MonoidalStatistic]:
+    "Returns True if the given object is a Monoidal Statistic."
+    return isinstance(x, MonoidalStatistic)
 
 class ProjectionStatistic(Statistic, Projection):
     """Special statistics that extract one or more components from the tuple passed as input.
@@ -1250,16 +1277,12 @@ def compose(*statistics: Statistic) -> Statistic:
 # Commonly Used Statistics
 #
 
-Id = Statistic(identity, codim=ANY_TUPLE, name='identity', description='returns the value given as is')
+Id = MonoidalStatistic(identity, unit=vec_tuple(), codim=ANY_TUPLE, name='identity', description='returns the value given as is')
 Scalar = Statistic(lambda x: x[0] if is_tuple(x) else x, codim=1, dim=1, strict=True,
                    name='scalar', description='represents a scalar value')
 __ = Statistic(identity, codim=ANY_TUPLE, name='__', description='represents the value given to the statistic')
 _x_ = Scalar
 
-# def Constantly(x) -> Statistic:
-#     "A statistic factory that produces a statistic that always returns `x`."
-#     xvec = as_quant_vec(x)
-#     return Statistic(lambda _: xvec, codim=ANY_TUPLE, dim=len(xvec), name=f'The constant {xvec}')
 def Constantly(*x) -> Statistic:
     """A statistic factory that produces a statistic that always returns the specified value.
 
@@ -1270,12 +1293,15 @@ def Constantly(*x) -> Statistic:
     + Constantly(1)       -- a statistic that always returns <1>
     + Constantly(1, 2, 3) -- a statistic that always returns <1, 2, 3>
 
+    This is formally a Monoidal statistic and thus can be parallelized.
+
     """
     if len(x) == 1 and is_tuple(x[0]):
         xvec = as_quant_vec(x[0])
     else:
         xvec = as_quant_vec(x)
-    return Statistic(lambda _: xvec, codim=ANY_TUPLE, dim=len(xvec), name=f'The constant {xvec}')
+    return MonoidalStatistic(lambda _: xvec, unit=xvec, codim=ANY_TUPLE, dim=len(xvec),
+                             name=f'constant {xvec}', description=f'always returns {xvec}')
 
 Sum = MonoidalStatistic(sum, unit=0, codim=0, dim=1, name='sum',
                         description='returns the sum of all the components of the given value')
@@ -1545,6 +1571,15 @@ def Fork(stat: Statistic | Callable | ScalarQ | tuple, *other_stats: Statistic |
     if len(more_stats) == 0:
         return stat
 
+    if is_monoidal(stat) and all(is_monoidal(s) for s in more_stats):
+        monoidal = True
+        units = [stat.unit]
+        units.extend(s.unit for s in more_stats)  # type: ignore
+        unit = VecTuple.join(units)
+    else:
+        monoidal = False
+        unit = vec_tuple()
+
     arity_lo, arity_hi = combine_arities(stat, more_stats)  # Arities must all be consistent
 
     if arity_lo > arity_hi:
@@ -1563,6 +1598,10 @@ def Fork(stat: Statistic | Callable | ScalarQ | tuple, *other_stats: Statistic |
         for s in more_stats:
             returns.extend(s(*x))
         return as_quant_vec(returns)
+
+    if monoidal:
+        return MonoidalStatistic(forked, unit=unit, codim=codim, dim=dim,
+                                 name=f'fork({stat.name}, {", ".join([s.name for s in more_stats])})')
 
     return Statistic(forked, codim=codim, dim=dim,
                      name=f'fork({stat.name}, {", ".join([s.name for s in more_stats])})')
@@ -2014,6 +2053,8 @@ def Cases(d, default=None):
         for respective inputs 1, 10, 100, or 1000.  Any other input will raise an error.
 
     Returns a statistic with properly recorded type.
+
+    Added in v0.2.4.
 
     """
     if len(d) == 0:
