@@ -933,6 +933,10 @@ def kind(any) -> Kind:
     "A generic constructor for kinds, from strings, other kinds, FRPs, and more."
     if isinstance(any, Kind):
         return any
+
+    if isinstance(any, SupportsKindOf):  # FRPExpressions have .kind_of and .kind methods
+        return any.kind_of()
+
     # ATTN: Add case for conditional FRP to produce a conditional Kind
     #       Types(union) might be an issue downstream but probably not
     #       Maybe add a Kind property to ConditionalFRP to handle this?
@@ -943,9 +947,6 @@ def kind(any) -> Kind:
         return Kind.empty
     if isinstance(any, str) and (any in {'void', 'empty'} or re.match(r'\s*\(\s*<\s*>\s*\)\s*', any)):
         return Kind.empty
-
-    if isinstance(any, SupportsKindOf):
-        return any.kind_of()
 
     try:
         return Kind(any)
@@ -1217,7 +1218,7 @@ def uniform(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ell
 
     Examples:
     + uniform(1, 2, 3)
-    + uniform((0, 0), (0, 1), (1, 0), (1, 1)) 
+    + uniform((0, 0), (0, 1), (1, 0), (1, 1))
     + uniform(1, 2, ..., 16)
     + uniform([10, 20, 30])
     + uniform( (x, y) for x in irange(1, 3) for y in irange(1, 3) )
@@ -1483,7 +1484,7 @@ def weighted_pairs(*xs) -> Kind:     # Iterable[tuple[ValueType | ScalarQ, Scala
     to quantities. both can contain numbers, symbols, or strings.
     Repeated values will have their weights combined.
 
-    Examples: 
+    Examples:
     + weighted_pairs([(1, '1/2'), (2, '1/3'), (3, '1/6')])
     + weighted_pairs((1, '1/2'), (2, '1/3'), (3, '1/6'))
     + weighted_pairs(((x, y), x + y) for x in irange(1, 3) for y in irange(1, 3))
