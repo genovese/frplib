@@ -844,12 +844,22 @@ class ConditionalFRP:
         "Computes the conditional Kind of this conditional FRP. Warning: Evaluates target Kinds."
         if self._is_dict:
             c_kind = {k: kind(v) for k, v in self._targets.items()}
-            return ConditionalKind(c_kind, codim=self._codim, dim=self._dim, domain=self._domain)
+            return ConditionalKind(c_kind, codim=self._codim, dim=self._dim, domain=c_kind.keys())
 
         def c_kind_fn(value):
             return kind(self._target_fn(value))
 
-        return ConditionalKind(c_kind_fn, codim=self._codim, dim=self._dim, domain=self._domain)
+        if self._has_domain_set:
+            domain = self._domain_set
+
+            # If we've evaluated the whole domain, convert to a dictionary
+            if domain == set(self._targets.keys()):
+                c_kind = {k: kind(v) for k, v in self._targets.items()}
+                return ConditionalKind(c_kind, codim=self._codim, dim=self._dim, domain=domain)
+        else:
+            domain = self._domain   # type: ignore
+
+        return ConditionalKind(c_kind_fn, codim=self._codim, dim=self._dim, domain=domain)
 
     def clone(self) -> 'ConditionalFRP':
         if self._is_dict:
