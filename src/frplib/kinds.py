@@ -653,16 +653,16 @@ class Kind:
         return self._dimension > 0
 
     def __iter__(self):
-        yield from ((b.p, b.vs) for b in self._canonical)
+        yield from ((b.vs, b.p) for b in self._canonical)
 
     def __mul__(self, other):
-        "Mixes FRP with another independently"
+        "Mixes Kind with another independently"
         if not isinstance(other, Kind):
             return NotImplemented
         return self.independent_mixture(other)
 
     def __pow__(self, n, modulo=None):
-        "Mixes FRP with itself n times independently"
+        "Mixes Kind with itself n times independently"
         # Use monoidal power trick
         if n < 0:
             raise KindError('Kind powers with negative exponents not allowed')
@@ -718,6 +718,9 @@ class Kind:
         # We prefer a ConditionalKind (which is callable) but accept a callable or dict
         if not callable(cond_kind) and not isinstance(cond_kind, dict):
             return NotImplemented
+        if hasattr(cond_kind, '_auto_clone'):  # Hack to detect conditional FRP without circularity
+            raise KindError('A mixture with a Kind requires a conditional Kind on the right of >> '
+                            'but a conditional FRP was given. Try frp(k) >> c or k >> kind(c).')
         try:
             return self.mixture(cond_kind)
         except Exception as e:
@@ -1156,6 +1159,18 @@ def binary(p='1/2'):
 
     The weight p can be any quantity but if numeric should be 0 <= p <= 1.
     The default is p = 1/2.
+
+    Example:
+    + binary()
+          ,---- 1/2 ---- 0
+      <> -|
+          `---- 1/2 ---- 1
+    + binary('1/3')
+          ,---- 2/3 ---- 0
+      <> -|
+          `---- 1/3 ---- 1
+
+    Added in v0.2.4.
 
     """
     w = as_quantity(p)
@@ -1707,6 +1722,9 @@ class ConditionalKind:
             self._mapping: dict[ValueType, Kind] = {}
             self._targets: dict[ValueType, Kind] = {}  # NB: Trading space for time by keeping these
             for k, v in mapping.items():
+                if not isinstance(v, Kind):
+                    raise ConstructionError(f'Dictionary for a conditional Kind should map to Kinds, but {v} is not a Kind')
+
                 kin = as_quant_vec(k)
                 vout = v.map(lambda u: VecTuple.concat(kin, u))  # Input pass through
                 self._mapping[kin] = vout
@@ -2202,9 +2220,6 @@ class ConditionalKind:
             mdim: int | None = None
         else:
             mdim = self._dim + ckind._dim - ckind._codim
-
-        if self._codim is None or ckind._codim != self._codim:
-            raise OperationError('For conditional Kinds, * requires both to have fixed codimensions')
 
         if self._has_domain_set and ckind._has_domain_set:
             domain = self._domain_set & ckind._domain_set
