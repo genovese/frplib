@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import pytest
 
-from frplib.exceptions import ConstructionError
-from frplib.frps       import frp, conditional_frp, PureExpression, MixtureExpression
-from frplib.kinds      import Kind, kind, conditional_kind, constant, either, uniform
-from frplib.statistics import __, Proj
-from frplib.utils      import dim, codim, typeof, clone, const
-from frplib.vec_tuples import as_vec_tuple, join
+from hypothesis             import given
+from hypothesis.strategies  import integers, decimals, tuples, lists, one_of, dictionaries
+
+from frplib.exceptions   import ConstructionError
+from frplib.expectations import E
+from frplib.frps         import frp, conditional_frp, PureExpression, MixtureExpression
+from frplib.kinds        import Kind, kind, conditional_kind, constant, either, uniform, weighted_as
+from frplib.quantity     import as_quantity
+from frplib.statistics   import __, Proj
+from frplib.utils        import dim, codim, typeof, clone, const
+from frplib.vec_tuples   import as_vec_tuple, join
 
 def test_empty_conditional():
     X = frp(uniform(1, 2, ..., 8))
@@ -24,6 +29,17 @@ def test_frp_transform():
     assert Kind.equal(kind(X ^ const(0)), constant(0))
     assert Kind.equal(kind(X * X ^ Proj[1]), kind(X))
     assert Kind.equal(kind(X * X ^ Proj[2]), kind(X))
+
+    assert E(X).raw == as_quantity('7/2')
+
+    Y = X ^ (__ + 1)
+    assert Y.value == X.value + 1
+    Y = X ^ const(0)
+    assert Y.value == 0
+    Y = X * X ^ Proj[1]
+    assert Y.value == X.value
+    Y = X * X ^ Proj[2]
+    assert Y.value == X.value
 
 
 #
@@ -171,3 +187,29 @@ def test_expressions():
 
     assert Kind.equal(kind(u), uniform(1, 2, 3))
     assert Kind.equal(kind(frp(v)), r)
+
+
+def kind_gen(d, s):
+    weights = decimals(min_value=1, max_value=1000, allow_nan=False, allow_infinity=False)
+    values = lists(decimals(min_value=-5000, max_value=5000, allow_nan=False, allow_infinity=False), min_size=d, max_size=d).map(as_vec_tuple)   # type: ignore
+    kinds = dictionaries(values, weights, min_size=s, max_size=s).map(weighted_as)
+    return kinds
+
+@given(kind_gen(2, 5))
+def test_transform_gen(k):
+    X = frp(k)
+    assert X.value in k.weights
+    assert (Proj[1](X)).value == X.value[:1]
+
+    Y = frp(k)
+    assert (X * Y).value == join(X.value, Y.value)
+
+    cF = conditional_frp({0: X, 1: Y})
+    U = frp(either(0, 1))
+    Z = U >> cF
+    if U.value == 0:
+        assert Z.value == join(0, X.value)
+    else:
+        assert Z.value == join(1, Y.value)
+
+    assert E(X) == E(k)
