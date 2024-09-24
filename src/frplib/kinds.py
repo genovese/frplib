@@ -1035,16 +1035,19 @@ def bayes(observed_y, x, y_given_x):
     return (x >> y_given_x | (Proj[i:] == observed_y)) ^ Proj[1:i]
 
 def fast_mixture_pow(mstat: MonoidalStatistic, k: Kind, n: int) -> Kind:
-    """Efficiently computes the kind mstat(k ** n) for monoidal statistic `mstat`.
+    """Efficiently computes the Kind mstat(k ** n) for monoidal statistic `mstat`.
 
     Parameters
     ----------
-    `mstat` :: An arbitrary monoidal statistic. If this is not monoidal, the computed
-        kind may not be valid.
-    `k` :: An arbitrary kind
+    `mstat` :: An arbitrary monoidal statistic. If this is not monoidal,
+        the computed Kind may not be valid.
+    `k` :: An arbitrary Kind
     `n` :: A natural number
 
-    Returns the kind mstat(k ** n) without computing k ** n directly.
+    Returns the Kind mstat(k ** n) without computing k ** n directly.
+
+    Example:
+    + fast_mixture_pow(Sum, k, n) computes Sum(k ** n)
 
     """
     if n < 0:
