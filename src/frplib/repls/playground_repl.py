@@ -85,7 +85,7 @@ playground_imports: dict[str, list[str]] = {
         'symmetric', 'linear', 'geometric',
         'weighted_by', 'weighted_as', 'weighted_pairs',
         'arbitrary', 'integers', 'evenly_spaced', 'bin',
-        'without_replacement', 'subsets', 'permutations_of',
+        'without_replacement', 'ordered_samples', 'subsets', 'permutations_of',
     ],
     'statistics': [
         'Statistic', 'Condition', 'MonoidalStatistic',
@@ -100,11 +100,12 @@ playground_imports: dict[str, list[str]] = {
         'Pi', 'FromDegrees', 'FromRadians',
         'Mean', 'StdDev', 'Variance',
         'SumSq', 'Norm', 'Dot',
-        'ArgMin', 'ArgMax', 'Ascending', 'Descending',
-        'Diff', 'Diffs', 'Permute',
+        'ArgMin', 'ArgMax', 'Ascending', 'Descending', 'Distinct',
+        'Diff', 'Diffs', 'Permute', 'ElementOf',
         'Constantly', 'Fork', 'MFork', 'ForEach', 'IfThenElse',
         'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
         'All', 'Any', 'Cases', 'Append', 'Prepend',
+        'Get', 'Keep', 'MaybeMap'
     ],
     'expectations': ['E', 'Var', 'D_'],
     'frps': [
@@ -112,7 +113,8 @@ playground_imports: dict[str, list[str]] = {
     ],
     'calculate': ['substitute', 'substitute_with', 'substitution'],
     'numeric': ['numeric_exp', 'numeric_ln', 'numeric_log10', 'numeric_log2',
-                'numeric_abs', 'numeric_sqrt', 'numeric_floor', 'numeric_ceil'],
+                'numeric_abs', 'numeric_sqrt', 'numeric_floor', 'numeric_ceil',
+                'nothing'],
     'quantity': ['as_quantity', 'qvec'],
     'symbolic': ['gen_symbol', 'is_symbolic', 'is_zero', 'symbol', 'symbols'],
     'utils': [
@@ -122,7 +124,7 @@ playground_imports: dict[str, list[str]] = {
     ],
     'vec_tuples': [
         'VecTuple',
-        'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float',
+        'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float', 'as_bool',
         'is_vec_tuple', 'vec_tuple', 'join',
     ],
     'extras': [

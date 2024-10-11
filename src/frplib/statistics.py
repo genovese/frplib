@@ -1156,7 +1156,7 @@ def statistic(
             s = MonoidalStatistic(maybe_fn, monoidal, codim, dim, name, description, strict=strict)
 
         if arg_convert is not None:
-            convert = Statistic(lambda v: map(arg_convert, v), codim=s.codim)   # type: ignore
+            convert = Statistic(lambda v: map(arg_convert, v), codim=s.codim)
             s = compose2(s, convert)
         return s
 
@@ -1465,6 +1465,11 @@ def Ascending(v):
 def Descending(v):
     "returns the components of its input in decreasing order"
     return sorted(v, reverse=True)
+
+@condition
+def Distinct(v):
+    "tests if all components are distinct."
+    return len(v) == len(frozenset(v))
 
 @scalar_statistic(name='atan2', codim=(1, 2), description='returns the sector correct arctangent')
 def ATan2(x, y=1):
@@ -2237,6 +2242,182 @@ def Prepend(*v):
 
     return prepend
 
+def ElementOf(*v):
+    """Statitic factory that tests for membership in a collection of values.
+
+    Values are specified with a single iterable argument containing
+    the values, or with more than one arguments. In both cases, all
+    individual values are converted to vec_tuples.
+
+    Examples:
+    + ElementOf(1, 2, 3) returns true for 1, 2, or 3 as scalars or tuples.
+    + ElementOf((1, 2), (3, 4), (5, 6)) returns true for values (1, 2),
+      (3, 4), or (5, 6), false otherwise.
+    + ElementOf([(1, 2), (3, 4), (5, 6)]) is equivalent to the last case.
+
+    """
+    if len(v) == 1 and isinstance(v[0], Iterable):
+        value_set = frozenset(map(as_vec_tuple, v[0]))
+    else:
+        value_set = frozenset(map(as_vec_tuple, v))
+
+    @condition
+    def element_of(value):
+        return value in value_set
+
+    return element_of
+
+def Get(obj, key=identity, scalarize=True):
+    """Statistic factory for accessing a python object with [].
+
+    Parameters
+    ----------
+    obj - a Python object that can be indexed with []
+    key - a function applied to the input value before
+       using it to index the object
+    scalarize [=True] - if True, 1-dimensional inputs are
+       converted to scalars automatically before applying
+       the key function; if False, they are left as tuples.
+
+    Examples:
+
+    + uniform(0, 1, ..., 9) ^ Get(array)  where array
+      is a python list with length at least 10
+
+    + uniform(0, 1, ..., 5) ** 2 ^ Get(dictionary) where
+      dictionary has 2-dimensional tuples as keys.
+
+    + Get([1, 2, 3])(2) == <3>
+
+    + Get([1, 2, 3], key=lambda n: n // 100)(200) == <3>
+
+    + Get({'r1': (1, 2), 'r2': (11, 12), 'r3': (100, 200)},
+          key=lambda n: f'r{n}')(2) == <11, 12>
+
+    """
+    make_key = as_scalar_weak if scalarize else identity
+
+    @statistic
+    def get_obj(v):
+        return obj[key(make_key(v))]
+
+    return get_obj
+
+def Keep(predicate: Condition, pad=nothing) -> Statistic:
+    """Statistic factory that keeps components satisfying a predicate.
+
+    The returned statistic applies the condition `predicate`
+    to each component of the input tuple. Components for which
+    it returns a truthy value are kept, the rest are removed.
+
+    However, this preserves the dimension of the tuples, filling
+    out the final components with the value of `pad` to the
+    original dimension. The default value of `pad` is `nothing`,
+    a special frplib value designed for this purpose that
+    displays and combines with ordinary values. See the documentation
+    for `nothing` in frplib.numeric.
+
+    If `pad` is set to None, then no padding is done. Use this option
+    with care, as transformation of Kinds and FRPs expects the dimension
+    to be preserved.
+
+    Examples (using * to denote nothing)
+    + Keep(Scalar % 2 == 0)(1, 2, 3, 4) == <2, 4, *, *>
+    + Keep(Scalar % 2 != 0, pad=-1)(1, 2, 3, 4) == <1, 3, -1, -1>
+    + Keep(__ > 0, pad=0)(-20, 2, -2, 10, 20) == <2, 10, 20, 0, 0>
+
+    """
+    p = lambda v: as_bool(predicate(v))
+
+    @statistic(description=f'keeps components satisfying predicate {predicate._name or predicate.__doc__}')
+    def keep(value):
+        n = len(value)
+        kept = []
+        for component in value:
+            if p(component):
+                kept.append(component)
+
+        k = len(kept)        
+        if k < n and pad is not None:
+            kept.extend([pad] * (n - k))
+        return kept
+
+    return keep
+
+def MaybeMap(stat: Statistic, pad=nothing) -> Statistic:
+    """Statistic factory that keeps components satisfying a predicate.
+
+    A combination of ForEach and Keep. Like ForEach, it applies a
+    statistic to each component, joining the returned value into the
+    final tuple. Like Keep, it can elect to not include the value
+    for a component based on the returned value, but whereas Keep
+    uses a predicate, MaybeMap keeps the result for a component if
+    the value returned by the statistic is a 1-dimensional tuple or
+    scalar that is not `nothing` (or `None`).
+
+    The returned statistic applies the given statistic
+    to each component of the input tuple. Components for which
+    it returns a value (scalar or 1-dim tuple) of `nothing` (or None)
+    are excluded; the rest are joined together into the output tuple.
+
+    However, this preserves the dimension of the tuples, filling out
+    the final components with the value of `pad`. The number of
+    padded components equals the number of excluded components times
+    the dimension of the statistic. (This assumes and implicitly
+    requires our ordinary constraint that the statistic return
+    output of a fixed dimension for each input dimension.) As a
+    result, the output tuple will have the same dimension regardless
+    of how many values are excluded by the statistic. This may
+    fail if the output dimension cannot be determined from either
+    the statistic or the mapped values. (This is another reason
+    to provide a dimension when appropriate for your statistics.)
+
+    If `pad` is set to None, then no such padding is done. Use this
+    option with care, as transformation of Kinds and FRPs expects
+    the dimension to be preserved.
+
+    Examples (using * to denote nothing)
+    + MaybeMap(Scalar % 2 == 0)(1, 2, 3, 4) == <2, 4, *, *>
+    + MaybeMap(Scalar % 2 != 0, pad=-1)(1, 2, 3, 4) == <1, 3, -1, -1>
+    + MaybeMap(__ > 0, pad=0)(-20, 2, -2, 10, 20) == <2, 10, 20, 0, 0>
+    + If we define a statistic
+    
+        @statistic(codim=1, dim=3)
+        def repeat3(v):
+            if v > 0:
+                return (v, v, v)
+            return nothing
+
+      MaybeMap(repeat3)(1, -4, 4, 0, 10) == <1, 1, 1, 4, 4, 4, 10, 10, 10>
+
+    """
+    def is_none(v):
+        return (v is nothing or v is None or
+                (len(v) == 1 and (v[0] is nothing or v[0] is None)))
+
+    mdim = stat.dim
+
+    @statistic
+    def maybe_map(value):
+        n = len(value)
+        kept = []
+        seen_dim = 1
+        for component in value:
+            mapped = stat(component)
+            if not is_none(mapped):
+                kept.extend(mapped)
+                if mdim is None:
+                    seen_dim = len(mapped)
+
+
+        k = len(kept)
+        m = mdim if mdim is not None else seen_dim
+        if k < n and pad is not None:
+            kept.extend([pad] * ((n - k) * m))
+        return kept
+
+    return maybe_map
+
 
 #
 # Info tags
@@ -2250,6 +2431,8 @@ setattr(Permute, '__info__', 'statistic-factories')
 setattr(Proj, '__info__', 'statistic-factories::projections')
 setattr(Append, '__info__', 'statistic-factories')
 setattr(Prepend, '__info__', 'statistic-factories')
+setattr(ElementOf, '__info__', 'statistic-factories')
+setattr(Get, '__info__', 'statistic-factories')
 
 setattr(__, '__info__', 'statistic-builtins')
 setattr(Id, '__info__', 'statistic-builtins')
@@ -2264,6 +2447,7 @@ setattr(ArgMax, '__info__', 'statistic-builtins')
 setattr(Mean, '__info__', 'statistic-builtins')
 setattr(Ascending, '__info__', 'statistic-builtins')
 setattr(Descending, '__info__', 'statistic-builtins')
+setattr(Distinct, '__info__', 'statistic-builtins')
 setattr(Diff, '__info__', 'statistic-builtins')
 setattr(Diffs, '__info__', 'statistic-builtins')
 setattr(Abs, '__info__', 'statistic-builtins')
@@ -2299,6 +2483,8 @@ setattr(Fork, '__info__', 'statistic-combinators')
 setattr(MFork, '__info__', 'statistic-combinators')
 setattr(ForEach, '__info__', 'statistic-combinators')
 setattr(IfThenElse, '__info__', 'statistic-combinators')
+setattr(Keep, '__info__', 'statistic-combinators')
+setattr(MaybeMap, '__info__', 'statistic-combinators')
 setattr(And, '__info__', 'statistic-combinators')
 setattr(Or, '__info__', 'statistic-combinators')
 setattr(Not, '__info__', 'statistic-combinators')
