@@ -1187,8 +1187,8 @@ def scalar_statistic(
                                                   # infinity allowed for b; None means infer by inspection
         description: Optional[str] = None,        # A description used as a __doc__ string for the Statistic
         monoidal=None,                            # If not None, the unit of a Monoidal Statistic
-        strict=True                               # If true, then strictly enforce dim upper bound
-        # ATTN: could add arg_convert here too
+        strict=True,                              # If true, then strictly enforce dim upper bound
+        arg_convert: Optional[Callable] = None,   # Arg conversion function
 ):
     """Statistics factory and decorator. Converts a function into a Statistic that returns a scalar.
 
