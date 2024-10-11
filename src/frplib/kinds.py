@@ -2269,14 +2269,46 @@ class ConditionalKind:
 
         return ConditionalKind(mixed, codim=self._codim, target_dim=tdim, domain=domain or self._domain)
 
+# # Original
+# def conditional_kind(
+#         mapping: CondKindInput | ConditionalKind | None = None,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind | None = None,
+#         *,
+#         codim: int | None = None,
+#         dim: int | None = None,
+#         domain: Iterable[ValueType] | Callable[[ValueType], bool] | None = None,
+#         target_dim: int | None = None
+# ) -> ConditionalKind | Callable[..., ConditionalKind]:
+
+@overload
 def conditional_kind(
-        mapping: CondKindInput | ConditionalKind | None = None,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind | None = None,
+        mapping: None = None,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind | None = None,
         *,
         codim: int | None = None,
         dim: int | None = None,
         domain: Iterable[ValueType] | Callable[[ValueType], bool] | None = None,
         target_dim: int | None = None
-) -> ConditionalKind | Callable[..., ConditionalKind]:
+) -> Callable[..., ConditionalKind]:   # For decorator return
+    ...
+
+@overload
+def conditional_kind(
+        mapping: CondKindInput | ConditionalKind,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind,
+        *,
+        codim: int | None = None,
+        dim: int | None = None,
+        domain: Iterable[ValueType] | Callable[[ValueType], bool] | None = None,
+        target_dim: int | None = None
+) -> ConditionalKind:
+    ...
+
+def conditional_kind(
+        mapping = None,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind = None,
+        *,
+        codim = None,
+        dim = None,
+        domain = None,
+        target_dim = None
+):
     """Converts a mapping from values to FRPs into a conditional FRP.
 
     The mapping can be a dictionary associating values (vector tuples)

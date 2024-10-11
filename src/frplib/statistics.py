@@ -1059,8 +1059,9 @@ class Condition(Statistic):
 # Statistic decorator for easily creating a statistic out of a function
 #
 
+@overload
 def statistic(
-        maybe_fn: Optional[Callable] = None,  # If supplied, return Statistic, else a decorator
+        maybe_fn: None = None,                    # Nothing supplied, return a decorator
         *,
         name: Optional[str] = None,               # A user-facing name for the statistic
         codim: Optional[int | ArityType] = None,  # Codimension (i.e., dimension of the domain)
@@ -1071,7 +1072,53 @@ def statistic(
         monoidal=None,                            # If not None, the unit for a Monoidal Statistic
         strict=True,                              # If true, then strictly enforce codim upper bound
         arg_convert: Optional[Callable] = None    # If not None, a function applies to every input component
-) -> Statistic | Callable[[Callable], Statistic]:
+) -> Callable[[Callable], Statistic]:
+    ...
+
+@overload
+def statistic(
+        maybe_fn: Callable,                       # Supplied, return a Statistic
+        *,
+        name: Optional[str] = None,               # A user-facing name for the statistic
+        codim: Optional[int | ArityType] = None,  # Codimension (i.e., dimension of the domain)
+                                                  # (a, b) means fn accepts a <= n <= b args; a means (a, a)
+                                                  # infinity allowed for b; None means infer by inspection
+        dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know
+        description: Optional[str] = None,        # A description used as a __doc__ string for the Statistic
+        monoidal=None,                            # If not None, the unit for a Monoidal Statistic
+        strict=True,                              # If true, then strictly enforce codim upper bound
+        arg_convert: Optional[Callable] = None    # If not None, a function applies to every input component
+) -> Statistic:
+    ...
+
+# # Original    
+# def statistic(
+#         maybe_fn: Optional[Callable] = None,  # If supplied, return Statistic, else a decorator
+#         *,
+#         name: Optional[str] = None,               # A user-facing name for the statistic
+#         codim: Optional[int | ArityType] = None,  # Codimension (i.e., dimension of the domain)
+#                                                   # (a, b) means fn accepts a <= n <= b args; a means (a, a)
+#                                                   # infinity allowed for b; None means infer by inspection
+#         dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know
+#         description: Optional[str] = None,        # A description used as a __doc__ string for the Statistic
+#         monoidal=None,                            # If not None, the unit for a Monoidal Statistic
+#         strict=True,                              # If true, then strictly enforce codim upper bound
+#         arg_convert: Optional[Callable] = None    # If not None, a function applies to every input component
+# ) -> Statistic | Callable[[Callable], Statistic]:
+
+def statistic(
+        maybe_fn = None,      # If supplied, return Statistic, else a decorator
+        *,
+        name = None,          # A user-facing name for the statistic
+        codim = None,         # Codimension (i.e., dimension of the domain)
+                              # (a, b) means fn accepts a <= n <= b args; a means (a, a)
+                              # infinity allowed for b; None means infer by inspection
+        dim = None,           # Dimension (of the codomain); None means don't know
+        description = None,   # A description used as a __doc__ string for the Statistic
+        monoidal=None,        # If not None, the unit for a Monoidal Statistic
+        strict=True,          # If true, then strictly enforce codim upper bound
+        arg_convert = None    # If not None, a function applies to every input component
+):
     """Statistics factory and decorator. Converts a function into a Statistic.
 
     This either takes a function as a first argument or can be used as a decorator
@@ -1503,7 +1550,7 @@ def Diffs(k: int):
 def _convert_to_statistic(const_or_func: Statistic | Callable | ScalarQ | Iterable ) -> Statistic:
     if not isinstance(const_or_func, Statistic):
         if callable(const_or_func):
-            return statistic(const_or_func)    # type: ignore
+            return statistic(const_or_func)
         elif isinstance(const_or_func, Iterable):
             return Constantly(*[as_quantity(c) for c in const_or_func])
         else:

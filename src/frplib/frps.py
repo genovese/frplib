@@ -1251,15 +1251,50 @@ class ConditionalFRP:
         return ConditionalFRP(mixed, codim=self._codim, target_dim=tdim, domain=domain or self._domain,
                               auto_clone=self._auto_clone)
 
+# # Original
+# def conditional_frp(
+#         mapping: CondFrpInput | ConditionalFRP | None = None,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
+#         *,
+#         codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
+#         dim: int | None = None,
+#         domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
+#         target_dim: int | None = None,
+#         auto_clone: bool = False   # ATTN: Not yet used, if True, clone on every evaluation, e.g., in simulation
+# ) -> ConditionalFRP | Callable[..., ConditionalFRP]:
+
+@overload
 def conditional_frp(
-        mapping: CondFrpInput | ConditionalFRP | None = None,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
+        mapping: None = None,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
         *,
         codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
         dim: int | None = None,
         domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
         target_dim: int | None = None,
         auto_clone: bool = False   # ATTN: Not yet used, if True, clone on every evaluation, e.g., in simulation
-) -> ConditionalFRP | Callable[..., ConditionalFRP]:
+) -> Callable[..., ConditionalFRP]:
+    ...
+
+@overload
+def conditional_frp(
+        mapping: CondFrpInput | ConditionalFRP,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
+        *,
+        codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
+        dim: int | None = None,
+        domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
+        target_dim: int | None = None,
+        auto_clone: bool = False   # ATTN: Not yet used, if True, clone on every evaluation, e.g., in simulation
+) -> ConditionalFRP:
+    ...
+
+def conditional_frp(
+        mapping = None,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
+        *,
+        codim = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
+        dim = None,
+        domain = None,
+        target_dim = None,
+        auto_clone = False
+):
     """Converts a mapping from values to FRPs into a conditional FRP.
 
     The mapping can be a dictionary associating values (scalars or vector tuples)
