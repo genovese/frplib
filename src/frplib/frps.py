@@ -1386,7 +1386,8 @@ class EmptyFrpDescriptor:  # Enables FRP.empty to belong to FRP class
 #
 
 class FRP:
-    COMPLEXITY_THRESHOLD = 1024  # Maximum size to maintain kindedness
+    COMPLEXITY_THRESHOLD = 16384  # Maximum size to maintain kindedness (was 1024)
+    EVOLUTION_THRESHOLD = 128     # Evolving FRP for more steps activates intermediates
 
     def __init__(self, create_from: FRP | FrpExpression | Kind | str) -> None:
         if not create_from:  # Kind.empty or FRP.empty or ''
@@ -1418,7 +1419,12 @@ class FRP:
             self._value = None
 
     @classmethod
-    def sample(cls, n: int, frp: 'FRP | Kind', summary=True) -> FrpDemoSummary | FrpDemo:
+    def activate(cls, frp: FRP) -> FRP:
+        frp.value  # Force the value
+        return frp
+
+    @classmethod
+    def sample(cls, n: int, frp: FRP | Kind, summary=True) -> FrpDemoSummary | FrpDemo:
         """Run a demo of `n` FRPs and tabulate the results.
 
         If an FRP is given, the FRPs in the demo are clones of the given FRP.
@@ -1967,14 +1973,14 @@ def independent_mixture(ks):
     return reduce(lambda k1, k2: k1 * k2, ks)
 
 @overload
-def evolve(start: Kind, next_state: ConditionalKind, n_steps: int = 1) -> Kind:
+def evolve(start: Kind, next_state: ConditionalKind, n_steps: int = 1, transform: Union[None, Callable] = None) -> Kind:
     ...
 
 @overload
-def evolve(start: FRP, next_state: ConditionalFRP, n_steps: int = 1) -> FRP:
+def evolve(start: FRP, next_state: ConditionalFRP, n_steps: int = 1, transform: Union[None, Callable] = None) -> FRP:
     ...
 
-def evolve(start, next_state, n_steps=1):
+def evolve(start, next_state, n_steps=1, transform = None):
     """Evolves a Markovian system through a specified number of steps.
 
     In typical use, start will be the Kind of the system's initial state,
@@ -1987,13 +1993,83 @@ def evolve(start, next_state, n_steps=1):
       start: Kind | FRP - represents the initial state
       next_state: ConditionalKid | ConditionalFRP - state transition
       n_steps: int -- the number of steps to process, >= 0
+      transform: Callable | None -- if supplied, a function of a
+          Kind or FRP that is applied at each step.
+
+    The most common use cases for the transform argument are (i) to
+    apply clean() to Kinds where large numbers of branches with
+    negligible weight slow down the computation over many steps,
+    and (ii) to apply FRP.activate to the updated state to prevent
+    building up too large of an unevaluated FRP expression for a
+    fresh FRP.
+
+    The latter issue arises because fresh FRPs internally maintain
+    an abstract form of the expression that generated them so that
+    related FRPs can be co-activated. Over sufficiently large
+    simulations, these internal expressions can grow large enough
+    to exceed Python's recursion limit. The solution is to 
+    activate the intermediate FRPs, which prevents large expressions.
+    Passing FRP.activate as the transform argument solves this problem.
+    Alternatively, if n_steps is bigger than FRP.EVOLUTION_THRESHOLD,
+    the intermediate (but not the last) FRP will be activated
+    automatically. It is generally preferable to use the automatic
+    solution, but when a transform argument is given, this automatic
+    activation does not occur.
 
     Returns the state of the system (Kind or FRP) after n_steps steps.
 
+    Examples:
+
+    + If init is the Kind of the initial state and transition is the
+      conditional Kind of the next state given the initial state,
+      then
+
+          evolve(init, transition, 100)
+
+      gives the Kind of the state after 100 steps.
+
+    + As in the last item, evolve(init, transition, 100, transform=clean)
+      will eliminate branches with very small weights that can
+      dominate the calculations in some cases.
+
+    + If start is an FRP and moves is a conditional FRP of the next
+      state given the current state, then
+
+          evolve(start, moves, 1000)
+
+      gives the FRP representing the state after 1000 moves. Because
+      1000 is large, the returned FRP will be fresh, but the intermediate
+      mixture FRPs (which are not seen) will not be.
+
+    + As in the last item, evolve(start, moves, 1000, transform=FRP.activate)
+      will activate all of the produced FRPs, including the last but
+      excluding start.
+
+    + evolve(a, c, 200, transform=stat)  will transform each result by
+      statistic stat. Note that in this case, stat must preserve or
+      create the structure expected by c.
+
     """
+    if isinstance(start, Kind) and isinstance(next_state, ConditionalKind):
+        have = 'Kind'
+    elif is_frp(start) and isinstance(next_state, ConditionalFRP):
+        have = 'FRP'
+    else:
+        raise ContractError('evolve requires either a Kind and Conditional Kind or '
+                            'an FRP and conditional FRP')
+
     current = start
-    for _ in range(n_steps):
-        current = next_state // current
+    if transform is not None:
+        for _ in range(n_steps):
+            current = transform(next_state // current)
+    elif n_steps > FRP.EVOLUTION_THRESHOLD and have == 'FRP':
+        for step in range(n_steps):
+            current = next_state // current
+            if step < n_steps - 1:
+                current.value      # Activate intermediate FRPs
+    else:
+        for _ in range(n_steps):
+            current = next_state // current
     return current
 
 class FisherYates(FrpExpression):
@@ -2070,3 +2146,5 @@ def _expectation_from_expr(expr: FrpExpression):
 setattr(frp, '__info__', 'frp-factories')
 setattr(conditional_frp, '__info__', 'frp-factories')
 setattr(shuffle, '__info__', 'frp-factories')
+setattr(independent_mixture, '__info__', 'frp-combinators')
+setattr(evolve, '__info__', 'actions')
