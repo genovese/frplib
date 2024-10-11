@@ -1219,16 +1219,49 @@ def scalar_statistic(
 
     """
     return statistic(maybe_fn, name=name, codim=codim, dim=1,
-                     description=description, monoidal=monoidal, strict=strict)
+                     description=description, monoidal=monoidal,
+                     strict=strict, arg_convert=arg_convert)
 
+# # Original
+# def condition(
+#         maybe_predicate: Optional[Callable] = None,  # If supplied, return Condition, else a decorator
+#         *,
+#         name: Optional[str] = None,         # A user-facing name for the statistic
+#         codim: Optional[int] = None,        # Number of arguments the function takes; 0 means tuple expected
+#         description: Optional[str] = None,  # A description used as a __doc__ string for the Statistic
+#         strict=True                         # If true, then strictly enforce dim upper bound
+# ) -> Condition | Callable[[Callable], Condition]:
+
+@overload
 def condition(
-        maybe_predicate: Optional[Callable] = None,  # If supplied, return Condition, else a decorator
+        maybe_predicate: None = None,      # If supplied, return Condition, else a decorator
         *,
         name: Optional[str] = None,         # A user-facing name for the statistic
         codim: Optional[int] = None,        # Number of arguments the function takes; 0 means tuple expected
         description: Optional[str] = None,  # A description used as a __doc__ string for the Statistic
         strict=True                         # If true, then strictly enforce dim upper bound
-) -> Condition | Callable[[Callable], Condition]:
+) -> Callable[[Callable], Condition]:
+    ...
+
+@overload
+def condition(
+        maybe_predicate: Callable,         # If supplied, return Condition, else a decorator
+        *,
+        name: Optional[str] = None,         # A user-facing name for the statistic
+        codim: Optional[int] = None,        # Number of arguments the function takes; 0 means tuple expected
+        description: Optional[str] = None,  # A description used as a __doc__ string for the Statistic
+        strict=True                         # If true, then strictly enforce dim upper bound
+) -> Condition:
+    ...
+
+def condition(
+        maybe_predicate = None,  # If supplied, return Condition, else a decorator
+        *,
+        name = None,             # A user-facing name for the statistic
+        codim = None,            # Number of arguments the function takes; 0 means tuple expected
+        description = None,      # A description used as a __doc__ string for the Statistic
+        strict=True              # If true, then strictly enforce dim upper bound
+):
     """Statistics factory and decorator. Converts a predicate into a Condition.
 
     A Condition is a Boolean statistic returning <0> for False and <1> for True.
