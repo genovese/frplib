@@ -501,7 +501,7 @@ class PureExpression(FrpExpression):
     from a Kind with a fresh FRP.
 
     """
-    def __init__(self, frp: 'FRP') -> None:
+    def __init__(self, frp: FRP) -> None:
         super().__init__()
         self._target = frp
         if frp.is_kinded():
@@ -546,7 +546,7 @@ class PureExpression(FrpExpression):
         return self._cached_value
 
 
-def as_expression(frp: 'FRP') -> FrpExpression:
+def as_expression(frp: FRP) -> FrpExpression:
     """Returns an FRP expression that is equivalent to this FRP.
 
     If kinded, then we merely wrap the FRP itself. However, if the
@@ -615,8 +615,8 @@ class ConditionalFRP:
 
         if isinstance(mapping, dict):
             self._is_dict = True
-            self._mapping: dict[ValueType, 'FRP'] = {}
-            self._targets: dict[ValueType, 'FRP'] = {}  # NB: Trading space for time by keeping these
+            self._mapping: dict[ValueType, FRP] = {}
+            self._targets: dict[ValueType, FRP] = {}  # NB: Trading space for time by keeping these
             for k, v in mapping.items():
                 if not is_frp(v):
                     raise ConstructionError(f'Dictionary for a conditional FRP should map to FRPs, but {v} is not an FRP')
@@ -624,7 +624,7 @@ class ConditionalFRP:
                 vout = v.transform(Prepend(kin))  # Input pass through
                 self._mapping[kin] = vout
                 self._targets[kin] = v
-            self._original_fn: Callable[[ValueType], 'FRP'] | None = None
+            self._original_fn: Callable[[ValueType], FRP] | None = None
 
             # Attempt to infer codimension and domain if needed and possible.
             # We allow a) the dictionary to have extra keys, b) the FRPs to have
@@ -713,7 +713,7 @@ class ConditionalFRP:
             else:
                 self._target_dim = None
 
-            def fn(*args) -> 'FRP':
+            def fn(*args) -> FRP:
                 n = len(args)
                 if n == 1 and is_tuple(args[0]):
                     args = args[0]
@@ -731,7 +731,7 @@ class ConditionalFRP:
                     full = full.clone()
                 return full
 
-            def tfn(*args) -> 'FRP':
+            def tfn(*args) -> FRP:
                 n = len(args)
                 if n == 1 and is_tuple(args[0]):
                     args = args[0]
@@ -749,8 +749,8 @@ class ConditionalFRP:
                     target = target.clone()
                 return target
 
-            self._fn: Callable[..., 'FRP'] = fn
-            self._target_fn: Callable[..., 'FRP'] = tfn
+            self._fn: Callable[..., FRP] = fn
+            self._target_fn: Callable[..., FRP] = tfn
 
         elif callable(mapping):         # Check to please mypy
             self._is_dict = False
@@ -811,7 +811,7 @@ class ConditionalFRP:
 
             assert callable(mapping)  # For mypy
 
-            def fn(*args) -> 'FRP':
+            def fn(*args) -> FRP:
                 n = len(args)
                 if n == 1 and is_tuple(args[0]):
                     args = args[0]
@@ -840,7 +840,7 @@ class ConditionalFRP:
                     self._targets[value] = result     # Store unextended to ease some operations
                 return extended
 
-            def tfn(*args) -> 'FRP':
+            def tfn(*args) -> FRP:
                 n = len(args)
                 if n == 1 and is_tuple(args[0]):
                     args = args[0]
@@ -871,14 +871,14 @@ class ConditionalFRP:
             self._fn = fn
             self._target_fn = tfn
 
-    def __call__(self, *value) -> 'FRP':
+    def __call__(self, *value) -> FRP:
         return self._fn(*value)
 
-    def __getitem__(self, *value) -> 'FRP':
+    def __getitem__(self, *value) -> FRP:
         "Returns this conditional Kind's target associated with the key."
         return self._target_fn(*value)
 
-    def target(self, *value) -> 'FRP':
+    def target(self, *value) -> FRP:
         return self._target_fn(*value)
 
     @property
@@ -1447,7 +1447,7 @@ class FRP:
         return _sample_from_expr(n, frp._expr, summary)
 
     @classmethod
-    def sample1(cls, frp: 'FRP') -> ValueType:
+    def sample1(cls, frp: FRP) -> ValueType:
         one_sample = cast(FrpDemo, cls.sample(1, frp, summary=False))
         return as_vec_tuple(one_sample[0])  # ATTN: Wrapping not needed after Quantity conversion
 
@@ -1616,7 +1616,7 @@ class FRP:
     # ATTN: when a Kind is useful but not demand, we will compute
     # the kind if the complexity is below a threshold.
 
-    def independent_mixture(self, frp: 'FRP') -> 'FRP':
+    def independent_mixture(self, frp: FRP) -> FRP:
         if self.is_fresh or frp.is_fresh:
             value = None
         else:
@@ -1783,14 +1783,14 @@ class FRP:
         return self >> c_frp ^ Proj[(d + 1):]
 
     @overload
-    def marginal(self, *__indices: int) -> 'FRP':
+    def marginal(self, *__indices: int) -> FRP:
         ...
 
     @overload
-    def marginal(self, __subspace: Iterable[int] | Projection | slice) -> 'FRP':
+    def marginal(self, __subspace: Iterable[int] | Projection | slice) -> FRP:
         ...
 
-    def marginal(self, *index_spec) -> 'FRP':
+    def marginal(self, *index_spec) -> FRP:
         dim = self.dim
 
         # Unify inputs
