@@ -32,6 +32,8 @@
 
 ## Utility Statistics
 + `Cases` :: creates a statistic from a dictionary with optional default value
++ `Bag` :: a statistic that extracts the counts of each component value
+    as alternating values and counts, with values in ascending order
 + `top` :: condition that always returns true
 + `bottom` :: condition that always returns false
 

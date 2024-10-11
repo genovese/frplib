@@ -5,6 +5,7 @@ import math
 import re
 import textwrap
 
+from collections       import defaultdict
 from collections.abc   import Iterable, Collection
 from decimal           import Decimal
 from fractions         import Fraction
@@ -2249,6 +2250,17 @@ def Cases(d, default=None):
         raise MismatchedDomain(f'Value {k} not in domain of statistic {name}')
     return g
 
+@statistic
+def Bag(v):
+    "returns a bag computed from input, encoded as alternating values and counts, with values in ascending order"
+    counts: dict[int, int] = defaultdict(int)
+    for component in sorted(v):
+        counts[component] += 1  # Note: keys kept in insertion order
+    bag = []
+    for k, v in counts.items():
+        bag.extend([k, v])
+    return bag
+
 def Append(*v):
     """Statistics factory. The returned statistic appends given values to its input.
 
@@ -2533,6 +2545,7 @@ setattr(Dot, '__info__', 'statistic-builtins')
 setattr(StdDev, '__info__', 'statistic-builtins')
 setattr(Variance, '__info__', 'statistic-builtins')
 setattr(Cases, '__info__', 'statistic-builtins')
+setattr(Bag, '__info__', 'statistic-builtins')
 setattr(top, '__info__', 'statistic-builtins')
 setattr(bottom, '__info__', 'statistic-builtins')
 

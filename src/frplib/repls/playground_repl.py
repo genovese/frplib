@@ -105,7 +105,7 @@ playground_imports: dict[str, list[str]] = {
         'Diff', 'Diffs', 'Permute', 'ElementOf',
         'Constantly', 'Fork', 'MFork', 'ForEach', 'IfThenElse',
         'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
-        'All', 'Any', 'Cases', 'Append', 'Prepend',
+        'All', 'Any', 'Cases', 'Bag', 'Append', 'Prepend',
         'Get', 'Keep', 'MaybeMap'
     ],
     'expectations': ['E', 'Var', 'D_'],
