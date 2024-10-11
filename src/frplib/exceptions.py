@@ -71,3 +71,7 @@ class ComplexExpectationWarning(FrplibException):
 class NumericConversionError(FrplibException):
     "A quantity could not be converted to numeric form."
     pass
+
+class ContractError(FrplibException):
+    "An operation or action was given values that do not satisfy its contract."
+    pass
