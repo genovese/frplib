@@ -1,17 +1,17 @@
 # Dirichlet Solutions Example from Section 6
 
-__all__ = ['solve_dirichlet', 'solve_dirichlet_sparse', 'K_NSEW', 'lava_room']
+__all__ = ['solve_dirichlet', 'solve_dirichlet_sparse', 'lava_room']
 
-from frplib.exceptions import InputError
+import numpy as np
+
+from scipy.sparse        import csr_matrix
+from scipy.sparse.linalg import spsolve
+
+from frplib.exceptions import InputError, KindError
 from frplib.frps       import frp
-from frplib.kinds      import conditional_kind, uniform, weighted_as
+from frplib.kinds      import conditional_kind, constant, either, uniform, weighted_as
 from frplib.utils      import clone, irange
-
-
-@conditional_kind
-def K_NSEW(tile):
-    x, y = tile
-    return uniform( (x - 1, y), (x, y - 1), (x, y + 1), (x + 1, y) )
+from frplib.vec_tuples import as_vec_tuple
 
 
 def solve_dirichlet(cKind, *, fixed, fixed_values, alpha=0, beta=1, states=None):
@@ -49,12 +49,13 @@ def solve_dirichlet_sparse(cKind, *, fixed, fixed_values, alpha=0, beta=1, state
     that satisfies
 
        f(s) = fixed_values[i] when s in fixed[i] for some i, and
-       f(s) = alpha + beta E(f(cKind(s))) otherwise.
+       f(s) = alpha + beta E(f(cKind.target(s))) otherwise.
 
     Parameters
       + cKind: ConditionalKind - determines Kind of transition from each state.
             Its domain is the set of possible states if explicitly available
-            and the states parameter is not supplied.
+            and the states parameter is not supplied. The target values
+            of cKind must be a subset of the same set of states.
       + fixed: list[set] - disjoint subsets of states on which f's value is known
       + fixed_values: list[float] - known values of f corresponding to fixed set
             in the same position. Must have the same length as fixed.
@@ -68,7 +69,76 @@ def solve_dirichlet_sparse(cKind, *, fixed, fixed_values, alpha=0, beta=1, state
     representing the solution f.
 
     """
-    pass
+    if states is None:
+        if not cKind._has_domain_set:
+            raise KindError('solve_dirichlet_sparse cannot deduce state set from cKind')
+        states = list(cKind._domain_set)
+
+    for i, fix in enumerate(fixed):
+        fixed[i] = set(map(as_vec_tuple, fix))
+
+    fixed_map = {}
+    free_map = {}
+    free_states = []
+    free_index = 0
+    for s in states:
+        is_free = True
+        for i, fix in enumerate(fixed):
+            if s in fix:
+                fixed_map[s] = fixed_values[i]
+                is_free = False
+                break
+        if is_free:
+            free_states.append(s)
+            free_map[s] = free_index
+            free_index += 1
+
+    row_indices = []
+    col_indices = []
+    data = []
+    rhs = []
+    for s in free_states:
+        next_states = cKind.target(s).weights
+        row_ind = free_map[s]
+        diagonal_done = False
+
+        rhs_value = alpha
+        for s_prime in next_states:
+            v = beta * float(next_states[s_prime])
+            if s_prime in fixed_map:
+                rhs_value += v * fixed_map[s_prime]
+            elif s_prime == s:
+                row_indices.append(row_ind)
+                col_indices.append(row_ind)
+                data.append(1 - v)
+                diagonal_done = True
+            else:
+                row_indices.append(row_ind)
+                col_indices.append(free_map[s_prime])
+                data.append(-v)
+
+        if not diagonal_done:
+            row_indices.append(row_ind)
+            col_indices.append(row_ind)
+            data.append(1.0)
+
+        rhs.append(rhs_value)
+
+    n = len(free_states)
+    A = csr_matrix((data, (row_indices, col_indices)), shape=(n, n), dtype=np.float64)
+    b = np.array(rhs, dtype=np.float64)
+    f_s = spsolve(A, b)
+
+    def f(*state):
+        if len(state) == 1 and isinstance(state[0], tuple):
+            s = as_vec_tuple(state[0])  # type: ignore
+        else:
+            s = as_vec_tuple(state)     # type: ignore
+        if s in fixed_map:
+            return fixed_map[s]
+        return float(f_s[free_map[s]])
+
+    return f
 
 
 # Example System in Text
@@ -136,4 +206,40 @@ class LavaRoom:
 
         return (row, rhs)
 
+    @property
+    def cKind(self):
+        "Returns the associated conditional Kind."
+        @conditional_kind
+        def cK(state):
+            if state in self.lava or state in self.water:
+                return constant(state)
+
+            x, y = state
+
+            if x == 12 and y == 6:
+                return either( (12, 5), (11, 6) )
+            if x == 12 and y == -6:
+                return either( (12, -5), (11, -6) )
+            if x == -12 and y == 6:
+                return either( (-12, 5), (-11, 6) )
+            if x == -12 and y == -6:
+                return either( (-12, -5), (-11, -6) )
+            if x == 12:
+                return uniform( (12, y - 1), (12, y + 1), (11, y) )
+            if x == -12:
+                return uniform( (-12, y - 1), (-12, y + 1), (-11, y) )
+            if y == 6:
+                return uniform( (x - 1, 6), (x + 1, 6), (x, 5) )
+            if y == -6:
+                return uniform( (x - 1, -6), (x + 1, -6), (x, -5) )
+            return uniform( (x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1) )
+
+        return cK
+
 lava_room = LavaRoom()
+
+@conditional_kind
+def K_NSEW(tile):
+    "Conditional Kind for an unbounded 2-dimensional random walk."
+    x, y = tile
+    return uniform( (x - 1, y), (x, y - 1), (x, y + 1), (x + 1, y) )

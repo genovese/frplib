@@ -13,6 +13,7 @@ also `info("modules")`.
 | `All`                 | `frplib.statistics`   |
 | `And`                 | `frplib.statistics`   |
 | `Any`                 | `frplib.statistics`   |
+| `Append`              | `frplib.statistics`   |
 | `ArgMax`              | `frplib.statistics`   |
 | `ArgMin`              | `frplib.statistics`   |
 | `Ascending`           | `frplib.statistics`   |
@@ -28,8 +29,10 @@ also `info("modules")`.
 | `Descending`          | `frplib.statistics`   |
 | `Diff`                | `frplib.statistics`   |
 | `Diffs`               | `frplib.statistics`   |
+| `Distinct`            | `frplib.statistics`   |
 | `Dot`                 | `frplib.statistics`   |
 | `E`                   | `frplib.expectations` |
+| `ElementOf`           | `frplib.statistics`   |
 | `Exp`                 | `frplib.statistics`   |
 | `FRP.sample`          | `frplib.frps`         |
 | `Floor`               | `frplib.statistics`   |
@@ -37,14 +40,17 @@ also `info("modules")`.
 | `Fork`                | `frplib.statistics`   |
 | `FromDegrees`         | `frplib.statistics`   |
 | `FromRadians`         | `frplib.statistics`   |
+| `Get`                 | `frplib.statistics`   |
 | `Id`                  | `frplib.statistics`   |
 | `IfThenElse`          | `frplib.statistics`   |
+| `Keep`                | `frplib.statistics`   |
 | `Kind`                | `frplib.kinds`        |
 | `Log10`               | `frplib.statistics`   |
 | `Log2`                | `frplib.statistics`   |
 | `Log`                 | `frplib.statistics`   |
 | `MFork`               | `frplib.statistics`   |
 | `Max`                 | `frplib.statistics`   |
+| `MaybeMap`            | `frplib.statistics`   |
 | `Mean`                | `frplib.statistics`   |
 | `Min`                 | `frplib.statistics`   |
 | `MonoidalStatistic`   | `frplib.statistics`   |
@@ -55,6 +61,7 @@ also `info("modules")`.
 | `Permute`             | `frplib.statistics`   |
 | `Pi`                  | `frplib.statistics`   |
 | `Product`             | `frplib.statistics`   |
+| `Prepend`             | `frplib.statistics`   |
 | `Proj`                | `frplib.statistics`   |
 | `Scalar`              | `frplib.statistics`   |
 | `Sin`                 | `frplib.statistics`   |
@@ -74,10 +81,13 @@ also `info("modules")`.
 | `__`                  | `frplib.statistics`   |
 | `_x_`                 | `frplib.statistics`   |
 | `arbitrary`           | `frplib.kinds`        |
+| `as_bool`             | `frplib.vec_tuples`   |
 | `as_float`            | `frplib.vec_tuples`   |
 | `as_numeric_vec`      | `frplib.vec_tuples`   |
 | `as_quantity`         | `frplib.quantity`     |
 | `as_scalar`           | `frplib.vec_tuples`   |
+| `as_scalar_strict`    | `frplib.vec_tuples`   |
+| `as_scalar_weak`      | `frplib.vec_tuples`   |
 | `as_vec_tuple`        | `frplib.vec_tuples`   |
 | `bayes`               | `frplib.kinds`        |
 | `bin`                 | `frplib.kinds`        |
@@ -107,6 +117,7 @@ also `info("modules")`.
 | `identity`            | `frplib.utils`        |
 | `index_of`            | `frplib.utils`        |
 | `index_where`         | `frplib.utils`        |
+| `independent_mixture` | `frplib.frps`         |
 | `infinity`            | `frplib.statistics`   |
 | `integers`            | `frplib.kinds`        |
 | `irange`              | `frplib.utils`        |
@@ -120,6 +131,7 @@ also `info("modules")`.
 | `kind`                | `frplib.kinds`        |
 | `linear`              | `frplib.kinds`        |
 | `lmap`                | `frplib.utils`        |
+| `nothing`             | `frplib.numeric`      |
 | `numeric_abs`         | `frplib.numeric`      |
 | `numeric_ceil`        | `frplib.numeric`      |
 | `numeric_exp`         | `frplib.numeric`      |
@@ -128,6 +140,7 @@ also `info("modules")`.
 | `numeric_log10`       | `frplib.numeric`      |
 | `numeric_log2`        | `frplib.numeric`      |
 | `numeric_sqrt`        | `frplib.numeric`      |
+| `ordered_samples`     | `frplib.kinds`        |
 | `permutations_of`     | `frplib.kinds`        |
 | `qvec`                | `frplib.quantity`     |
 | `scalar_fn`           | `frplib.statistics`   |

@@ -18,6 +18,7 @@ General Topics
 + kinds
 + kind-combinators
 + kind-factories
++ numerics
 + statistics
 + statistic-builtins
 + statistic-combinators

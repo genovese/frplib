@@ -26,6 +26,7 @@
 + `ArgMin` :: finds index (0-based) of smallest component
 + `Ascending` :: sorts components in increasing order
 + `Descending` :: sorts components in decreasing order
++ `Distinct` :: condition that tests if all components are distinct
 
 ## Utility Statistics
 + `Cases` :: creates a statistic from a dictionary with optional default value
@@ -57,3 +58,8 @@ Except for `Abs`, these functions expect a 1-dimensional input.
 
 + `infinity` :: the quantity that represents positive infinity
 + `Pi` :: high-precision quantity approximating pi
++ `nothing` :: an object representing a missing value. Its primary
+      use case is as a default value for padding a tuple to a common
+      dimension when no more semantically meaningful value is available. 
+      (See combinators `Keep` and `MaybeMap` for examples). Arithmetic
+      operations of numbers with `nothing` always produce `nothing`.

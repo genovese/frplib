@@ -42,4 +42,9 @@ or producing a random sample. There are currently only a few main actions:
       to True; if False, the values of all individual samples are given.
       Example: `FRP.sample(10_000, either(0,1))`
 
-
++ `evolve` :: evolve a random system over a specified number of steps, updating
+      the state at each step. `evolve(start_state, next_state, n_steps = 1)`
+      where `start_state` is the Kind of the starting state, `next_state` is
+      the conditional Kind of the next state given the current state, and
+      the process is evolved `n_steps` times. Returns the Kind of the
+      state after the specified number of steps.

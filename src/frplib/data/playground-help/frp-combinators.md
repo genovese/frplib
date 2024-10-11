@@ -20,3 +20,6 @@
    more convenient to enter. If `X` has dimension d, this is equivalent to
    `(X * psi(X)) | c(Proj[:(d+1)]))[(d+1):]`, which is decidedly less friendly
    and can be used without calculating the FRPs dimension.
+
++ `independent_mixture` - accepts a list of FRPs (or Kinds) and forms their 
+   independent mixture (see `*`).

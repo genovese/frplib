@@ -27,6 +27,8 @@ patterns of weights on specified values.
 + `integers` :: Kind of an FRP whose values consist of integers in a regular sequence
 + `evenly_spaced` :: Kind of an FRP whose values consist of evenly spaced numbers
 + `without_replacement` :: Kind of an FRP that samples n items from a set without replacement
++ `ordered_samples` :: Kind of an FRP representing all ordered samples of size n from
+                       a given collection of values
 + `subsets` :: Kind of an FRP whose values are subsets of a given collection
 + `permutations_of` :: Kind of an FRP whose values are permutations of a given collection
 + `ordered_samples` :: like `without_replacement` but gives ordered samples (all permutations)

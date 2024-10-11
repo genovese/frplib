@@ -1,15 +1,22 @@
 # Markov Decryption Example from Section 6
 
-__all__ = ['make_cipher', 'markov_decrypt', 'cipher1', 'clear1']
+__all__ = ['make_cipher', 'markov_decrypt',
+           'cipher1', 'clear1', 'crypt1',
+           'cipher2', 'clear2', 'crypt2']
 
 import math
+import re
 
-from typing            import Callable, Union
+from collections         import defaultdict
+from pathlib             import Path
+from typing              import Callable, Union, cast
 
-from frplib.exceptions import InputError
-from frplib.frps       import frp
-from frplib.kinds      import ordered_samples, weighted_as
-from frplib.utils      import clone
+from frplib.data.words   import BIGRAM_LLIKE
+from frplib.exceptions   import InputError
+from frplib.frps         import frp
+from frplib.kinds        import without_replacement, weighted_as
+from frplib.utils        import clone
+
 
 _CHARS = [
     ' ', 'A', 'B', 'C', 'D', 'E',
@@ -21,13 +28,8 @@ _CHARS = [
 _N_CHARS = len(_CHARS)
 _END_MARK = _CHARS[0]  # Spaces, bos, and eos are treated as equivalent
 
-# CITATION: The table _BIGRAM_LLIKE is derived from data produced
-# by Peter Norvig, see http://....
-# ATTN
-
-_BIGRAM_LLIKE: dict[tuple[str, str], float] = {
-    # ATTN:MISSING  # Process data tables
-}
+# CITATION: The table BIGRAM_LLIKE is derived from data produced
+# by Peter Norvig, see http://norvig.com/google-books-common-words.txt
 
 def make_cipher(substitution: Union[str, list[str]]) -> tuple[Callable[[str], str], Callable[[str], str]]:
     """Creates encryption and decryption functions for a specified substitution.
@@ -56,27 +58,47 @@ def make_cipher(substitution: Union[str, list[str]]) -> tuple[Callable[[str], st
     return (encrypt, decrypt)
 
 def _log_like(text):
-    ell = _BIGRAM_LLIKE[(_END_MARK, text[0])]
+    n = len(text)
+    ell = BIGRAM_LLIKE[(_END_MARK, text[0])]
 
-    for ind in range(_N_CHARS - 1):
-        ell += _BIGRAM_LLIKE[(text[ind], text[ind + 1])]
+    for ind in range(n - 1):
+        ell += BIGRAM_LLIKE[(text[ind], text[ind + 1])]
 
-    ell += _BIGRAM_LLIKE[(text[_N_CHARS - 1], _END_MARK)]
+    ell += BIGRAM_LLIKE[(text[n - 1], _END_MARK)]
 
     return ell
 
 def _occurs(event):
     return event.value[0] == 1
 
-# ATTN: maybe allow n_best=1 and keep that many best states and scores
-# when ==1 just return a single best, else a list of best in order
+def markov_decrypt(cipher, iter=1000, init=None, n_best=1):
+    """Applies Markov decryption algorithm to given cipher text.
 
-def markov_decrypt(cipher, iter=1000):
-    state = _CHARS[:]
-    best_score = _log_like([c for c in cipher])
+    Parameters:
+    + cipher: str - The cipher text
+    + iter: int [=1000] - number of iterations
+    + init: list[str] | None [=None] - an initial permutation
+        if not None, or the identity permutation if None.
+        This must be a permutation of A-Z and ' '.
+    + n_best: int [=1]: the number of best decryptions to
+        keep and return (ATTN: CURRENTLY NOT USED)
+
+    If n_best == 1, returns a dictionary containing the estimated
+    clear text, the highest scoring permutation, and the best score,
+    with respective keys 'clear', 'cipher', and 'score'. If n_best >
+    1, return a list of such dictionaries in decreasing order of
+    score.
+
+    """
+    if init is None:
+        state = _CHARS[:]
+    else:
+        state = init[:]
+    decrypt = { c2: c1 for c1, c2 in zip(_CHARS, state) }
+    best_score = _log_like([decrypt[c] for c in cipher])
     best_state = state[:]
 
-    pair = frp(ordered_samples(2, list(range(_N_CHARS))))
+    pair = frp(without_replacement(2, range(_N_CHARS)))
 
     score = best_score
     for _ in range(iter):
@@ -86,7 +108,10 @@ def markov_decrypt(cipher, iter=1000):
         decrypt = { c2: c1 for c1, c2 in zip(_CHARS, candidate) }
 
         cand_score = _log_like([decrypt[c] for c in cipher])
-        p = min(1, math.exp(cand_score - score))
+        if cand_score >= score:
+            p = 1.0
+        else:
+            p = math.exp(cand_score - score)
 
         if p >= 1 or _occurs(frp(weighted_as(0, 1, weights=[1 - p, p]))):
             score = cand_score
@@ -99,10 +124,19 @@ def markov_decrypt(cipher, iter=1000):
     decrypt = { c2: c1 for c1, c2 in zip(_CHARS, best_state) }
     decrypted = ''.join([decrypt[c] for c in cipher])
 
-    return (decrypted, best_state, best_score)
+    return {
+        'clear': decrypted,
+        'cipher': best_state,
+        'score': best_score
+    }
 
 
 # Simple Examples
 
+crypt1 = ['V', 'U', 'D', 'M', 'F', 'Y', 'L', 'I', 'X', 'W', 'P', 'A', 'R', 'T', 'J', 'C', 'G', 'E', 'O', 'Z', 'Q', ' ', 'H', 'B', 'K', 'N', 'S']
 cipher1 = 'QXYVE WMAVDOCBJVLCKVP TGYFVCHYOVQXYVRUSNVFCI'
 clear1 = 'THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG'
+
+crypt2 = ['V', 'U', 'D', 'M', 'F', 'Y', 'L', 'I', 'X', 'W', 'P', 'A', 'R', 'T', 'J', 'C', 'G', 'E', 'O', 'Z', 'Q', ' ', 'H', 'B', 'K', 'N', 'S']
+clear2 = 'MANY THAT LIVE DESERVE DEATH AND SOME THAT DIE DESERVE LIFE CAN YOU GIVE IT TO THEM THEN DO NOT BE TOO EAGER TO DEAL OUT DEATH IN JUDGEMENT FOR EVEN THE VERY WISE CANNOT SEE ALL ENDS I HAVE NOT MUCH HOPE THAT GOLLUM CAN BE CURED BEFORE HE DIES BUT THERE IS A CHANCE OF IT AND HE IS BOUND UP WITH THE FATE OF THE RING MY HEART TELLS ME THAT HE HAS SOME PART TO PLAY YET FOR GOOD OR ILL BEFORE THE END AND WHEN THAT COMES THE PITY OF BILBO MAY RULE THE FATE OF MANY YOURS NOT LEAST'
+cipher2 = 'TUJNVQXUQVRWHYVFYZYOHYVFYUQXVUJFVZCTYVQXUQVFWYVFYZYOHYVRWLYVMUJVNC VIWHYVWQVQCVQXYTVQXYJVFCVJCQVDYVQCCVYUIYOVQCVFYURVC QVFYUQXVWJVP FIYTYJQVLCOVYHYJVQXYVHYONVBWZYVMUJJCQVZYYVURRVYJFZVWVXUHYVJCQVT MXVXCGYVQXUQVICRR TVMUJVDYVM OYFVDYLCOYVXYVFWYZVD QVQXYOYVWZVUVMXUJMYVCLVWQVUJFVXYVWZVDC JFV GVBWQXVQXYVLUQYVCLVQXYVOWJIVTNVXYUOQVQYRRZVTYVQXUQVXYVXUZVZCTYVGUOQVQCVGRUNVNYQVLCOVICCFVCOVWRRVDYLCOYVQXYVYJFVUJFVBXYJVQXUQVMCTYZVQXYVGWQNVCLVDWRDCVTUNVO RYVQXYVLUQYVCLVTUJNVNC OZVJCQVRYUZQ'

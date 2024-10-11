@@ -18,15 +18,27 @@ them into a new statistic.
     If `si` is a constant, it is automatically wrapped in `Constantly`,
     so `Fork(Id, 1, s1, s2)` takes `v` to `<v, 1, s1(v), s2(v)>`.
 
-+ `MFork` is exactly like `Fork` but is designed to accept only
-   monoidal statistics. It's primary use is in the construction
-   of fast mixture powers. (See topic `kind-combinators::fast_mixture_pow`.)
-
 + `IfThenElse` :: takes three statistics, the first typically a condition.
    If the first is true, apply the second; else apply the third.
 
    Example: `IfThenElse(__ % 2 == 0, __ // 2, 1 + __ // 2)` operates differently
    on even and odd inputs.
+
++ `Keep` :: Creates a statistic keeps the components of its input that satisfy
+           a given condition. By default, results are padded out to the appropriate
+           dimension.
+
++ `MaybeMap` :: Creates a statistic like a combination of `ForEach` and `Keep`.
+           Applies a statistic to each component and joins the results into a
+           single tuple, but if the statistic returns `nothing` (a scalar or 1-dim tuple),
+           that value is excluded. By default, this pads the result to a common dimension
+           inferred from the statistic.
+
++ `MFork` is exactly like `Fork` but is designed to accept only
+   monoidal statistics. It's primary use is in the construction
+   of fast mixture powers. (See topic `kind-combinators::fast_mixture_pow`.)
+   This is deprecated as `Fork` now auto-detects if it is given
+   all monoidal statistics.
 
 ## Logical Combinators
 
