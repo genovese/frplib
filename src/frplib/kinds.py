@@ -349,19 +349,36 @@ class Kind:
         vals2 = kind2.value_set
 
         if vals1 != vals2:
-            return RichString(f'The two kinds [bold red]differ[/]. '
-                              f'The first has distinct values [red]{set(map(str, vals1 - vals2))}[/] and '
-                              f'the second has distinct values [red]{set(map(str, vals2 - vals1))}[/].')
+            vs1m2 = set(map(str, vals1 - vals2))
+            vs2m1 = set(map(str, vals2 - vals1))
+            intersect12 = vals1 & vals2
+            distinct1 = f'the first has distinct values [red]{vs1m2}[/] ' if len(vs1m2) > 0 else ''
+            distinct2 = f'the second has distinct values [red]{vs2m1}[/]' if len(vs2m1) > 0 else ''
+            connect12 = 'and ' if distinct1 and distinct2 else ''
+            if len(intersect12) > 0:
+                max_diff = max(abs(kind1.kernel(v, as_float=False) - kind2.kernel(v, as_float=False)) for v in intersect12)
+                diff_str = f' The weights differ by up to [red]{as_nice_numeric(max_diff)}[/] on common values.'
+            else:
+                diff_str = ''
+            return RichString(f'The two kinds [bold red]differ[/]: {distinct1}{connect12}{distinct2}.{diff_str}')
 
         w1 = kind1.weights
         w2 = kind2.weights
+        max_diff = 0
+        examp_diff = None
 
         for v in vals1:
-            if as_nice_numeric(as_real(w1[v] - w2[v]).copy_abs()) >= tol:
-                return RichString(f'The two kinds [bold red]differ[/] in their weights, '
-                                  f'e.g., at value [bold]{v}[/], the weights are [red]{w1[v]}[/] and [red]{w2[v]}[/].')
+            abs_diff = as_nice_numeric(as_real(w1[v] - w2[v]).copy_abs())
+            if abs_diff > tol:
+                if abs_diff > max_diff:
+                    max_diff = abs_diff
+                    examp_diff = v
 
-        return RichString('The two kinds are the [bold green]same[/] within numerical precision.')
+        if max_diff > tol:
+            return RichString(f'The two kinds [bold red]differ[/] in their weights,  '
+                              f'with a max difference of [red]{str(max_diff)}[/] at value [bold]{v}[/] ({w1[v]} and {w2[v]}).')
+
+        return RichString(f'The two kinds are the [bold green]same[/] within numerical tolerance {str(tolerance)}.')
 
     @classmethod
     def equal(cls, kind1, kind2, tolerance: ScalarQ = '1e-12') -> bool:
@@ -1504,7 +1521,40 @@ def weighted_pairs(*xs) -> Kind:     # Iterable[tuple[ValueType | ScalarQ, Scala
                  for v, w in val_wgts if not is_zero(w)])
 
 def arbitrary(*xs, names: list[str] = []):
-    "Returns a Kind with the given values and arbitrary symbolic weights."
+    """Returns a Kind with the given values and arbitrary symbolic weights.
+
+    Values can be specified in a variety of ways:
+      + As explicit arguments, e.g.,  arbitrary(1, 2, 3, 4)
+      + As an implied sequence, e.g., arbitrary(1, 2, ..., 10)
+        Here, two *numeric* values must be supplied before the ellipsis and one after;
+        the former determine the start and increment; the latter the end point.
+        Multiple implied sequences with different increments are allowed,
+        e.g., arbitrary(1, 2, ..., 10, 12, ... 20)
+        Note that the pattern a, b, ..., a will be taken as the singleton list a
+        with b ignored, and the pattern a, b, ..., b produces [a, b].
+      + As an iterable, e.g., arbitrary([1, 10, 20]) or arbitrary(irange(1,52))
+      + With a combination of methods, e.g.,
+           arbitrary(1, 2, [4, 3, 5], 10, 12, ..., 16)
+        in which case all the values except explicit *tuples* will be
+        flattened into a sequence of values. (Though note: all values
+        should have the same dimension.)
+
+    The symbols used to depict the weights on the branches have temporary
+    generic names. If supplied, parameter `names` is a list of strings that names the
+    symbols for the corresponding branches. If there are fewer names than
+    branches, the remaining names are generic.
+
+    Examples:
+    + arbitrary(1, 2, 3)
+    + arbitrary((4, 5), (6, 7), (8, 9), names=['a', 'b', 'c'])
+    + arbitrary((i, j) for i in irange(1, 3) for j in irange(1, 3) if i != j)
+    + arbitrary(((i, j) for i in irange(1, 3) for j in irange(1, 3) if i != j),
+                names=['a', 'b', 'c'])
+      This is like the previous case. Note that the generator expression must
+      be surrounded by parentheses if more than one argument is given. This
+      names the first three symbols.
+
+    """
     values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES, transform=as_numeric_vec)
     if len(values) == 0:
         return Kind.empty
@@ -2401,6 +2451,7 @@ setattr(arbitrary, '__info__', 'kind-factories')
 setattr(integers, '__info__', 'kind-factories')
 setattr(evenly_spaced, '__info__', 'kind-factories')
 setattr(without_replacement, '__info__', 'kind-factories')
+setattr(ordered_samples, '__info__', 'kind-factories')
 setattr(subsets, '__info__', 'kind-factories')
 setattr(permutations_of, '__info__', 'kind-factories')
 setattr(bin, '__info__', 'kind-combinators::bin')
