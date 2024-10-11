@@ -1038,7 +1038,7 @@ class Condition(Statistic):
     def __call__(self, *args) -> tuple[Literal[0, 1], ...] | Statistic:
         if len(args) == 1 and isinstance(args[0], Transformable):
             return args[0].transform(self)
-        if isinstance(args[0], Statistic):
+        if len(args) == 1 and isinstance(args[0], Statistic):
             return Condition(compose2(self, args[0]))
         result = super().__call__(*args)
         return as_vec_tuple(_ibool(as_scalar(result)))  # type: ignore
