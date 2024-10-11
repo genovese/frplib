@@ -3,8 +3,9 @@ from __future__ import annotations
 import re
 
 from collections.abc   import Iterable
+from itertools         import zip_longest
 
-from frplib.numeric    import (NICE_DIGITS, Numeric, ScalarQ,
+from frplib.numeric    import (NICE_DIGITS, Numeric, ScalarQ, nothing, Nothing,
                                as_nice_numeric, as_numeric, as_real,
                                numeric_q_from_str, show_values, show_nice_numeric)
 from frplib.symbolic   import Symbolic, symbol
@@ -15,23 +16,28 @@ INFINITY = numeric_q_from_str('Infinity').value
 NEGATIVE_INFINITY = numeric_q_from_str('-Infinity').value
 
 def as_quantity(
-        x: ScalarQ | Symbolic = 0,
+        x: ScalarQ | Symbolic | Nothing = 0,
         convert_numeric=as_numeric  # as_nice_numeric  # ATTN: as_numeric instead??
-) -> Numeric | Symbolic:
+) -> Numeric | Symbolic | Nothing:
     if isinstance(x, Symbolic):
         return x
 
     if isinstance(x, str):
         if re.match(r'\s*[-+.0-9]', x) or re.match(r'(?i)-?inf(?:inity)?', x):
             return convert_numeric(numeric_q_from_str(x))
+        elif x.lower() == 'nothing':
+            return nothing
         return symbol(x)
+
+    if isinstance(x, Nothing):
+        return nothing
 
     return convert_numeric(x)
 
-def as_real_quantity(x: ScalarQ | Symbolic) -> Numeric | Symbolic:
+def as_real_quantity(x: ScalarQ | Symbolic) -> Numeric | Symbolic | Nothing:
     return as_quantity(x, convert_numeric=as_real)
 
-def as_nice_quantity(x: ScalarQ | Symbolic) -> Numeric | Symbolic:
+def as_nice_quantity(x: ScalarQ | Symbolic) -> Numeric | Symbolic | Nothing:
     return as_quantity(x, convert_numeric=as_nice_numeric)
 
 def as_quant_vec(x, convert=as_quantity):
@@ -71,6 +77,9 @@ def show_quantities(xs: Iterable[Numeric | Symbolic]) -> list[str]:
         elif x == NEGATIVE_INFINITY:
             symbols.append("-\u221e")
             place_at.append((i, False))
+        elif x is nothing or x is None:
+            symbols.append(str(nothing))
+            place_at.append((i, False))
         else:
             numerics.append(x)
             place_at.append((i, True))
@@ -101,7 +110,7 @@ def show_qtuples(
 
     # Transpose, Format, and Transpose back
     outT = []
-    for out in zip(*tups):  # , strict=True
+    for out in zip_longest(*tups, fillvalue=nothing):
         outT.append(show_quantities(out))
     dim = len(outT)
     if scalarize and dim == 1:

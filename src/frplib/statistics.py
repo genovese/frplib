@@ -15,16 +15,16 @@ from typing_extensions import Self, TypeAlias, TypeGuard
 
 from frplib.exceptions import (OperationError, StatisticError, DomainDimensionError,
                                InputError, MismatchedDomain)
-from frplib.numeric    import (ScalarQ, Numeric, as_real, numeric_sqrt, numeric_exp,
-                               numeric_ln, numeric_log10, numeric_log2,
+from frplib.numeric    import (ScalarQ, Numeric, nothing, as_real, numeric_sqrt,
+                               numeric_exp, numeric_ln, numeric_log10, numeric_log2,
                                numeric_abs, numeric_floor, numeric_ceil)
 
 from frplib.protocols  import Projection, Transformable
 from frplib.quantity   import as_quant_vec, as_quantity
 from frplib.symbolic   import Symbolic
 from frplib.utils      import dim, identity, is_interactive, is_tuple, scalarize
-from frplib.vec_tuples import (VecTuple, as_scalar, as_scalar_strict, as_vec_tuple,
-                               is_vec_tuple, vec_tuple, join)
+from frplib.vec_tuples import (VecTuple, as_bool, as_scalar, as_scalar_strict, as_scalar_weak,
+                               as_vec_tuple, is_vec_tuple, vec_tuple, join)
 
 # ATTN: conversion with as_real etc in truediv, pow to prevent accidental float conversion
 # This could be mitigated by eliminating ints from as_numeric*, but we'll see how this

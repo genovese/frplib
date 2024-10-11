@@ -16,10 +16,10 @@ from rich              import box as rich_box
 from rich.panel        import Panel
 
 from frplib.env        import environment
-from frplib.exceptions import (ConditionMustBeCallable, ComplexExpectationWarning,
+from frplib.exceptions import (ConditionMustBeCallable, ComplexExpectationWarning, ContractError,
                                ConstructionError, FrpError, KindError, MismatchedDomain,)
 from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
-from frplib.numeric    import Numeric, show_tuple, as_real
+from frplib.numeric    import Numeric, Nothing, show_tuple, as_real
 from frplib.protocols  import Projection, SupportsExpectation
 from frplib.quantity   import as_quant_vec
 from frplib.statistics import Statistic, compose2, infinity, tuple_safe, Proj, Prepend
@@ -32,7 +32,7 @@ from frplib.vec_tuples import (VecTuple, as_scalar, as_scalar_weak, as_vec_tuple
 # Types
 #
 
-QuantityType: TypeAlias = Union[Numeric, Symbolic]
+QuantityType: TypeAlias = Union[Numeric, Symbolic, Nothing]
 ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 
 # Invariance of dict type causes incorrect type errors when constructing conditional FRPs

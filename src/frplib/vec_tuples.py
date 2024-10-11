@@ -47,7 +47,7 @@ from typing_extensions import Self, TypeGuard
 
 from frplib.exceptions import (OperationError, NumericConversionError,
                                MismatchedDimensionError, MismatchedDomain)
-from frplib.numeric    import Numeric, NumericF, NumericD, NumericB, numeric_sqrt  # ATTN: Numeric+Symbolic+SupportsVec
+from frplib.numeric    import Numeric, NumericF, NumericD, NumericB, Nothing, nothing, numeric_sqrt  # ATTN: Numeric+Symbolic+SupportsVec
 from frplib.numeric    import as_numeric as scalar_as_numeric
 from frplib.symbolic   import Symbolic, is_symbolic, symbolic_sqrt
 
@@ -60,7 +60,7 @@ from frplib.symbolic   import Symbolic, is_symbolic, symbolic_sqrt
 #
 
 # A VecTuple should contain entirely interoperable types
-T = TypeVar('T', NumericF, NumericD, NumericB, Union[Numeric, Symbolic])
+T = TypeVar('T', NumericF, NumericD, NumericB, Union[Numeric, Symbolic, Nothing])
 
 
 #
@@ -96,7 +96,7 @@ def cyclic_extend(
     # Optimize for most common cases
     if isinstance(other, VecTuple) and len(other) == n:
         return (vec, other)
-    if isinstance(other, (int, float, Fraction, Decimal, Symbolic)):
+    if isinstance(other, (int, float, Fraction, Decimal, Symbolic, Nothing)):
         return (vec, VecTuple([other] * n))
 
     # We'll likely need a list for other but also handles iterators
@@ -140,7 +140,7 @@ def zero_extend(
         if len(other) == n:
             return (vec, other)
         return (vec, VecTuple(list(other) * n))
-    if isinstance(other, (int, float, Fraction, Decimal, Symbolic)):
+    if isinstance(other, (int, float, Fraction, Decimal, Symbolic, Nothing)):
         return (vec, VecTuple([other] * n))
 
     # We'll likely need a list for other but also handles iterators
@@ -184,7 +184,7 @@ def scalar_extend(
         if len(other) == n:
             return (vec, other)
         return (vec, VecTuple(list(other) * n))
-    if isinstance(other, (int, float, Fraction, Decimal, Symbolic)):
+    if isinstance(other, (int, float, Fraction, Decimal, Symbolic, Nothing)):
         return (vec, VecTuple([other] * n))
 
     # We'll likely need a list for other but also handles iterators
@@ -282,6 +282,15 @@ def as_float(x):
         return float(x[0])
     return VecTuple(xi if is_symbolic(xi) else float(xi) for xi in x)
 
+def as_bool(v):
+    """Converts the output of a Condition to a scalar boolean (True or False).
+
+    Raises an error if the input value has dimension > 1.
+
+    """
+    return bool(as_scalar_strict(v))
+
+
 #
 # Numeric/Quantified VecTuples
 #
@@ -362,10 +371,13 @@ class VecTuple(tuple[T, ...]):
         if isinstance(sq_norm, Symbolic):
             raise NotImplementedError('Symbolic function application not yet implemented')
         dot_prod = dot_product(self, self)
-        if isinstance(dot_prod, Symbolic):
-            return vec_tuple(symbolic_sqrt(dot_prod))
-        elif isinstance(dot_prod, (int, Decimal)):
+        if isinstance(dot_prod, (int, Decimal)):
             return vec_tuple(numeric_sqrt(dot_prod))
+        elif isinstance(dot_prod, Symbolic):
+            return vec_tuple(symbolic_sqrt(dot_prod))
+        elif isinstance(dot_prod, Nothing):
+            return vec_tuple(nothing)
+
         return vec_tuple(math.sqrt(dot_prod))
 
     def __getitem__(self, key):

@@ -14,7 +14,7 @@ from typing            import cast, Literal, Union
 from typing_extensions import TypeGuard
 
 from frplib.exceptions import ConstructionError, MismatchedDomain
-from frplib.numeric    import (Numeric, ScalarQ,
+from frplib.numeric    import (Numeric, ScalarQ, Nothing,
                                as_real, as_nice_numeric, as_numeric,
                                is_scalar_q, show_numeric)
 # from frplib.protocols  import NamedCallable
@@ -29,7 +29,7 @@ from frplib.numeric    import (Numeric, ScalarQ,
 # I would prefer it to be elsewhere, but for now, this is the way.
 #
 
-def is_zero(quantity: ScalarQ | Symbolic, tolerance=0.0) -> bool:
+def is_zero(quantity: ScalarQ | Symbolic | Nothing, tolerance=0.0) -> bool:
     if isinstance(quantity, int):
         return quantity == 0
 
@@ -50,6 +50,9 @@ def is_zero(quantity: ScalarQ | Symbolic, tolerance=0.0) -> bool:
 
     if isinstance(quantity, Fraction):
         return quantity.numerator == 0
+
+    if isinstance(quantity, Nothing):
+        return False
 
     raise MismatchedDomain(f'is_zero requires a scalar argument, given {quantity}.')
 

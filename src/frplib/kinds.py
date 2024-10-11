@@ -22,7 +22,7 @@ from frplib.exceptions import (ConstructionError, EvaluationError, KindError, Mi
 from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
-from frplib.numeric    import (Numeric, ScalarQ, as_nice_numeric, as_numeric, as_real,
+from frplib.numeric    import (Numeric, ScalarQ, Nothing, is_nothing, as_nice_numeric, as_numeric, as_real,
                                is_numeric, numeric_abs, numeric_floor, numeric_log2, numeric_ln)
 from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection, SupportsKindOf
@@ -39,7 +39,7 @@ from frplib.vec_tuples import (VecTuple, as_numeric_vec, as_scalar_strict, as_ve
 #
 
 CanonicalKind: TypeAlias = list['KindBranch']
-QuantityType: TypeAlias = Union[Numeric, Symbolic]
+QuantityType: TypeAlias = Union[Numeric, Symbolic, Nothing]
 ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 
 # Invariance of dict type causes incorrect type errors when constructing conditional Kinds
@@ -1178,11 +1178,13 @@ def binary(p='1/2'):
 
     """
     w = as_quantity(p)
+    if is_nothing(w):
+        raise KindError('binary() Kind factory requires a non-missing p')
     if is_zero(w):
         return constant(0)
     if is_zero(1 - w):
         return constant(1)
-    return weighted_as(0, 1, weights=[1 - w, w])
+    return weighted_as(0, 1, weights=[1 - w, w])  # type: ignore
 
 def either(a, b, weight_ratio=1) -> Kind:
     """A choice between two possibilities a and b with ratio of weights (a to b) of `weight_ratio`.

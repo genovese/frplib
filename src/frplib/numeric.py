@@ -18,6 +18,7 @@ from dataclasses       import dataclass
 from decimal           import Decimal, ROUND_HALF_UP, ROUND_UP, ROUND_FLOOR, ROUND_CEILING
 from enum              import Enum, auto
 from fractions         import Fraction
+from itertools         import zip_longest
 from typing            import cast, Literal, Union
 from typing_extensions import TypeAlias, TypeGuard
 
@@ -36,6 +37,116 @@ class NumType(Enum):
     RATIONAL = auto()
     REAL = auto()
 
+
+#
+# Nothing value -- a singleton used for padding and missing values
+#
+# The primary use case here is as a default padding value when ensuring
+# that tuples of intrinsically different lengths have the same dimension.
+# This is used by, e.g., the Keep and MaybeMap statistic factories,
+# for exactly this purpose -- the missing values are put at the end
+# as nothings. These print in a suitably noticeable way, and they
+# operate arithmetically with numbers to produce nothing whenever and
+# however they are combined.
+#
+# This will not get a lot of use, but where needed it is helpful.
+#
+
+class _Nothing:
+    """A unique value representing a missing component.
+
+    This is used primarily as a default padding value
+    to ensure that tuples with ``missing values'' have
+    the same dimension in a Kind. See `statistics.Keep`
+    and `statistics.MaybeMap` for one place where these
+    are used.
+
+    Users are free to use this as a padding value if there
+    is no semantically more useful value at hand.
+
+    This value can combine arithmetically with numbers, but
+    the result of every such calculation is again `nothing`,
+    e.g., 4 + nothing = nothing, 10 * nothing = nothing,
+    and so forth. It does not represent 0 but rather missingness,
+    and any calculation with missing values will have a missing
+    result.
+
+    nothing compares as < any non-nothing value, and equality
+    is by identity.
+
+    """
+    def __str__(self):
+        return '\u25a1'
+
+    def __repr__(self):
+        return 'nothing'
+
+    def __lt__(self, other):
+        if other == self:
+            return False
+        return True
+
+    def __le__(self, other):
+        return True
+
+    def __gt__(self, other):
+        return False
+
+    def __ge__(self, other):
+        if self == other:
+            return True
+        return False
+
+    def __add__(self, other):
+        return self
+
+    def __radd__(self, other):
+        return self
+
+    def __sub__(self, other):
+        return self
+
+    def __rsub__(self, other):
+        return self
+
+    def __mul__(self, other):
+        return self
+
+    def __rmul__(self, other):
+        return self
+
+    def __truediv__(self, other):
+        return self
+
+    def __rtruediv__(self, other):
+        return self
+
+    def __floordiv__(self, other):
+        return self
+
+    def __rfloordiv__(self, other):
+        return self
+
+    def __mod__(self, other):
+        return self
+
+    def __rmod__(self, other):
+        return self
+
+    def __pow__(self, other):
+        return self
+
+    def __rpow__(self, other):
+        return self
+
+    def __abs__(self):
+        return self
+
+Nothing: TypeAlias = _Nothing
+nothing = _Nothing()  # This is a singleton!
+
+def is_nothing(value) -> TypeGuard[Nothing]:
+    return value == nothing
 
 #
 # Numeric Quantities
@@ -397,12 +508,16 @@ def show_values(
     # If so, show as rationals with common denominator
     # ATTN: If there are *two* shared denominators that follow the rules, that would be useful
     xs = list(xs)
-    ratl_xs = [as_rational(x, limit_denominator=DEC_DENOMINATOR_LIMIT) for x in xs]
-    common_denom = math.lcm(*[r.denominator for r in ratl_xs])
+    ratl_xs = [as_rational(x, limit_denominator=DEC_DENOMINATOR_LIMIT)
+               if x is not nothing else nothing
+               for x in xs]
+    common_denom = math.lcm(*[r.denominator for r in ratl_xs if r is not nothing])   # type: ignore
     if common_denom == 1:
         return list(map(str, ratl_xs))
     elif denom_rules(common_denom, max_denom, exclude_denoms):
-        return [f'{int(x.numerator * common_denom / x.denominator)}/{common_denom}' for x in ratl_xs]
+        return [f'{int(x.numerator * common_denom / x.denominator)}/{common_denom}'  # type: ignore
+                if x is not nothing else str(nothing)
+                for x in ratl_xs]
 
     # Otherwise, show as real numbers, rounding all to a reasonable common scale
     real_xs = [as_real(x) for x in xs]
@@ -429,7 +544,7 @@ def show_tuples(
 
     # Transpose, Format, and Transpose back
     outT = []
-    for out in zip(*tups):  # , strict=True
+    for out in zip_longest(*tups, fillvalue=nothing):
         outT.append(show_values(out, max_denom, exclude_denoms, rounding_mask, rounding))
     dim = len(outT)
     if scalarize and dim == 1:
