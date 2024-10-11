@@ -20,6 +20,8 @@
 + `Permute` :: creates a permutation statistic with the specified permutation
 + `Mean`, `StdDev`, `Variance` :: computes the sample mean, standard deviation,
       and variance, respectively, of the tuple's components.
++ `Median`, `Quartiles`, `IQR` :: computes the sample median, sample quartiles,
+      and inter-quartile range, respectively, of the tuple's components.
 + `SumSq` :: computes sum of squares of tuple's components
 + `Norm` :: computes Euclidean norm of tuple, the square root of the sum of squared components
 + `ArgMax` :: finds index (0-based) of biggest component
@@ -53,6 +55,7 @@ Except for `Abs`, these functions expect a 1-dimensional input.
 ## Special Mathematical Functions
 
 + `NormalCDF` :: the standard Normal cumulative distribution function
++ `Binomial` :: computes general binomial coefficients
 
 ## Special values
 

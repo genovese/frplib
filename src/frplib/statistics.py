@@ -7,6 +7,7 @@ import textwrap
 
 from collections.abc   import Iterable, Collection
 from decimal           import Decimal
+from fractions         import Fraction
 from functools         import wraps
 from math              import prod
 from operator          import itemgetter
@@ -1471,6 +1472,58 @@ def Distinct(v):
     "tests if all components are distinct."
     return len(v) == len(frozenset(v))
 
+@statistic(dim=1)
+def Median(x):
+    "returns the median of its inputs components."
+    n = len(x)
+    sx = sorted(x)
+    if n % 2 == 0:
+        return (x[(n - 1) // 2] + x[n // 2]) / 2
+    else:
+        return x[n // 2]
+
+@statistic(dim=3)
+def Quartiles(x):
+    "returns the three quartiles of its inputs components."
+    n = len(x)
+    sx = sorted(x)
+    med = Median(x)
+    k = n // 2
+    if n % 2 == 0:
+        return join(x[k // 2], med, x[k + k // 2 - 1])
+    else:
+        return join(Median(x[:k]), med, Median(x[(k+1):]))
+
+@statistic(dim=1)
+def IQR(x):
+    "returns the inter-quartile range of its inputs components."
+    n = len(x)
+    sx = sorted(x)
+    k = n // 2
+    if n % 2 == 0:
+        return x[k + k // 2 - 1] - x[k // 2]
+    else:
+        return Median(x[(k+1):]) - Median(x[:k])
+
+@statistic(codim=2, dim=1)
+def Binomial(r, k):
+    "returns the Binomial coefficient (r choose k) = r^falling(k) / k!, where k must be an integer"
+    if not isinstance(k, int):
+        raise InputError(f'In Binomial(r, k), k should be an integer, got {k}')
+    if k < 0:
+        return 0
+    if k == 0:
+        return 1
+
+    c = 1
+    if isinstance(r, int):
+        for j in range(k):
+            c *= Fraction(r - j, k - j)      # type: ignore
+    else:
+        for j in range(k):
+            c *= as_real(r - j) / (k - j)    # type: ignore
+    return c
+
 @scalar_statistic(name='atan2', codim=(1, 2), description='returns the sector correct arctangent')
 def ATan2(x, y=1):
     return as_quantity(math.atan2(x, y))
@@ -2448,6 +2501,10 @@ setattr(Mean, '__info__', 'statistic-builtins')
 setattr(Ascending, '__info__', 'statistic-builtins')
 setattr(Descending, '__info__', 'statistic-builtins')
 setattr(Distinct, '__info__', 'statistic-builtins')
+setattr(Median, '__info__', 'statistic-builtins')
+setattr(Quartiles, '__info__', 'statistic-builtins')
+setattr(IQR, '__info__', 'statistic-builtins')
+setattr(Binomial, '__info__', 'statistic-builtins')
 setattr(Diff, '__info__', 'statistic-builtins')
 setattr(Diffs, '__info__', 'statistic-builtins')
 setattr(Abs, '__info__', 'statistic-builtins')
