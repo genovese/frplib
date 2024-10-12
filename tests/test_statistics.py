@@ -3,8 +3,12 @@ from __future__ import annotations
 import math
 import pytest
 
+from hypothesis             import given
+from hypothesis.strategies  import integers, decimals, tuples, lists, one_of, dictionaries
+
 from frplib.exceptions import DomainDimensionError, InputError, MismatchedDomain
 from frplib.kinds      import Kind, either
+from frplib.numeric    import nothing
 from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                is_statistic, statistic, condition, scalar_statistic,
                                tuple_safe, infinity, ANY_TUPLE,
@@ -20,11 +24,14 @@ from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                Constantly, Fork, ForEach, IfThenElse,
                                And, Or, Not, Xor, top, bottom,
                                Cases, All, Any, ACos, ASin,
+                               Median, Quartiles, Binomial, Distinct,
+                               Get, ElementOf, Keep, MaybeMap,
+                               Prepend, Append, Bag,
                                )
 from frplib.quantity   import as_quantity, qvec
 from frplib.symbolic   import symbol
-from frplib.utils      import codim, dim, identity
-from frplib.vec_tuples import vec_tuple
+from frplib.utils      import codim, dim, identity, irange
+from frplib.vec_tuples import as_vec_tuple, vec_tuple, join
 
 
 def test_builtin_statistics():
@@ -190,7 +197,75 @@ def test_more_builtins():
     assert math.isclose(FromRadians(ACos(0))[0], 90)
     assert math.isclose(FromRadians(ASin(0))[0], 0)
 
+def int_value_gen(max_dim):
+    return lists(integers(min_value=-1024, max_value=1024),
+                 min_size=1, max_size=max_dim).map(as_vec_tuple)
 
+@given(int_value_gen(16))
+def test_median_distinct(v):
+    n = len(v)
+    sv = sorted(v)
+    if n % 2 == 0:
+        med = Median(v)
+        assert med == vec_tuple((sv[(n - 1) // 2] + sv[n // 2]) / 2)
+        if n >= 4:
+            q = Quartiles(v)
+            assert q[0] == Median(join(sv[:(n // 2)], med))
+            assert q[2] == Median(join(sv[(n // 2):], med))
+    else:
+        assert Median(v) == vec_tuple(sv[n // 2])
+        if n >= 4:
+            q = Quartiles(v)
+            assert q[0] == Median(*sv[:(n // 2)])
+            assert q[2] == Median(*sv[((n // 2) + 1):])
+
+    assert Distinct(v) == vec_tuple(1 if len(set(v)) == n else 0)
+
+def test_yet_more_builtins():
+    a_list = [2 * k + 100 for k in range(25)]
+    a_dict = {k: 2 * k - 100 for k in range(25)}
+    b_dict = {(k, k + 10): vec_tuple(k, k + 2, k + 8) for k in range(25)}
+
+    for k in range(25):
+        assert Get(a_list)(k) == vec_tuple(2 * k + 100)
+        assert Get(a_dict)(k) == vec_tuple(2 * k - 100)
+        assert Get(b_dict)(k, k + 10) == vec_tuple(k, k + 2, k + 8)
+
+    s = ElementOf(43, 93, 103)
+    assert s(43) == vec_tuple(1)
+    assert s(93) == vec_tuple(1)
+    assert s(103) == vec_tuple(1)
+    for k in irange(1, 110, exclude={43, 93, 103}):
+        assert s(k) == vec_tuple(0)
+
+    assert Prepend(1, 2, 3)(10, 20, 30) == vec_tuple(1, 2, 3, 10, 20, 30)
+    assert Prepend(1, 2)(10, 20, 30) == vec_tuple(1, 2, 10, 20, 30)
+    assert Prepend(1)(10, 20, 30) == vec_tuple(1, 10, 20, 30)
+    assert Prepend()(10, 20, 30) == vec_tuple(10, 20, 30)
+    assert Append(1, 2, 3)(10, 20, 30) == vec_tuple(10, 20, 30, 1, 2, 3)
+    assert Append(1, 2)(10, 20, 30) == vec_tuple(10, 20, 30, 1, 2)
+    assert Append(1)(10, 20, 30) == vec_tuple(10, 20, 30, 1)
+    assert Append()(10, 20, 30) == vec_tuple(10, 20, 30)
+
+    assert Bag(1, 2, 3, 4) == vec_tuple(1, 1, 2, 1, 3, 1, 4, 1)
+    assert Bag(1, 2, 3, 4, 3) == vec_tuple(1, 1, 2, 1, 3, 2, 4, 1)
+    assert Bag(1, 2, 1, 1, 3, 4, 3) == vec_tuple(1, 3, 2, 1, 3, 2, 4, 1)
+    assert Bag(2, 4, 4, 1, 2, 1, 1, 4, 3, 4, 4, 4, 3, 2, 2) == vec_tuple(1, 3, 2, 4, 3, 2, 4, 6)
+
+    bc5 = [1, 5, 10, 10, 5, 1]
+    for j in range(6):
+        assert Binomial(5, j) == vec_tuple(bc5[j])
+    assert Binomial(20, 10) == vec_tuple(184756)
+    assert Binomial(1.2, 0) == vec_tuple(1)
+    assert Binomial(20, 0) == vec_tuple(1)
+    assert Binomial(20, -1) == vec_tuple(0)
+    for j in range(10):
+        assert Binomial(-1, j) == vec_tuple((-1) ** j)
+    assert Binomial(2.5, 4)[0] == pytest.approx(as_quantity('-0.039062500000000014'))
+
+    assert Keep(Scalar % 2 == 0)(1, 2, 3, 4) == vec_tuple(2, 4, nothing, nothing)
+    assert Keep(Scalar % 2 == 0, pad=-1)(1, 2, 3, 4) == vec_tuple(2, 4, -1, -1)
+    assert Keep(__ > 0, pad=0)(-20, 2, -2, 10, 20) == vec_tuple(2, 10, 20, 0, 0)
 
 def test_tuple_safe():
     def sc_fn(x):

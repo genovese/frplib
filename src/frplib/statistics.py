@@ -1477,23 +1477,26 @@ def Distinct(v):
 def Median(x):
     "returns the median of its inputs components."
     n = len(x)
+    if n <= 1:
+        return x
     sx = sorted(x)
     if n % 2 == 0:
-        return (x[(n - 1) // 2] + x[n // 2]) / 2
+        return (sx[(n - 1) // 2] + sx[n // 2]) / 2
     else:
-        return x[n // 2]
+        return sx[n // 2]
 
-@statistic(dim=3)
+@statistic(codim=(4, infinity), dim=3)
 def Quartiles(x):
     "returns the three quartiles of its inputs components."
     n = len(x)
+
     sx = sorted(x)
     med = Median(x)
     k = n // 2
     if n % 2 == 0:
-        return join(x[k // 2], med, x[k + k // 2 - 1])
+        return join(Median(join(sx[:k], med)), med, Median(join(med, sx[k:])))
     else:
-        return join(Median(x[:k]), med, Median(x[(k+1):]))
+        return join(Median(*sx[:k]), med, Median(*sx[(k+1):]))
 
 @statistic(dim=1)
 def IQR(x):
@@ -2308,7 +2311,7 @@ def Prepend(*v):
     return prepend
 
 def ElementOf(*v):
-    """Statitic factory that tests for membership in a collection of values.
+    """Statistic factory that tests for membership in a collection of values.
 
     Values are specified with a single iterable argument containing
     the values, or with more than one arguments. In both cases, all
