@@ -4,6 +4,7 @@ __all__ = ['solve_dirichlet', 'solve_dirichlet_sparse', 'lava_room']
 
 import numpy as np
 
+from numpy.linalg        import solve
 from scipy.sparse        import csr_matrix
 from scipy.sparse.linalg import spsolve
 
@@ -26,7 +27,8 @@ def solve_dirichlet(cKind, *, fixed, fixed_values, alpha=0, beta=1, states=None)
     Parameters
       + cKind: ConditionalKind - determines Kind of transition from each state.
             Its domain is the set of possible states if explicitly available
-            and the states parameter is not supplied.
+            and the states parameter is not supplied.  The target values
+            of cKind must be a subset of the same set of states.
       + fixed: list[set] - disjoint subsets of states on which f's value is known
       + fixed_values: list[float] - known values of f corresponding to fixed set
             in the same position. Must have the same length as fixed.
@@ -40,10 +42,69 @@ def solve_dirichlet(cKind, *, fixed, fixed_values, alpha=0, beta=1, states=None)
     representing the solution f.
 
     """
-    pass
+    if states is None:
+        if not cKind._has_domain_set:
+            raise KindError('solve_dirichlet_sparse cannot deduce state set from cKind')
+        states = list(cKind._domain_set)
+
+    for i, fix in enumerate(fixed):
+        fixed[i] = set(map(as_vec_tuple, fix))
+
+    fixed_map = {}
+    free_map = {}
+    free_states = []
+    free_index = 0
+    for s in states:
+        is_free = True
+        for i, fix in enumerate(fixed):
+            if s in fix:
+                fixed_map[s] = fixed_values[i]
+                is_free = False
+                break
+        if is_free:
+            free_states.append(s)
+            free_map[s] = free_index
+            free_index += 1
+
+    data = []
+    rhs = []
+    for s in free_states:
+        row_s = []
+        next_states = cKind.target(s)
+        rhs_value = alpha
+
+        for t in states:
+            v = beta * next_states.kernel(t)
+            if t in fixed_map:
+                rhs_value += v * fixed_map[t]
+            elif t == s:
+                row_s.append(1 - v)
+            else:
+                row_s.append(-v)
+        data.append(row_s)
+        rhs.append(rhs_value)
+
+    A = np.array(data, dtype=np.float64)
+    b = np.array(rhs, dtype=np.float64)
+    f_s = solve(A, b)
+
+    def f(*state):
+        if len(state) == 1 and isinstance(state[0], tuple):
+            s = as_vec_tuple(state[0])  # type: ignore
+        else:
+            s = as_vec_tuple(state)     # type: ignore
+        if s in fixed_map:
+            return fixed_map[s]
+        return float(f_s[free_map[s]])
+
+    return f
 
 def solve_dirichlet_sparse(cKind, *, fixed, fixed_values, alpha=0, beta=1, states=None):
     """Solves a Dirichlet problem determined by a conditional Kind and boundary constraints.
+
+    This is used for a system where the number of possible transitions in most
+    rows is a relatively small portion of the total number of states, enabling
+    much more efficient methods to solve the problem.
 
     Specifically, we want to solve for a function f on the domain of cKind
     that satisfies
