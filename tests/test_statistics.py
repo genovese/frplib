@@ -165,7 +165,7 @@ def test_builtin_statistics():
     assert p2(1, 2, 3, 4, 5, 6, 7, 8) == vec_tuple(4, 2, 7, 3, 1, 5, 6, 8)
     assert Permute(2, 1)(1, 2, 3) == vec_tuple(2, 1, 3)
     assert Permute(2, 1, cycle=False)(1, 2, 3) == vec_tuple(2, 1, 3)
-    
+
 
 def test_more_builtins():
     f = Cases({-1: 10, 1: 200, 3: 5}, default=0)
@@ -266,6 +266,28 @@ def test_yet_more_builtins():
     assert Keep(Scalar % 2 == 0)(1, 2, 3, 4) == vec_tuple(2, 4, nothing, nothing)
     assert Keep(Scalar % 2 == 0, pad=-1)(1, 2, 3, 4) == vec_tuple(2, 4, -1, -1)
     assert Keep(__ > 0, pad=0)(-20, 2, -2, 10, 20) == vec_tuple(2, 10, 20, 0, 0)
+
+    def Nu(cond, stat=Id):  # NothingUnless
+        return IfThenElse(cond, stat, nothing)
+
+    assert MaybeMap(Nu(Scalar % 2 == 0))(1, 2, 3, 4) == vec_tuple(2, 4, nothing, nothing)
+    assert MaybeMap(Nu(Scalar % 2 != 0, 1), pad=-1)(1, 2, 3, 4) == vec_tuple(1, 1, -1, -1)
+
+    odd_double = Nu(Scalar % 2 != 0, 2 * __)
+    assert MaybeMap(odd_double, pad=-1)(1, 2, 3, 4) == vec_tuple(2, 6, -1, -1)
+
+    pos_square = IfThenElse(__ > 0, __ ** 2, nothing)
+    assert MaybeMap(pos_square, pad=0)(-20, 2, -2, 10, 20) == vec_tuple(4, 100, 400, 0, 0)
+
+    @statistic(codim=1, dim=3)
+    def repeat3(v):
+        if v > 0:
+            return (v, v, v)
+        return nothing
+
+    assert MaybeMap(repeat3)(1, 4, 10) == vec_tuple(1, 1, 1, 4, 4, 4, 10, 10, 10)
+    assert MaybeMap(repeat3)(1, -4, 4, 0, 10) == vec_tuple(1, 1, 1, 4, 4, 4, 10, 10, 10, nothing, nothing, nothing, nothing, nothing, nothing)
+    assert MaybeMap(repeat3, pad=None)(1, -4, 4, 0, 10) == vec_tuple(1, 1, 1, 4, 4, 4, 10, 10, 10)
 
 def test_tuple_safe():
     def sc_fn(x):

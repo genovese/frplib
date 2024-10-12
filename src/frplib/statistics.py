@@ -2444,10 +2444,22 @@ def MaybeMap(stat: Statistic, pad=nothing) -> Statistic:
     option with care, as transformation of Kinds and FRPs expects
     the dimension to be preserved.
 
-    Examples (using * to denote nothing)
-    + MaybeMap(Scalar % 2 == 0)(1, 2, 3, 4) == <2, 4, *, *>
-    + MaybeMap(Scalar % 2 != 0, pad=-1)(1, 2, 3, 4) == <1, 3, -1, -1>
-    + MaybeMap(__ > 0, pad=0)(-20, 2, -2, 10, 20) == <2, 10, 20, 0, 0>
+    Examples (using * to denote nothing):
+
+    Define
+
+       def NothingUnless(cond, stat=Id):
+           return IfThenElse(cond, stat, nothing)
+
+    Then:
+
+    + MaybeMap(NothingUnless(Scalar % 2 == 0))(1, 2, 3, 4) == <2, 4, *, *>
+    + MaybeMap(NothingUnless(Scalar % 2 == 0), pad=None)(1, 2, 3, 4) == <2, 4>
+    + MaybeMap(Scalar % 2 != 0, pad=-1)(1, 2, 3, 4) == <1, 1, -1, -1>
+    + Setting odd_double = NothingUnless(Scalar % 2 != 0, 2 * __)
+      MaybeMap(odd_double, pad=-1)(1, 2, 3, 4) == <2, 6, -1, -1>
+    + Setting pos_square = NothingUnless(__ > 0, __ ** 2)
+      MaybeMap(pos_square, pad=0)(-20, 2, -2, 10, 20) == <4, 100, 400, 0, 0>
     + If we define a statistic
     
         @statistic(codim=1, dim=3)
@@ -2470,18 +2482,18 @@ def MaybeMap(stat: Statistic, pad=nothing) -> Statistic:
         n = len(value)
         kept = []
         seen_dim = 1
+        accepted = 0
         for component in value:
             mapped = stat(component)
             if not is_none(mapped):
                 kept.extend(mapped)
+                accepted += 1
                 if mdim is None:
                     seen_dim = len(mapped)
 
-
-        k = len(kept)
         m = mdim if mdim is not None else seen_dim
-        if k < n and pad is not None:
-            kept.extend([pad] * ((n - k) * m))
+        if accepted < n and pad is not None:
+            kept.extend([pad] * ((n - accepted) * m))
         return kept
 
     return maybe_map
