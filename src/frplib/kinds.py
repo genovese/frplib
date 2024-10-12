@@ -1201,7 +1201,7 @@ def binary(p='1/2'):
         return constant(0)
     if is_zero(1 - w):
         return constant(1)
-    return weighted_as(0, 1, weights=[1 - w, w])  # type: ignore
+    return weighted_as(0, 1, weights=[1 - w, w])
 
 def either(a, b, weight_ratio=1) -> Kind:
     """A choice between two possibilities a and b with ratio of weights (a to b) of `weight_ratio`.

@@ -787,7 +787,7 @@ class Statistic:
                 return as_quantity(f(*x)) / self(*x)
         else:
             def a_div_b(*x):
-                return as_quantity(other) / as_quantity(as_scalar_strict(self(*x)))  # type: ignore
+                return as_quantity(other) / as_quantity(as_scalar_strict(self(*x)))
 
         return Statistic(a_div_b, codim=codim, name=f'{str(other)} / {stat_label(self)}')
 

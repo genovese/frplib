@@ -7,7 +7,7 @@ from hypothesis.strategies  import integers, decimals, tuples, lists, one_of, di
 
 from frplib.exceptions   import ConstructionError
 from frplib.expectations import E
-from frplib.frps         import frp, conditional_frp, PureExpression, MixtureExpression
+from frplib.frps         import FRP, frp, conditional_frp, PureExpression, MixtureExpression, evolve
 from frplib.kinds        import Kind, kind, conditional_kind, constant, either, uniform, weighted_as
 from frplib.quantity     import as_quantity
 from frplib.statistics   import __, Proj
@@ -188,6 +188,20 @@ def test_expressions():
     assert Kind.equal(kind(u), uniform(1, 2, 3))
     assert Kind.equal(kind(frp(v)), r)
 
+def test_evolve():
+    small = as_quantity(1e-18)
+    half = as_quantity(1/2)
+
+    @conditional_kind(codim=1)
+    def stepk(current):
+        return uniform(-1, 1) ^ (__ + current)
+
+    step = conditional_frp(stepk, auto_clone=True)
+    init = frp(constant(0))
+
+    # Weak test, just ensuring that things run reasonably well
+    ev = evolve(init, step, 50, transform=FRP.activate)
+    assert -50 <= ev.value[0] <= 50
 
 def kind_gen(d, s):
     weights = decimals(min_value=1, max_value=1000, allow_nan=False, allow_infinity=False)

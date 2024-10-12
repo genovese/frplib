@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 
 from frplib.exceptions import (EvaluationError, ConstructionError, KindError, MismatchedDomain)
-from frplib.frps       import frp, conditional_frp
-from frplib.kinds      import (Kind, ConditionalKind, kind, conditional_kind,
+from frplib.frps       import frp, conditional_frp, evolve
+from frplib.kinds      import (Kind, ConditionalKind, kind, conditional_kind, clean,
                                constant, either, uniform, binary,
                                symmetric, linear, geometric,
                                weighted_by, weighted_as, weighted_pairs, arbitrary,
@@ -398,3 +398,27 @@ def test_ops():
 
     with pytest.raises(TypeError):
         k * frp(k)
+
+def test_evolve():
+    small = as_quantity(1e-18)
+    half = as_quantity(1/2)
+
+    @conditional_kind(codim=1)
+    def step0(current):
+        return weighted_as(-1, 0, 1, weights=[half - small / 2, small, half - small / 2]) ^ (__ + current)
+        
+    @conditional_kind(codim=1)
+    def step1(current):
+        return uniform(-1, 1) ^ (__ + current)
+
+    ev1a = evolve(constant(0), step1, 50)
+    ev1b = constant(0)
+    for _ in range(50):
+        ev1b = step1 // ev1b
+    assert Kind.equal(ev1a, ev1b)
+
+    ev0a = evolve(constant(0), step0, 50, transform=clean)
+    ev0b = constant(0)
+    for _ in range(50):
+        ev0b = clean(step0 // ev0b)
+    assert Kind.equal(ev0a, ev0b)

@@ -3,9 +3,12 @@ from __future__ import annotations
 import re
 
 from collections.abc   import Iterable
+from decimal           import Decimal
+from fractions         import Fraction
 from itertools         import zip_longest
+from typing            import Callable, overload
 
-from frplib.numeric    import (NICE_DIGITS, Numeric, ScalarQ, nothing, Nothing,
+from frplib.numeric    import (NICE_DIGITS, Numeric, NumericQ, ScalarQ, nothing, Nothing,
                                as_nice_numeric, as_numeric, as_real,
                                numeric_q_from_str, show_values, show_nice_numeric)
 from frplib.symbolic   import Symbolic, symbol
@@ -15,10 +18,38 @@ from frplib.vec_tuples import VecTuple, vec_tuple
 INFINITY = numeric_q_from_str('Infinity').value
 NEGATIVE_INFINITY = numeric_q_from_str('-Infinity').value
 
+@overload
 def as_quantity(
-        x: ScalarQ | Symbolic | Nothing = 0,
-        convert_numeric=as_numeric  # as_nice_numeric  # ATTN: as_numeric instead??
+        x: int | float | Fraction | Decimal | NumericQ = 0,
+        convert_numeric: Callable[[NumericQ], Numeric] = as_numeric
+) -> Numeric:
+    ...
+
+@overload
+def as_quantity(
+        x: Symbolic, 
+        convert_numeric: Callable[[NumericQ], Numeric] = as_numeric
+) -> Symbolic:
+    ...
+
+@overload
+def as_quantity(
+        x: Nothing,
+        convert_numeric: Callable[[NumericQ], Numeric] = as_numeric
+) -> Nothing:
+    ...
+
+@overload
+def as_quantity(
+        x: str,
+        convert_numeric: Callable[[NumericQ], Numeric] = as_numeric
 ) -> Numeric | Symbolic | Nothing:
+    ...
+
+def as_quantity(
+        x = 0,
+        convert_numeric = as_numeric  # as_nice_numeric  # ATTN: as_numeric instead??
+):
     if isinstance(x, Symbolic):
         return x
 
@@ -34,7 +65,23 @@ def as_quantity(
 
     return convert_numeric(x)
 
-def as_real_quantity(x: ScalarQ | Symbolic) -> Numeric | Symbolic | Nothing:
+@overload
+def as_real_quantity(x: int | float | Fraction | Decimal | NumericQ) -> Numeric:
+    ...
+
+@overload
+def as_real_quantity(x: Symbolic) -> Symbolic:
+    ...
+
+@overload
+def as_real_quantity(x: Nothing) -> Nothing:
+    ...
+
+@overload
+def as_real_quantity(x: str) -> Numeric | Symbolic | Nothing:
+    ...
+
+def as_real_quantity(x):
     return as_quantity(x, convert_numeric=as_real)
 
 def as_nice_quantity(x: ScalarQ | Symbolic) -> Numeric | Symbolic | Nothing:
