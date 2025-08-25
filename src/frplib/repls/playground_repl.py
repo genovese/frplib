@@ -128,6 +128,9 @@ playground_imports: dict[str, list[str]] = {
         'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float', 'as_bool',
         'is_vec_tuple', 'vec_tuple', 'join',
     ],
+    'market': [
+        'Market',
+    ],
     'extras': [
         'components',
     ],

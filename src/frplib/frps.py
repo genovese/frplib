@@ -20,7 +20,7 @@ from frplib.exceptions import (ConditionMustBeCallable, ComplexExpectationWarnin
                                ConstructionError, FrpError, KindError, MismatchedDomain,)
 from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
 from frplib.numeric    import Numeric, Nothing, show_tuple, as_real
-from frplib.protocols  import Projection, SupportsExpectation
+from frplib.protocols  import Projection, SupportsExpectation, SupportsKindOf
 from frplib.quantity   import as_quant_vec
 from frplib.statistics import Statistic, compose2, infinity, tuple_safe, Proj, Prepend
 from frplib.symbolic   import Symbolic
@@ -1424,11 +1424,12 @@ class FRP:
         return frp
 
     @classmethod
-    def sample(cls, n: int, frp: FRP | Kind, summary=True) -> FrpDemoSummary | FrpDemo:
+    def sample(cls, n: int, frp: FRP | Kind | SupportsKindOf | str, summary=True) -> FrpDemoSummary | FrpDemo:
         """Run a demo of `n` FRPs and tabulate the results.
 
         If an FRP is given, the FRPs in the demo are clones of the given FRP.
         If a Kind is given, the FRPs in the demo have that Kind.
+        If given a string that can be converted a Kind, use the conversion.
 
         If summary is True, then the table gives counts and proportions.
         Otherwise, it lists all the individual FRP's values.
@@ -1441,10 +1442,20 @@ class FRP:
         """
         if isinstance(frp, Kind):
             return _sample_from_kind(n, frp, summary)
-        if frp._kind is not None:
-            return _sample_from_kind(n, frp._kind, summary)
-        assert frp._expr is not None
-        return _sample_from_expr(n, frp._expr, summary)
+
+        if isinstance(frp, FRP):
+            if frp._kind is not None:
+                return _sample_from_kind(n, frp._kind, summary)
+            assert frp._expr is not None
+            return _sample_from_expr(n, frp._expr, summary)
+
+        if isinstance(frp, SupportsKindOf):
+            return _sample_from_kind(n, frp.kind_of(), summary)
+
+        if isinstance(frp, str):
+            return _sample_from_kind(n, kind(frp), summary)
+
+        raise FrpError(f'I do not know how to sample from a {type(frp)}')
 
     @classmethod
     def sample1(cls, frp: FRP) -> ValueType:
@@ -2007,7 +2018,7 @@ def evolve(start, next_state, n_steps=1, transform = None):
     an abstract form of the expression that generated them so that
     related FRPs can be co-activated. Over sufficiently large
     simulations, these internal expressions can grow large enough
-    to exceed Python's recursion limit. The solution is to 
+    to exceed Python's recursion limit. The solution is to
     activate the intermediate FRPs, which prevents large expressions.
     Passing FRP.activate as the transform argument solves this problem.
     Alternatively, if n_steps is bigger than FRP.EVOLUTION_THRESHOLD,
