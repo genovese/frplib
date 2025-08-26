@@ -3,6 +3,17 @@
 Statistics combinators take one or more statistics and combine
 them into a new statistic.
 
+## Arithmetic and Logical Combinators
+
+Infix arithmetic operators `+`, `-`, `*`, `/`, `**`, `%` act as statistic
+combinators for appropriate statisics. The first four expect statistics
+of equal dimension; the exponentiation `**` operator can accept statistics
+of different dimension; and the mod operator `%` requires scalar statistics.
+
+Logical operators `<`, `>`, `<=`, `>=`, `==`, and `!=` act as statistic
+combinators that produce *conditions*.
+
+
 ## Component Combinators
 
 + `ForEach` :: apply a given statistic to every component of a value,
@@ -56,3 +67,7 @@ them into a new statistic.
    
 + `Any` :: condition that returns true if any components of its input
    satisfy the given condition
+
+Note that these logical combinators start with a capital letter.
+The built-in Python operators `and` and `or` *will not work* in expressions,
+as Python does not handle custom objects with those operators.
