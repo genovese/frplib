@@ -3,7 +3,7 @@
 Statistics combinators take one or more statistics and combine
 them into a new statistic.
 
-## Arithmetic and Logical Combinators
+## Arithmetic and Logical Combinators and Composition
 
 Infix arithmetic operators `+`, `-`, `*`, `/`, `**`, `%` act as statistic
 combinators for appropriate statisics. The first four expect statistics
@@ -12,6 +12,14 @@ of different dimension; and the mod operator `%` requires scalar statistics.
 
 Logical operators `<`, `>`, `<=`, `>=`, `==`, and `!=` act as statistic
 combinators that produce *conditions*.
+
+Chained composition `^` with `stat1 ^ stat2` creating a new statistic
+that first calls `stat1` on the input and then calls `stat2` on the
+result. "`stat1` then `stat2`".
+
+Mathematical composition `stat2(stat1)` creating a new statistic
+that first calls `stat1` on the input and then calls `stat2` on the
+result. "`stat2` after `stat1`".
 
 
 ## Component Combinators

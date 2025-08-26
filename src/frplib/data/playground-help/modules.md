@@ -43,7 +43,8 @@ The principle `frplib` modules are:
 + `frplib.extras` :: additional high-level utilities
 + `frplib.frps` :: FRP factories and combinators
 + `frplib.kinds` :: Kind factories and combinators
-+ `frplib.numeric` :: functions for numeric conversions and computations.
++ `frplib.market` :: Market object gives market functionality in playground
++ `frplib.numeric` :: functions for numeric conversions and computations
 + `frplib.quantity` :: functions for creating the high-precision
     decimal quantities `frplib` uses for most calculations.
 + `frplib.statistics` :: a wide variety of built-in statistics,

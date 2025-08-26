@@ -49,6 +49,7 @@ also `info("modules")`.
 | `Log2`                | `frplib.statistics`   |
 | `Log`                 | `frplib.statistics`   |
 | `MFork`               | `frplib.statistics`   |
+| `Market`              | `frplib.market`       |
 | `Max`                 | `frplib.statistics`   |
 | `MaybeMap`            | `frplib.statistics`   |
 | `Mean`                | `frplib.statistics`   |
