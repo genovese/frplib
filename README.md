@@ -112,29 +112,102 @@ if you prefer.
 
 #### Accessing the `frp` Script on Windows
 
-On Windows, the location seems to depend on how you installed Python.
-Try entering the command `frp --help` at the terminal prompt; if this displays
-information about the market and playground subcommands, then you are ready to go.
-See the next subsection if you are having trouble with this on Windows.
+While having a short-hand for the `frp` script is not strictly
+necessary, it is very convenient. If your system is not finding the
+scripts, you can forgo using them or find the scripts and add them
+to the search list that the system uses to find executable apps, as
+described below. Results may vary among powershell, wsl, and
+git-bash. The latter two should be easier, and the comments here
+focus on powershell, which seems to be more popular among windows
+user.
 
-ATTN
+On Windows, the location of the `frp` script depends on how you installed Python.
+To make this easy to use, you want to ensure that Powershell will be able to find
+it without any extra effort on your part.
 
-While the scripts are not strictly necessary (see below), they are convenient.
-If your system is not finding the scripts, you can forgo using them (there are
-alternatives) or find the scripts and add them to the search list that the
-system uses to find executable apps.  Results may vary among powershell,
-wsl, and git-bash. The latter two should be easier, and the comments here
-focus on powershell, which seems to be more popular among windows user.
+Start a Powershell window with administrator privileges.
+This should be an option in the Start menu when you search for Powershell.
 
-
-In powershell (running as admin), you can enter the command
-
+Before proceeding further, try entering the command 
 ```
-where python
-```
+frp --help
+``` 
+at the powershell prompt. 
+If this displays
+information about the market and playground subcommands, then 
+no further action is needed.
+If instead it gives an error message, we need to tell powershell how to find
+`frp`. We will do that by updating your `PATH` environment variable.
 
-to find the folder in which python is installed.
-Substitute that path for [python-folder] in
+First, we need to find where your python packages are installed.
+There are two approaches to try, both should work fine.
+At the prompt, enter
+```
+python -m site
+```
+again using your python command (e.g., `python3`).
+This should show to file paths, `USER_BASE` and `USER_SITE`,
+you want the former.
+For instance, this might be something like `C:\Program Files\Python312`
+or `C:\Users\yourname\AppData\Python\Python312`.
+Whatever it is, you want the `Scripts` subfolder of that directory.
+
+A slightly less clean alternative is to enter
+```
+pip show frplib
+```
+This will spit out some text, look for a line that starts with `Location:`,
+which will contain another path that looks like
+`C:\Program Files\Python312\Lib\site-packages`.
+You want the part of this without the `\Lib\site-packages`,
+which we will call your `USER_BASE` below.
+
+Next, we want to check that the `Scripts` folder exists and has the
+`frp` script in it.
+Enter at the powershell prompt for instance
+```
+dir C:\Users\yourname\AppData\Python\Python312\Scripts
+```
+using your `USER_BASE` instead. You should see an `frp` entry in the
+list. The pathname that you used in this command, we will write
+as `C:\...\Scripts` but you should *replace it with the one you just used* in what follows.
+If you do not see a `frp` entry, in this `dir` command,
+make sure that you are using the same version of python with which you installed
+`frplib`. If so, it might be a good idea to come ask for help.
+
+Given that you see the `frp` script in that `dir` command, we will now
+add it to the path that powershell searches for programs.
+For this, it is important that you started powershell with Administrator privileges.
+As a check against any problems, we will print out the current path with
+```
+$env:Path
+```
+for comparison later, so keep this in view.
+Next, enter the following, **being sure to include the `;` before the scripts path** as below
+*and* replacing `C:\...\Scripts` with **your actual path**:
+```
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\...\Scripts", "Machine")
+```
+Finally, check that the new path with
+```
+[Environment]::GetEnvironmentVariable("Path", "Machine")
+```
+You should see the Scripts folder you just added at the end,
+and the rest should look like what you had before.
+
+You have to restart your Powershell for the changes in your path
+to take effect. So start a new Powershell window and you should now
+be able to run `frp`. Try:
+```
+frp playground
+```
+to check.
+
+If you have any questions or troubles with this, do not hesitate to
+come in for help. Sometimes Python itself offers a tool to do this,
+if all else fails. Once you have located the Python folder as
+described above, you can substitute that path for [python-folder] in
+the following command
 ```
 python [python-folder]\Tools\scripts\win_add2path.py
 ```
@@ -143,13 +216,14 @@ and restart your powershell/terminal. The scripts should now be available.
 
 ### Running frp
 
-The simplest way to run the app is to enter either `frp market` or `frp playground`
-at the terminal command line prompt. You can get overview help by entering
+The simplest way to run the `frp` app is to enter either `frp market` or `frp playground`
+at the terminal command line prompt. This uses the script that was installed
+with `frplib`. You can get overview help by entering
 `frp --help`. Further help is available from within the app. Use the
-`help.` command in the market and `info()` in the playground.
+`help.` command in the market and `info()` in the playground, as described below.
 
-The previous paragraph assumes that the scripts are available. If not,
-you can always run the commands with
+The previous paragraph assumes that the `frp` script is in your path. 
+If not, you can always run the commands with
 
 ```console
 python -m frplib market
@@ -184,7 +258,19 @@ There are two main sub-commands for interactive environments:
 We will spend most of our time in the playground, which also offers functions
 to reproduce market functionality.
 
-In addition, you can use `frplib` functions and objects
+Both commands provide an environment in which you can enter commands or code,
+move back and forth (e.g., with arrow keys or Control-/Control-n) to edit lines and to recall
+earlier commands in your history.  You can also search backward in the
+history with Control-r, which recalls matching previous commands and lets
+you select from them.
+You can also see the entire history by hitting the F3 function key.
+In the playground, you can any `frplib` or Python construct. Python code works
+as in the Python repl. If you enter multiline constructs, like function definitions,
+the playground lets you move around and edit your input. Enter the multiline code
+by creating a blank line and hitting return.
+Use `quit()` to exit the playground and `quit.` to exit the market.
+
+In addition to the interactive environments, you can use `frplib` functions and objects
 directly in your Python code. Whereas the playground automatically
 imports the commonly-used functions for easy use, in code, you
 need to import the functions, objects, and data that you need
@@ -209,14 +295,75 @@ are found in.
 
 ## Resources
 
-Built-in help `info` (specific to the playground) and `help` (Python built-in).
+There are a variety of resources to help you learn how to use `frplib`,
+both interactively and in code.
+The main user guide is in Part I of the textbook
+[Probability Explained](docs/probex.pdf).
+This develops all the key concepts and has loads of examples.
+All the major examples in the book have associated modules
+in the `frplib.examples` submodule.
+For example:
+```
+from frplib.examples.monty_hall import (
+    door_with_prize, chosen_door, got_prize_door_initially
+)
+```
+imports the listed data and functions associated with the Monty Hall example
+in Chapter 1. 
+Instead of listing particular items,
+you can load all the exported symbols in the module with
+```
+from frplib.examples.monty_hall import *
+```
 
-[Probability Explained](docs/probex.pdf)
-
-The frplib [Cookbook](docs/frplib-cookbook.pdf) offers guidance on common tasks.
+The frplib [Cookbook](docs/frplib-cookbook.pdf) offers recipes for common tasks,
+on which you can build.
 
 The frplib [Cheatsheet](docs/frplib-cheatsheet.pdf) provides a short
 summary of the common methods, factories, combinators, and actions.
+
+And in addition, there is a built-in help system in the market and in the playground.
+In the market, enter `help.` including the period.  This will summarize the
+available help commands, which are fairly straightforward.
+
+In the playground, you can access help in four ways.
+The playground function `info` is an interface to built-in documention.
+Enter `info()` at the prompt to see an overview of available topics.
+For any topic, you pass that as a string to `info` to see the
+documentation on that topic.
+Nested topics are separated by `::`. For instance, `info('kinds::factories::uniform')`
+gives information on the `uniform` Kind factory, which is three levels deep.
+A few special topics are `info('overview')` for some general orientation;
+`info('modules')` lists all the `frplib` modules with brief descriptions of each;
+and `info('object-index')` lists all the major `frplib` functions
+and objects and the module to which they belong.
+
+Second, some objects, like Statistics, will display information about themselves
+when you print them.
+For instance,
+```
+playground> Sum
+A Monoidal Statistic 'sum' that returns the sum of all the components of the given value. It expects a tuple and returns a scalar.
+```
+Also, Python has a built-in `help` command
+that will provide useful information about `frplib` objects,
+especially the functions.
+The help on the functions shows how they are used
+and what they return.
+
+Finally, the playground will show you the signatures
+of functions as you type (when you enter the opening parenthis).
+It will also give you dynamic completion of names as you type
+them, making it easier to locate the function or data you want to use.
+
+
+You can 
+Built-in help `info` (specific to the playground) and `help` (Python built-in).
+
+
+
+The frplib [Cookbook](docs/frplib-cookbook.pdf) offers guidance on common tasks.
+
 
 
 ## License
