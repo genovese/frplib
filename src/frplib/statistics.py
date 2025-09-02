@@ -652,14 +652,38 @@ class Statistic:
         return Condition(a_gt_b, codim=codim, name=f'{stat_label(self)} > {label}')
 
     # Numeric Operations (still would like macros)
+    # When operating on Statistics, we can often infer the dimension
+    # of the resulting statistic. ATTN: do this for arithmetic operations
+    # These three static methods simplify those repeated checks.
+
+    @staticmethod
+    def _unequal_dims(stat1: Statistic, stat2: Statistic) -> bool:
+        return stat1.dim is not None and stat2.dim is not None and stat1.dim != stat2.dim
+
+    @staticmethod
+    def _unequal_nonscalar_dims(stat1: Statistic, stat2: Statistic) -> bool:
+        return stat1.dim is not None and stat2.dim is not None and \
+            stat1.dim != stat2.dim and stat1.dim != 1 and stat2.dim != 1
+
+    @staticmethod
+    def _max_known_dim(stat1: Statistic, stat2: Statistic) -> Union[int, None]:
+        if stat1.dim is not None and stat2.dim is not None:
+            return max(stat1.dim, stat2.dim)
+        return None
 
     def __add__(self, other):
         codim: int | ArityType = 0
+        dim : int | None = None
         if isinstance(other, Statistic):
+            if Statistic._unequal_dims(self, other):
+                # Dimensions are known to be incompatible
+                raise StatisticError(f'Invalid attempt to add statistics of incompatible dimensions {self.dim} and {other.dim}')
+
             def a_plus_b(*x):
                 return self(*x) + other(*x)
             label = stat_label(other)
             codim = _reconcile_codims(self, other, '+')
+            dim = self.dim
         elif callable(other):
             f = tuple_safe(other)
 
@@ -672,7 +696,7 @@ class Statistic:
             label = str(other)
             codim = self.codim
 
-        return Statistic(a_plus_b, codim=codim, name=f'{stat_label(self)} + {label}')
+        return Statistic(a_plus_b, dim=dim, codim=codim, name=f'{stat_label(self)} + {label}')
 
     def __radd__(self, other):
         codim = self.codim
@@ -691,11 +715,17 @@ class Statistic:
 
     def __sub__(self, other):
         codim: int | ArityType = 0
+        dim : int | None = None
         if isinstance(other, Statistic):
+            if Statistic._unequal_dims(self, other):
+                # Dimensions are known to be incompatible
+                raise StatisticError(f'Invalid attempt to subtract statistics of incompatible dimensions {self.dim} and {other.dim}')
+
             def a_minus_b(*x):
                 return self(*x) - other(*x)
             label = stat_label(other)
             codim = _reconcile_codims(self, other, '-')
+            dim = self.dim
         elif callable(other):
             f = tuple_safe(other)
 
@@ -708,7 +738,7 @@ class Statistic:
             label = str(other)
             codim = self.codim
 
-        return Statistic(a_minus_b, codim=codim, name=f'{stat_label(self)} - {label}')
+        return Statistic(a_minus_b, dim=dim, codim=codim, name=f'{stat_label(self)} - {label}')
 
     def __rsub__(self, other):
         codim = self.codim
@@ -725,11 +755,17 @@ class Statistic:
 
     def __mul__(self, other):
         codim: int | ArityType = 0
+        dim : int | None = None
         if isinstance(other, Statistic):
+            if Statistic._unequal_nonscalar_dims(self, other):
+                # Dimensions are known to be incompatible
+                raise StatisticError(f'Invalid attempt to multiply statistics of incompatible dimensions {self.dim} and {other.dim}')
+
             def a_times_b(*x):
                 return self(*x) * other(*x)
             label = stat_label(other)
             codim = _reconcile_codims(self, other, '*')
+            dim = Statistic._max_known_dim(self, other)
         elif callable(other):
             f = tuple_safe(other)
 
@@ -742,7 +778,7 @@ class Statistic:
             label = str(other)
             codim = self.codim
 
-        return Statistic(a_times_b, codim=codim, name=f'{stat_label(self)} * {label}')
+        return Statistic(a_times_b, dim=dim, codim=codim, name=f'{stat_label(self)} * {label}')
 
     def __rmul__(self, other):
         codim = self.codim
@@ -759,11 +795,17 @@ class Statistic:
 
     def __truediv__(self, other):
         codim: int | ArityType = 0
+        dim : int | None = None
         if isinstance(other, Statistic):
+            if Statistic._unequal_nonscalar_dims(self, other):
+                # Dimensions are known to be incompatible
+                raise StatisticError(f'Invalid attempt to divide statistics of incompatible dimensions {self.dim} and {other.dim}')
+
             def a_div_b(*x):
                 return self(*x) / other(*x)
             label = stat_label(other)
             codim = _reconcile_codims(self, other, '/')
+            dim = Statistic._max_known_dim(self, other)
         elif callable(other):
             f = tuple_safe(other)
 
@@ -776,7 +818,7 @@ class Statistic:
             label = str(other)
             codim = self.codim
 
-        return Statistic(a_div_b, codim=codim, name=f'{stat_label(self)} / {label}')
+        return Statistic(a_div_b, dim=dim, codim=codim, name=f'{stat_label(self)} / {label}')
 
     def __rtruediv__(self, other):
         codim = self.codim
@@ -793,11 +835,17 @@ class Statistic:
 
     def __floordiv__(self, other):
         codim = self.codim
+        dim : int | None = None
         if isinstance(other, Statistic):
+            if Statistic._unequal_nonscalar_dims(self, other):
+                # Dimensions are known to be incompatible
+                raise StatisticError(f'Invalid attempt to divide statistics of incompatible dimensions {self.dim} and {other.dim}')
+
             def a_div_b(*x):
                 return self(*x) // other(*x)
             label = stat_label(other)
             codim = _reconcile_codims(self, other, '//')
+            dim = Statistic._max_known_dim(self, other)
         elif callable(other):
             f = tuple_safe(other)
 
@@ -809,7 +857,7 @@ class Statistic:
                 return self(*x) // as_scalar_stat(other)
             label = str(other)
 
-        return Statistic(a_div_b, codim=codim, name=f'{stat_label(self)} // {label}')
+        return Statistic(a_div_b, dim=dim, codim=codim, name=f'{stat_label(self)} // {label}')
 
     def __rfloordiv__(self, other):
         codim = self.codim
@@ -826,11 +874,17 @@ class Statistic:
 
     def __mod__(self, other):
         codim = self.codim
+        dim : int | None = None
         if isinstance(other, Statistic):
+            if Statistic._unequal_nonscalar_dims(self, other):
+                # Dimensions are known to be incompatible
+                raise StatisticError(f'Invalid attempt to mod statistics of incompatible dimensions {self.dim} and {other.dim}')
+
             def a_mod_b(*x):
                 return self(*x) % other(*x)
             label = stat_label(other)
             codim = _reconcile_codims(self, other, '%')
+            dim = Statistic._max_known_dim(self, other)
         elif callable(other):
             f = tuple_safe(other)
 
@@ -855,7 +909,7 @@ class Statistic:
                 except Exception as e:
                     raise OperationError(f'Could not compute {self.name} % {other}: {str(e)}')
             label = str(other)
-        return Statistic(a_mod_b, codim=codim, name=f'{stat_label(self)} % {label}')
+        return Statistic(a_mod_b, dim=dim, codim=codim, name=f'{stat_label(self)} % {label}')
 
     def __rmod__(self, other):
         codim = self.codim
@@ -872,11 +926,17 @@ class Statistic:
 
     def __pow__(self, other):
         codim = self.codim
+        dim : int | None = None
         if isinstance(other, Statistic):
+            if Statistic._unequal_nonscalar_dims(self, other):
+                # Dimensions are known to be incompatible
+                raise StatisticError(f'Invalid attempt to exponentiate statistics of incompatible dimensions {self.dim} and {other.dim}')
+
             def a_pow_b(*x):
                 return self(*x) ** other(*x)
             label = stat_label(other)
             codim = _reconcile_codims(self, other, '**')
+            dim = Statistic._max_known_dim(self, other)
         elif callable(other):
             f = tuple_safe(other)
 
@@ -888,7 +948,7 @@ class Statistic:
                 return self(*x) ** as_quantity(other)
             label = str(other)
 
-        return Statistic(a_pow_b, codim=codim, name=f'{stat_label(self)} ** {label}')
+        return Statistic(a_pow_b, dim=dim, codim=codim, name=f'{stat_label(self)} ** {label}')
 
     def __rpow__(self, other):
         codim = self.codim
@@ -964,6 +1024,24 @@ def is_monoidal(x) -> TypeGuard[MonoidalStatistic]:
     "Returns True if the given object is a Monoidal Statistic."
     return isinstance(x, MonoidalStatistic)
 
+def _slice_dim(s: slice) -> Union[int, None]:
+    start = s.start if s.start is not None else 0
+    step = s.step if s.step is not None else 1
+
+    if step == 0:
+        raise StatisticError('Slice step in Projection statistic cannot be zero')
+
+    if start < 0 or s.stop < 0:
+        return None   # dim would depend on the length which we don't yet have
+
+    if (step > 0 and start >= s.stop) or (step < 0 and start <= s.stop):
+        return 0
+
+    if step > 0:
+        return 1 + (s.stop - start - 1) // step
+
+    return 1 + (start - s.stop - 1) // abs(step) 
+
 class ProjectionStatistic(Statistic, Projection):
     """Special statistics that extract one or more components from the tuple passed as input.
 
@@ -997,6 +1075,7 @@ class ProjectionStatistic(Statistic, Projection):
             has_step = indices.step is None
             label = (f'{indices.start or ""}:{indices.stop or ""}{":" if has_step else ""}'
                      f'{indices.step if has_step else ""}')
+            dim = _slice_dim(onto)
             # ATTN: Already converted in project; need to merge this
             # if indices.start == 0 or indices.stop == 0:
             #     raise StatisticError('Projection indices are 1-indexed and must be non-zero')
