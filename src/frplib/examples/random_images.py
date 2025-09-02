@@ -8,10 +8,13 @@ from PIL import ImageOps, ImageShow
 __all__ = [
     'random_image', 'ImageModels', 'show_image',
     'empty_image', 'pixel0', 'pixel1', 'as_image', 'add_image',
+    'width_of', 'height_of', 'size_of',
     'clockwise', 'counter_clockwise', 'reflect_image_horizontally',
     'reflect_image_vertically', 'invert_image',
     'black_pixels', 'white_pixels', 'crop', 'expand',
-    'largest_cluster_size', # median_smooth, conway,
+    'image_components', 'component_count', 'get_component', 'component_sizes', 'largest_cluster_size',
+    'conway', 'median_smooth',
+    'atop', 'besides', 'overlay',
     'erode', 'dilate',
     'image_distance', 'closest_image_to',
     'reconstruct_image', 'max_likelihood_image', 'simulate_denoise',
@@ -31,7 +34,7 @@ from frplib.kinds        import weighted_as
 from frplib.quantity     import as_quantity
 from frplib.statistics   import Statistic, statistic, Fork, Id
 from frplib.utils        import irange
-from frplib.vec_tuples   import VecTuple, as_vec_tuple, vec_tuple
+from frplib.vec_tuples   import VecTuple, as_vec_tuple, vec_tuple, join
 
 ImageData: TypeAlias = tuple[Literal[0, 1], ...]
 Image: TypeAlias = tuple[int, int, Unpack[ImageData]]
@@ -47,8 +50,8 @@ def empty_image(width=32, height=32):
     n = width * height
     return as_vec_tuple([width, height] + [0] * n)
 
-pixel0 = (0,)  # These can be combined with as_image as in the text
-pixel1 = (1,)
+pixel0: ImageData = (0,)  # These can be combined with as_image as in the text
+pixel1: ImageData = (1,)
 
 
 #
@@ -56,8 +59,42 @@ pixel1 = (1,)
 #
 
 def as_image(pixels: Iterable[Literal[0, 1]], width=32, height=32) -> Image:
-    # ATTN: check for array structure, pad to proper length, etc
-    return cast(Image, vec_tuple(width, height, *pixels))
+    """Creates an image of the specified width and height from a binary sequence.
+
+    Parameters
+    ----------
+    pixels: an iterable binary sequence giving the image data one row at a time,
+        from the top left of the image to the bottom right.
+
+    width: the image width in pixels, must be a positive integer
+
+    height: the image height in pixels, must be a positive integer
+
+
+    """
+    # ATTN: check for array structure in input?
+    if width <= 0 or height <= 0:
+        raise OperationError(f'as_image requires positive width ({width}) and height ({height}).')
+    image = vec_tuple(width, height, *pixels)
+    n = len(image)
+    # If data is of insufficient length, just pad at the end with white.
+    if n < 2 + width * height:
+        image = join(image, [0] * (2 + width * height - n))
+    return cast(Image, image)
+
+
+#
+# Image Properties
+#
+
+def width_of(image: Image) -> int:
+    return image[0]
+
+def height_of(image: Image) -> int:
+    return image[1]
+
+def size_of(image: Image) -> tuple[int, int]:
+    return (image[0], image[1])
 
 
 #
@@ -65,7 +102,19 @@ def as_image(pixels: Iterable[Literal[0, 1]], width=32, height=32) -> Image:
 #
 
 def conform_image(image: Image, width=32, height=32) -> Image:
-    "ATTN"
+    """Adjusts an image to a specified size by cropping or padding as needed.
+
+    The main use case is to ensure consistency when adding or otherwise
+    operating on two images. For instance, if we are adding noise to
+    a base image, we will conform the noise to the base image so that
+    the noise is consistent with the base image; the rest of the
+    noise is ignored.
+
+    If the image is bigger in a dimension than the target, it is
+    trimmed. If it is smaller than the target, the extra region is
+    filled with white pixels.
+
+    """
     wd, ht = image[:2]
 
     # Optimize for the most common case at the cost of an extra comparison
@@ -111,7 +160,7 @@ def image_data(image: Image) -> tuple[int, int, ImageData]:
     return (wd, ht, data)
 
 def add_base(base: Image):
-    ""
+    "Returns a statistic that adds a given base image to its input image."
     wd, ht = base[:2]
     n = wd * ht
 
@@ -128,7 +177,12 @@ def add_base(base: Image):
 #
 
 def add_image(image1: Image, image2: Image) -> Image:
-    #
+    """Adds two binary images by pixelwise exclusive or.
+
+    The images are required to be the same dimension, else
+    an OperationError exception is raised.
+
+    """
     wd, ht = ensure_same_dims(image1, image2)
     n = wd * ht
     return as_image((image1[2 + i] ^ image2[2 + i] for i in range(n)), wd, ht)   # type: ignore
@@ -155,7 +209,7 @@ def counter_clockwise(image: Image) -> Image:
         for i in range(wd):
             rotated[j + (wd - i - 1) * ht] = data[i + j * wd]
 
-    return as_image(rotated, wd, ht)
+    return as_image(rotated, ht, wd)
 
 @statistic
 def reflect_image_horizontally(image: Image) -> Image:
@@ -254,10 +308,286 @@ def expand(horizontal: int, vertical: int):
 
     return do_expand
 
+def image_components_maps(image: Image) -> tuple[dict[int, list[int]], dict[int, int]]:
+    """Computes the connected components of an image, using black pixels and N-S-E-W neighbors.
+
+    Returns a pair of dictionaries, the first mapping cluster number to lists of pixel indices
+    and the second mapping pixel indices to cluster number.
+
+    """
+    wd, ht, data = image_data(image)
+
+    def neighbors(ind):
+        nghs = []
+        if ind % wd > 0:  # not in left column
+            nghs.append(ind - 1)
+        if ind >= wd:     # not in first row
+            nghs.append(ind - wd)
+        return nghs
+
+    # Two passes, referring to the left (W) and upper (N) neighbors of each pixel
+    # to label components, possibly redundant, and then a second pass to
+    # reconcile multiple labels for the component.
+
+    # Pass 1: Assign labels and build equivalent sets
+    labels1: dict[int, int] = {}
+    equivs1: dict[int, set[int]] = {}
+    nextlab = 1
+    for pixel, pval in enumerate(data):
+        if pval == 1:  # black pixel
+            ns = [ng for ng in neighbors(pixel) if data[ng] == 1]
+            if len(ns) == 0:
+                labels1[pixel] = nextlab
+                equivs1[pixel] = set([pixel])
+                nextlab += 1
+            elif len(ns) == 1 or (len(ns) == 2 and labels1[ns[0]] == labels1[ns[1]]):
+                labels1[pixel] = labels1[ns[0]]
+                equivs1[pixel] = equivs1[ns[0]]  # shared reference
+                equivs1[pixel].add(pixel)
+            elif ns[0] < ns[1]:  # len(labs) == 2 with unequal labels
+                labels1[pixel] = labels1[ns[0]]
+                equivs1[pixel] = equivs1[ns[0]]  # shared reference
+                equivs1[pixel].add(pixel)
+                for p in equivs1[ns[1]]:
+                    equivs1[pixel].add(p)
+            else:  # len(labs) == 2 with unequal labels
+                labels1[pixel] = labels1[ns[1]]
+                equivs1[pixel] = equivs1[ns[1]]  # shared reference
+                equivs1[pixel].add(pixel)
+                for p in equivs1[ns[0]]:
+                    equivs1[pixel].add(p)
+
+    # Pass 2. Reduce equivalent sets to new labels
+    newlab = 1  # reserve 0 for non-cluster pixels
+    clusters: dict[int, list[int]] = {}  # labels -> list of indices
+    labels: dict[int, int] = {}          # index -> label
+    for ind, pval in enumerate(data):
+        if pval == 1 and ind not in labels:
+            for equiv in equivs1[ind]:
+                labels[equiv] = newlab
+            clusters[newlab] = list(equivs1[ind])
+            newlab += 1
+    return (clusters, labels)
+
+def image_components(image: Image) -> VecTuple:
+    """Computes the image connected component using a N-E-S-W neighbor relation.
+
+    Returns an tuple of the form
+
+      <num_comps, comp1size, ..., compNsize, width, height, data...>
+
+    where num_comps is the number of components, compXsize is the
+    size of component X, and width, height, data is an image-like
+    subtuple where data consists of component labels: 0 for no
+    component and 1+ for each distinct component.
+
+    """
+    comps, labels = image_components_maps(image)
+    wd, ht, data = image_data(image)
+    comp_data = [len(comps.keys())]                                  # number of components
+    comp_data.extend(len(comp) for comp in comps.values())           # component sizes
+    comp_data.extend([wd, ht])                                       # width, height
+    comp_data.extend(labels.get(ind, 0) for ind in range(len(data))) # component labels or 0
+
+    return VecTuple(comp_data)
+
+@statistic
+def component_count(image: Image):
+    "gives the number of connected components of black pixels in an image"
+    count, *_rest = image_components(image)
+    return count
+
+def component_sizes(image: Image) -> list[int]:
+    "Returns sorted connected component sizes"
+    img_comps = image_components(image)
+    if img_comps[0] > 0:
+        return img_comps[1:(img_comps[0] + 1)]
+    return []
+
+def get_component(which: int) -> Statistic:
+    "Statistic factory for getting a component of an image as a binary image."
+
+    @statistic
+    def component_getter(image: Image):
+        "gets a selected connected component from an image"
+        img_comps = image_components(image)
+        wd, ht, *cdata = img_comps[(img_comps[0] + 1):]
+
+        if img_comps[0] < which:
+            return empty_image(wd, ht)
+        return as_image([1 if d == which else 0 for d in cdata], width=wd, height=ht)
+
+    return component_getter
+
 @statistic
 def largest_cluster_size(image: Image):
-    "Compute the number of pixels in the largest contiguous (N-S-E-W) cluster of black pixels."
-    raise OperationError('largest_cluster_size is temporarily unavailable')  # ATTN
+    "computes the number of pixels in the largest contiguous (N-S-E-W) cluster of black pixels"
+    clusters, _ = image_components_maps(image)
+    max_size = 0
+    for cluster in clusters.values():
+        if len(cluster) > max_size:
+            max_size = len(cluster)
+    return max_size
+
+@statistic
+def conway(image: Image):
+    "executes a step in Conway's Game of Life where black pixels are alive"
+    wd, ht, data = image_data(image)
+    n = wd * ht
+
+    def step(ind):
+        alive = data[ind] == 1
+        x, y = (ind % wd, ind // wd)
+        maybe_neighbors = [(x - 1, y), (x + 1, y), (x - 1, y - 1), (x - 1, y + 1),
+                           (x, y - 1), (x, y + 1), (x + 1, y - 1), (x + 1, y + 1)]
+
+        nghs = sum(data[x + y *wd] for x, y in maybe_neighbors if x >= 0 and x < wd and y >= 0 and y < ht)
+        if alive and (nghs == 2 or nghs == 3):
+            return 1
+        elif not alive and nghs == 3:
+            return 1
+        return 0
+
+    return as_image([step(ind) for ind in range(n)], width=wd, height=ht)
+
+def median_smooth(d: int) -> Statistic:
+    """Statistic factory producing a median smoother for an image with given neighborhood size.
+
+    ATTN
+
+    """
+    if d <= 0:
+        return Id
+
+    thresh = ((2 * d + 1) ** 2) // 2
+
+    @statistic
+    def smoother(image: Image):
+        "smooths an image, using the median of original pixel with N-S-E-W neighbors at each pixel"
+        wd, ht, data = image_data(image)
+        n = wd * ht
+
+        def smooth_at(ind):
+            x, y = (ind % wd, ind // wd)
+            maybe_local = [(x + dx, y + dy) for dx in irange(-d, d) for dy in irange(-d, d)]
+
+            nghs = sum(data[x + y *wd] for x, y in maybe_local if x >= 0 and x < wd and y >= 0 and y < ht)
+            if nghs > thresh:
+                return 1
+            return 0
+
+        return as_image([smooth_at(ind) for ind in range(n)], width=wd, height=ht)
+
+    return smoother
+
+# @statistic
+# def median_smooth(image: Image):
+#     "smooths an image, using the median of original pixel with N-S-E-W neighbors at each pixel"
+#     wd, ht, data = image_data(image)
+#     n = wd * ht
+#
+#     def smooth_at(ind):
+#         x, y = (ind % wd, ind // wd)
+#         maybe_local = [(x - 1, y), (x + 1, y), (x, y), (x, y - 1), (x, y + 1)]
+#
+#         nghs = sum(data[x + y *wd] for x, y in maybe_local if x >= 0 and x < wd and y >= 0 and y < ht)
+#         if nghs >= 3:
+#             return 1
+#         return 0
+#
+#     return as_image([smooth_at(ind) for ind in range(n)], width=wd, height=ht)
+
+def atop(image1: Image, image2: Image, gap=0) -> Image:
+    """Creates a new image with the first on top of the other.
+
+    Pads out both images to the maximum width of the two.
+
+    Parameters
+    ----------
+    image1 - The image to be placed on the top of the new image
+    image2 - The image to be placed on the bottom of the new image
+    gap [=0] - The number of rows of white placed between the
+        two parts of the new image.
+
+    Returns the resulting combined image.
+
+    """
+    wd1 = width_of(image1)
+    wd2 = width_of(image2)
+    if wd1 < wd2:
+        imageU = conform_image(image1, width=wd2, height=height_of(image1))
+        imageD = image2
+    elif wd1 > wd2:
+        imageU = image1
+        imageU = conform_image(image2, width=wd1, height=height_of(image2))
+    else:
+        imageU = image1
+        imageD = image2
+
+    wdU, htU, dataU = image_data(imageU)
+    wdD, htD, dataD = image_data(imageD)
+
+    padding: list[Literal[0, 1]] = [0] * (gap * wdU)
+
+    return as_image(list(dataU) + padding + list(dataD), width=wdU, height=htU + gap + htD)
+
+def besides(imageL: Image, imageR: Image, gap=0) -> Image:
+    """Creates a new image with the first to the left of the other.
+
+    Pads out both images to the maximum height of the two.
+
+    Parameters
+    ----------
+    image1 - The image to be placed on the left of the new image
+    image2 - The image to be placed on the right of the new image
+    gap [=0] - The number of columns of white placed between the
+        two parts of the new image.
+
+    Returns the resulting combined image.
+
+    """
+    return counter_clockwise(atop(clockwise(imageL), clockwise(imageR), gap))
+
+def overlay(imageBot: Image, imageTop: Image, offset=(0, 0)) -> Image:
+    """Creates a new image by placing one image over another at specified offset.
+
+    The size of the new image encompasses both the given images.
+
+    Parameters
+    ----------
+    imageBot - the image to be placed on the bottom layer
+    imageTop - the overlaying image, which overwrites the bottom image where
+        they intersect
+    offset [= (0,0)] - the position in the bottom image at which the top-left
+        pixel of the top image is placed.
+
+    Returns the combined image, with size encompassing both given images.
+
+    """
+
+    def place_at(base: list[Literal[0, 1]], width: int, height: int, inserted: Image, x: int, y: int) -> None:
+        # Contract: base is big enough to encompass the inserted image
+        w, h, idata = image_data(inserted)
+
+        for j in range(h):
+            for i in range(w):
+                base[x + i + (y + j) * width] = idata[i + j * w]
+
+
+    wdB, htB = size_of(imageBot)
+    wdT, htT = size_of(imageTop)
+    dx, dy = offset
+
+    # start with dx, dy >= 0
+    wd = max(wdB - min(0, dx), max(0, dx) + wdT)
+    ht = max(htB - min(0, dy), max(0, dy) + htT)
+
+    base: list[Literal[0, 1]] = list(empty_image(wd, ht)[2:])
+    place_at(base, wd, ht, imageBot, -min(0, dx), -min(0, dy))
+    place_at(base, wd, ht, imageTop, max(0, dx), max(0, dy))
+
+    return as_image(base, wd, ht)
+
 
 #
 # Main Image FRP Factory
@@ -360,7 +690,7 @@ def erode(element: Union[int, Iterable[tuple[int, int]]] = 1) -> Statistic:
 
         return as_image(eroded, width, height)
 
-    return cast(Statistic, erosion)
+    return erosion
 
 def dilate(element: Union[int, Iterable[tuple[int, int]]] = 1) -> Statistic:
     """A statistic factory giving a statistic that dilates an image with the specified element.
@@ -398,7 +728,7 @@ def dilate(element: Union[int, Iterable[tuple[int, int]]] = 1) -> Statistic:
 
         return as_image(dilated, width, height)
 
-    return cast(Statistic, dilation)
+    return dilation
 
 
 #
@@ -597,6 +927,21 @@ ImageModels.register_image(
              32, 32)
 )
 
+_pulsarQ = as_image(pixel0 * 2 + pixel1 * 3 + pixel0 +
+                    pixel0 * 6 +
+                    pixel1 + pixel0 * 4 + pixel1 +
+                    pixel1 + pixel0 * 4 + pixel1 +
+                    pixel1 + pixel0 * 4 + pixel1 +
+                    pixel0 * 2 + pixel1 * 3 + pixel0,
+                    6, 6)
+_pulsarH = atop(_pulsarQ, reflect_image_vertically(_pulsarQ), gap=1)
+_pulsarI = besides(_pulsarH, reflect_image_horizontally(_pulsarH), gap=1)
+
+ImageModels.register_image(
+    'pulsar',
+    overlay(empty_image(33, 33), _pulsarI, offset=(10, 10))
+)
+
 ImageModels.register_model('efh', [ImageModels.image('E'), ImageModels.image('F'), ImageModels.image('H')])
 
 #
@@ -680,7 +1025,7 @@ def max_likelihood_image(
             p += delta_p
 
         if best_m is None:
-            raise OperationError('ATTN')
+            raise OperationError('No likelihood maximizer found, all likelihoods negative infinity.')
 
         if return_p:
             img = list(best_m)
@@ -688,7 +1033,7 @@ def max_likelihood_image(
             return VecTuple(img)
         return best_m
 
-    return cast(Statistic, ml_recon)
+    return ml_recon
 
 #
 # Reconstruction Simulator
@@ -756,16 +1101,20 @@ def show_image(image_in: Union[Image, FRP], border=30, return_pil_image=False):
     m, n, data = image_data(image)      # type: ignore
 
     # Create binary image in Pillow and set pixels
-    # This is slow, but there is not an easy way
-    # in pillow to set it from a tuple.
     img = PillowImage.new('1', (m, n), 1)
 
-    pixels = img.load()
-    ind = 0
-    for i in range(n):
-        for j in range(m):
-            pixels[j, i] = 1 - data[ind]
-            ind += 1
+    # This is slow, but there is not an easy way
+    # in pillow to set it from a tuple.
+    #pixels = img.load()
+    #ind = 0
+    #for i in range(n):
+    #    for j in range(m):
+    #        pixels[j, i] = 1 - data[ind]
+    #        ind += 1
+
+    # Updated 30-Aug-2025; putdata() is more efficient
+    # Note: Pillow uses 1=black, 0=white
+    img.putdata(data, scale=-1, offset=1)
 
     # Put transparent border so whole image shows properly on
     # Macs Preview, which has to be manually centered for some reason.
