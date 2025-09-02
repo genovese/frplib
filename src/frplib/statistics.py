@@ -915,8 +915,8 @@ def is_statistic(x) -> TypeGuard[Statistic]:
 
 def scalar_fn(stat: Statistic) -> Callable:
     "Converts a statistic into a regular scalar function."
-    def as_fn(val):
-        return as_scalar_strict(stat(val))
+    def as_fn(*val):
+        return as_scalar_strict(stat(*val))
     return as_fn
 
 class MonoidalStatistic(Statistic):
