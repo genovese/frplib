@@ -151,6 +151,7 @@ class _Nothing:
 
 Nothing: TypeAlias = _Nothing
 nothing = _Nothing()  # This is a singleton!
+_nothing_str = str(nothing)  # To simplify conversions
 
 def is_nothing(value) -> TypeGuard[Nothing]:
     return value == nothing
@@ -471,14 +472,15 @@ def show_prob(p: Numeric) -> str:
 
     return str(nround(p))
 
+# ATTN: Note that as used in FrpDemoSummary, this can also be passed a string to be interpreted
 def show_numeric(
-        x: Numeric,
+        x: Union[Numeric, Nothing],
         max_denom=MAX_DENOMINATOR_EXC,
         exclude_denoms=EXCLUDE_DENOMINATOR,
         rounding_mask=ROUND_MASK,
         rounding=ROUND_HALF_UP
 ) -> str:
-    if isinstance(x, int):
+    if isinstance(x, (int, Nothing)) or x == _nothing_str:
         return str(x)
 
     frac = as_frac(x)
