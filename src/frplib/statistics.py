@@ -1028,19 +1028,28 @@ def _slice_dim(s: slice) -> Union[int, None]:
     start = s.start if s.start is not None else 0
     step = s.step if s.step is not None else 1
 
+    if start < 0 or (s.stop is not None and s.stop < 0):
+        # dim would depend on the length which we don't yet know
+        return None
+
     if step == 0:
         raise StatisticError('Slice step in Projection statistic cannot be zero')
 
-    if start < 0 or s.stop < 0:
-        return None   # dim would depend on the length which we don't yet have
+    if s.stop is not None:
+        stop = s.stop
+    elif step < 0:
+        stop = -1  # None means downward slice that includes 0
+    else:
+        # dim would depend on the length which we don't yet know
+        return None
 
-    if (step > 0 and start >= s.stop) or (step < 0 and start <= s.stop):
+    if (step > 0 and start >= stop) or (step < 0 and start <= stop):
         return 0
 
     if step > 0:
-        return 1 + (s.stop - start - 1) // step
+        return 1 + (stop - start - 1) // step
 
-    return 1 + (start - s.stop - 1) // abs(step) 
+    return 1 + (start - stop - 1) // (-step)
 
 class ProjectionStatistic(Statistic, Projection):
     """Special statistics that extract one or more components from the tuple passed as input.
@@ -1075,8 +1084,8 @@ class ProjectionStatistic(Statistic, Projection):
             has_step = indices.step is None
             label = (f'{indices.start or ""}:{indices.stop or ""}{":" if has_step else ""}'
                      f'{indices.step if has_step else ""}')
-            dim = _slice_dim(onto)
-            # ATTN: Already converted in project; need to merge this
+            dim = _slice_dim(onto)  # slices with negatives still have dim None
+            # ATTN! Already converted in project; need to merge this
             # if indices.start == 0 or indices.stop == 0:
             #     raise StatisticError('Projection indices are 1-indexed and must be non-zero')
 
@@ -1172,7 +1181,7 @@ def statistic(
 ) -> Statistic:
     ...
 
-# # Original    
+# # Original
 # def statistic(
 #         maybe_fn: Optional[Callable] = None,  # If supplied, return Statistic, else a decorator
 #         *,
@@ -2484,7 +2493,7 @@ def Keep(predicate: Condition, pad=nothing) -> Statistic:
             if p(component):
                 kept.append(component)
 
-        k = len(kept)        
+        k = len(kept)
         if k < n and pad is not None:
             kept.extend([pad] * (n - k))
         return kept
@@ -2540,7 +2549,7 @@ def MaybeMap(stat: Statistic, pad=nothing) -> Statistic:
     + Setting pos_square = NothingUnless(__ > 0, __ ** 2)
       MaybeMap(pos_square, pad=0)(-20, 2, -2, 10, 20) == <4, 100, 400, 0, 0>
     + If we define a statistic
-    
+
         @statistic(codim=1, dim=3)
         def repeat3(v):
             if v > 0:

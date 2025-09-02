@@ -407,3 +407,71 @@ def test_stat_combinators():
     assert codim(Proj[1, 2] ^ Sum) == (2, infinity)
     assert dim(Proj[1, 2] ^ Sum) == 1
 
+def test_stat_dims():
+    "tests inference of statistics' dimensions with various combinators and factories"
+    u = statistic(lambda x: (x, x, x, 1), codim=1, dim=4)
+    v = statistic(lambda x: (x + 1, x + 2, x + 3, x + 4), codim=1, dim=4)
+    w = Constantly(12)
+    z = statistic(lambda x: 2 * x)
+
+    assert dim(u) == 4
+    assert dim(v) == 4
+    assert dim(w) == 1
+    assert dim(z) is None
+
+    assert dim(u + v) == 4
+    assert dim(u - v) == 4
+    assert dim(u * v) == 4
+    assert dim(u / v) == 4
+    assert dim(u // v) == 4
+    assert dim(u % v) == 4
+    assert dim(u ** v) == 4
+
+    assert dim(u * w) == 4
+    assert dim(u / w) == 4
+    assert dim(u // w) == 4
+    assert dim(u % w) == 4
+    assert dim(u ** w) == 4
+    
+    assert dim(w * u) == 4
+    assert dim(w / u) == 4
+    assert dim(w // u) == 4
+    assert dim(w % u) == 4
+    assert dim(w ** u) == 4
+    
+    assert dim(u * z) is None
+    assert dim(u / z) is None
+    assert dim(u // z) is None
+    assert dim(u % z) is None
+    assert dim(u ** z) is None
+    
+    assert dim(z * u) is None
+    assert dim(z / u) is None
+    assert dim(z // u) is None
+    assert dim(z % u) is None
+    assert dim(z ** u) is None
+
+    assert dim(Proj[1]) == 1
+    assert dim(Proj[4]) == 1
+    assert codim(Proj[4]) == (4, infinity)
+    assert dim(Proj[1, 3]) == 2
+    assert codim(Proj[1, 3]) == (3, infinity)
+    assert dim(Proj[1, 3, 5]) == 3
+    assert codim(Proj[1, 3, 5]) == (5, infinity)
+    assert dim(Proj[1, 3, 5, 7, 9, 10, 100]) == 7
+
+    assert dim(Proj[:4]) == 3
+    assert dim(Proj[:4:2]) == 2
+    assert dim(Proj[3:10]) == 7
+    assert dim(Proj[3:10:2]) == 4
+    assert dim(Proj[18:10:-2]) == 4
+    assert dim(Proj[18:1:-1]) == 17
+    assert dim(Proj[18::-1]) == 18
+    assert dim(Proj[-4:-2]) is None
+    assert dim(Proj[2:-3]) is None
+    assert dim(Proj[-2:10]) is None
+    
+    assert dim(Fork(u, v, w)) == 9
+    assert dim(Fork(u, v, z)) is None
+    assert codim(Fork(u, v, w)) == (1, 1)
+    assert codim(Fork(u, v, z)) == (1, 1)
