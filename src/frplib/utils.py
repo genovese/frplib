@@ -6,7 +6,7 @@ from collections       import defaultdict
 from collections.abc   import Iterable, Hashable
 from functools         import reduce
 from typing            import Callable, Generator, TypeVar, Union
-from typing_extensions import Any, TypeGuard
+from typing_extensions import Any, Concatenate, ParamSpec, TypeGuard
 
 from frplib.env        import environment
 from frplib.exceptions import OperationError
@@ -17,6 +17,8 @@ from frplib.protocols  import Renderable
 #
 
 A = TypeVar('A')
+B = TypeVar('B')
+P = ParamSpec('P')
 
 def identity(x: A) -> A:
     "Returns its argument."
@@ -275,10 +277,15 @@ def some(func, iterable):
     return any(map(func, iterable))
 
 def iterate(f: Callable[..., A], n: int, start: A, *extra_args, **extra_kwargs) -> A:
-    """Returns nth item in the sequence: start, f(start), f(f(start)), f(f(f(start))), ...
+    """Iteratively call a function n times on starting value and return the final result.
 
-    If n <= 0, start is returned as is. Extra positional and keyword arguments
-    are passed to f in each call.
+    That is, this returns the nth item in the sequence:
+
+        start, f(start), f(f(start)), f(f(f(start))), ...
+
+    Extra positional and keyword arguments are passed to f in each call.
+
+    If n <= 0, start is returned as is.
 
     Parameters
     ----------
@@ -295,11 +302,119 @@ def iterate(f: Callable[..., A], n: int, start: A, *extra_args, **extra_kwargs) 
     extra_kwargs :: zero or more additional keyword arguments that are passed
         to `f` following the value of type A and `extra_args`.
 
+    Returns the result after n function calls.
+
+    See also the function `iterates` that returns the whole sequence up to
+    and including the final value.
+
     """
     result = start
     for _ in range(n):
         result = f(result, *extra_args, **extra_kwargs)
     return result
+
+def iterates(f: Callable[..., A], n: int, start: A, *extra_args, **extra_kwargs) -> list[A]:
+    """Iteratively call a function on starting value n times and return the sequence.
+
+    That is, this returns first n + 1 items in the sequence:
+
+        start, f(start), f(f(start)), f(f(f(start))), ...
+
+    Extra positional and keyword arguments are passed to f in each call.
+
+    If n <= 0, an empty list is returned.
+
+    Parameters
+    ----------
+    f :: a function from A -> A, however f can accept extra positional or keyword
+        arguments; these are given by `extra_args` and `extra_kwargs`, respectively.
+
+    n :: the number of times to iterate; if n <= 0, a singleton list is returned.
+
+    start :: a value of type A, the initial value of the sequence
+
+    extra_args :: zero or more additional arguments that are passed to `f`
+        following the value of type A.
+
+    extra_kwargs :: zero or more additional keyword arguments that are passed
+        to `f` following the value of type A and `extra_args`.
+
+    Returns the list of iterated values up to and including the result of
+    n function calls.
+
+    See also the function `iterate` that returns only the final value of this
+    sequence. Do not get the two confused.
+
+    """
+    current = start
+    result = [current]
+    for _ in range(n):
+        current = f(current, *extra_args, **extra_kwargs)
+        result.append(current)
+    return result
+
+def fold(
+        f: Callable[Concatenate[A, B, P], A],
+        init: A,
+        xs: Iterable[B],
+        *extra_args: P.args,
+        **extra_kwargs: P.kwargs
+) -> A:
+    """Folds an iterable sequence using a folding function from an initial value.
+
+    Parameters
+    ----------
+    f - A folding function that takes an accumulator and an input element,
+        and any supplied extra arguments and keyword arguments, and returns
+        an updated accumulator.
+
+    init - The initial value of the accumulator
+
+    xs - The input sequence, any iterable
+
+    extra_args - extra arguments passed to the folding function.
+
+    extra_kwargs - extra keyword arguments passed to the folding function
+
+    Returns the final value of the accumulator. If the input sequence is empty,
+    the initial value is returned.
+
+    """
+    accum = init
+    for x in xs:
+        accum = f(accum, x, *extra_args, **extra_kwargs)
+    return accum
+
+def fold1(f: Callable[Concatenate[A, A, P], A], xs: list[A], *extra_args: P.args, **extra_kwargs: P.kwargs) -> A:
+    """Folds a list using a folding function with the first value as the initial accumulator.
+
+    The list must be non-empty or an error is raised. The accumulator must have
+    the same type as the elements of the list.
+
+    Examples:  fold1(plus, [1, 2, 3, 4]) == 10
+               fold1(concat, ["a", "b", "c"]) == "abc"
+
+    Parameters
+    ----------
+    f - A folding function that takes an accumulator and an input element,
+        and any supplied extra arguments and keyword arguments, and returns
+        an updated accumulator. The accumulator and input elements are
+        the same type.
+
+    xs - A non-empty input list
+
+    extra_args - extra arguments passed to the folding function.
+
+    extra_kwargs - extra keyword arguments passed to the folding function
+
+    Returns the final value of the accumulator. If the input sequence is empty,
+    an error is raised.
+
+    """
+    if len(xs) == 0:
+        raise OperationError('fold1 requires a non-empty input list')
+
+    return fold(f, xs[0], xs[1:], *extra_args, **extra_kwargs)
 
 
 #

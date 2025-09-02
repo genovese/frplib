@@ -38,3 +38,9 @@ A value of type A, either `start` or a value returned by `f`.
 + `iterate(lambda km: km * k, 9, k)` gives the kind `k ** 10`
 + `iterate(lambda state: next_state // state, 10, Kind.empty)` conditions the
       conditional kind `next_state` on the kind `state` 10 times.
+
+## Note
+
+   This function returns the final value of the iteration. The related
+   function `iterates` givs the sequence up to and including that
+   final value.

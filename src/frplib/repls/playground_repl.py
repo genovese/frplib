@@ -120,7 +120,8 @@ playground_imports: dict[str, list[str]] = {
     'symbolic': ['gen_symbol', 'is_symbolic', 'is_zero', 'symbol', 'symbols'],
     'utils': [
         'clone', 'compose', 'const', 'every', 'frequencies',
-        'identity', 'index_of', 'index_where', 'irange', 'iterate', 'lmap',
+        'identity', 'index_of', 'index_where', 'irange', 'iterate', 'iterates',
+        'lmap', 'fold', 'fold1',
         'values', 'dim', 'codim', 'size', 'typeof', 'show', 'some',
     ],
     'vec_tuples': [

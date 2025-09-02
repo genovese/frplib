@@ -71,7 +71,16 @@ like kinds, FRPs, etc. in a uniform way.
 
 + `compose(f,g)` :: returns the function `f` after `g`
 
-+ `iterate(f, n, start)` :: returns nth item in sequence `f(start), f(f(start)), ...`
++ `iterate(f, n, start)` :: returns nth item in sequence `start, f(start), f(f(start)), ...`
+
++ `iterates(f, n, start)` :: returns sequence of first n items from `start, f(start), f(f(start)), ...`
+
++ `fold(f, init, inputs)` :: folds an input sequence using the folding function `f` from the
+                             initial accumulator `init`
+
++ `fold1(f, ilist)` :: folds a non-empty input list using the folding function `f` using
+                       the first element of the list as the initial accumulator.
+                       The input elements and accumulators have the same type.
 
 + `is_zero(x)` :: test if a quantity is zero
 
@@ -96,4 +105,4 @@ like kinds, FRPs, etc. in a uniform way.
 
 ## Sub-topics
 
-`symbols`, `irange`, `index_of`, `iterate`, `show`
+`symbols`, `irange`, `index_of`, `iterate`, `iterates`, `show`
