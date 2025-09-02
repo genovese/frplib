@@ -12,7 +12,7 @@ from frplib.numeric    import nothing
 from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                is_statistic, statistic, condition, scalar_statistic,
                                tuple_safe, infinity, ANY_TUPLE,
-                               chain, compose,
+                               chain, compose, scalar_fn,
                                Id, Scalar, __, Proj, _x_,
                                Sum, Count, Product, Max, Min, Mean, Abs,
                                Sqrt, Floor, Ceil,
@@ -26,7 +26,7 @@ from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                Cases, All, Any, ACos, ASin,
                                Median, Quartiles, Binomial, Distinct,
                                Get, ElementOf, Keep, MaybeMap,
-                               Prepend, Append, Bag,
+                               Prepend, Append, Bag, ArgMax,
                                )
 from frplib.quantity   import as_quantity, qvec
 from frplib.symbolic   import symbol
@@ -475,3 +475,14 @@ def test_stat_dims():
     assert dim(Fork(u, v, z)) is None
     assert codim(Fork(u, v, w)) == (1, 1)
     assert codim(Fork(u, v, z)) == (1, 1)
+
+def test_scalar_fn():
+    "test scalar_fn utility in statistics, see Issue 48"
+    am = scalar_fn(ArgMax)
+
+    assert am(1, 9, 2) == 1
+    assert am((1, 9, 2)) == 1
+    assert am(vec_tuple(1, 9, 2)) == 1
+    assert am(1, 9, 2, 7, 17, 21, 3) == 5
+    assert am((14, 22, 32, -4, 0)) == 2
+    assert am(14, 22, 32, -4, 0) == 2
