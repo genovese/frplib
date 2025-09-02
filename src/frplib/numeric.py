@@ -81,6 +81,13 @@ class _Nothing:
     def __repr__(self):
         return 'nothing'
 
+    def __format__(self, format_spec):
+        # Convert format type to s and delegate
+        # Remove number-only options
+        fs = re.sub(r'[-+ =,_]', '', format_spec)
+        fs = re.sub(r'[bcdoxXneEfFgG%]', 's', fs)
+        return format('\u25a1', fs)
+
     def __lt__(self, other):
         if other == self:
             return False
