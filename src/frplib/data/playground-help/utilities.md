@@ -105,4 +105,4 @@ like kinds, FRPs, etc. in a uniform way.
 
 ## Sub-topics
 
-`symbols`, `irange`, `index_of`, `iterate`, `iterates`, `show`
+`symbols`, `irange`, `index_of`, `iterate`, `iterates`, `fold`, `show`
