@@ -16,7 +16,7 @@ equilateral = is_equilateral(vertices)
 
 vertex_dists = [0, 1, numeric_sqrt(3), 2, numeric_sqrt(3), 1]
 
-@statistic
+@statistic(codim=3, dim=3)
 def side_lengths(triangle):
     return [vertex_dists[int(numeric_abs(triangle[i] - triangle[(i - 1) % 3]))] for i in range(3)]
 
