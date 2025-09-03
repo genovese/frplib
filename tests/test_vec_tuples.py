@@ -5,6 +5,7 @@ import pytest
 from decimal import Decimal
 
 from frplib.exceptions import MismatchedDimensionError
+from frplib.statistics import Sum, Max, ArgMax, Product, Id, Proj
 from frplib.vec_tuples import VecTuple, vec_tuple, as_vec_tuple, is_vec_tuple
 
 
@@ -66,3 +67,22 @@ def test_mismatched_extension():
         vec_tuple(1, 2, 3) + vec_tuple(1, 2)
     with pytest.raises(MismatchedDimensionError):
         vec_tuple(1, 2, 3) > vec_tuple(1, 2)
+
+def test_vec_carrot():
+    "test v ^ f as a synonym for f(v), added later than it should have been"
+    assert vec_tuple(1, 2, 3) ^ Sum == vec_tuple(6)
+    assert vec_tuple(1, 2, 10) ^ Max == vec_tuple(10)
+    assert vec_tuple(10, 1, 42, 3) ^ ArgMax == vec_tuple(2)
+    assert vec_tuple(10, 1, 42, 3) ^ Id == vec_tuple(10, 1, 42, 3)
+    assert vec_tuple(10, 1, 42, 3) ^ Proj[1, 3] == vec_tuple(10, 42)
+    assert vec_tuple(10, 99, 1, 42, 3, 100) ^ Proj[2:5] == vec_tuple(99, 1, 42)
+
+    assert vec_tuple(7, 15, 31) ^ vec_tuple(12, 24, 48) == vec_tuple(11, 23, 47)
+    assert vec_tuple(15) ^ vec_tuple(7) == vec_tuple(8)
+    assert vec_tuple(1, 2, 3, 4, 5) ^ vec_tuple(7, 7, 7, 7, 7) == vec_tuple(6, 5, 4, 3, 2)
+
+    with pytest.raises(MismatchedDimensionError):
+        vec_tuple(7, 15, 31) ^ vec_tuple(12, 24)
+
+    with pytest.raises(TypeError):
+        vec_tuple(7, 15, 31) ^ 10

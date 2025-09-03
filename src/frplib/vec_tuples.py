@@ -459,6 +459,19 @@ class VecTuple(tuple[T, ...]):
         # except TypeError as e:
         #     raise OperationError(f'Could not test for != with {other}: {str(e)}')
 
+    def __xor__(self, other):
+        "Evaluation: v ^ f is a shorthand for f(v); u ^ v is componentwise xor."
+        if callable(other):
+            return other(self)
+
+        if isinstance(other, VecTuple):
+            n = len(self)
+            if len(other) != n:
+                raise MismatchedDimensionError('Componentwise exclusive-or (^) requires tuples of the same dimension.')
+            return VecTuple([self[i] ^ other[i] for i in range(n)])
+
+        return NotImplemented
+
     @classmethod
     def join(cls: Type[Self], values: Iterable[Self]) -> Self:
         "Concatenates a list of VecTuples in order into a single VecTuple."
