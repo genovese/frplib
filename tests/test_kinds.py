@@ -90,6 +90,10 @@ def test_kinds_factories():
     assert lmap(str, values_of(w)) == ['<a>', '<2 a>', '<3 a>']
     assert weights_of(w) == pytest.approx([as_quantity('1/7'), as_quantity('2/7'), as_quantity('4/7')])
 
+    w = weighted_by(1, 2, 3, weight_by=lambda x: x ** 2).weights
+    assert values_of(w) == {vec_tuple(1), vec_tuple(2), vec_tuple(3)}
+    assert weights_of(w) == pytest.approx([as_quantity('1/14'), as_quantity('2/7'), as_quantity('9/14')])
+
     assert binary().values == {0, 1}
     assert binary('1/3').kernel(0, as_float=False) == as_quantity('2/3')
     assert binary('1/3').kernel(1, as_float=False) == as_quantity('1/3')

@@ -736,8 +736,13 @@ def dilate(element: Union[int, Iterable[tuple[int, int]]] = 1) -> Statistic:
 #
 
 class ImageSet:
-    """
-    ATTN
+    """A collection of images and groups of images as models.
+
+    This include methods for adding new images and models
+    and for observing data from a specified model.
+
+    The .images() and .models() method give lists of the
+    registered images and models.
 
     """
     def __init__(self):
@@ -745,29 +750,45 @@ class ImageSet:
         self._images: dict[ImageId, Image] = {}
 
     def register_image(self, image_id: ImageId, image: Image) -> None:
+        "Adds a new image by name to the image collection."
         self._images[image_id] = image
 
     def register_model(self, model_id: ModelId, images: Iterable[Image]) -> None:
+        "Adds a new model by name to the models collection, a list of images."
         self._models[model_id] = list(images)
 
     def images(self) -> list[ImageId]:
+        "Lists the ids of the available registered images."
         return list(self._images.keys())
 
     def image(self, image_id: ImageId) -> Image:
+        "Returns the image with the specified name, if registered."
         if image_id in self._images:
             return self._images[image_id]
         raise IndexingError(f'Unknown image {image_id} in image registry')
 
     def models(self) -> list[ModelId]:
+        "Lists the ids of the available registered models."
         return list(self._models.keys())
 
     def model(self, model_id: ModelId) -> list[Image]:
+        "Returns the model with the specified name, if registered."
         if model_id in self._models:
             return self._models[model_id]
         raise IndexingError(f'Unknown model {model_id} in model registry')
 
     def observe(self, model_id: Union[ModelId, list[Image]], p='1/8'):
-        "ATTN"
+        """Generate a random image according to the model and given parameters.
+
+        Parameters
+        ----------
+        model_id - the name of the model to draw data from
+        p [= '1/8'] - the noise parameter for the random image
+
+        Returns the observed data and the true image for comparison in
+        a 2-tuple.
+
+        """
         if isinstance(model_id, (str, int)):
             model = self._models[model_id]
         else:
@@ -808,7 +829,6 @@ ImageModels.register_image(
               else 0 for j in range(32) for i in range(32)],
              32, 32)
 )
-
 
 ImageModels.register_image(
     'blocks',

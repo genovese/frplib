@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from frplib.exceptions import MismatchedDimensionError
 from frplib.statistics import Sum, Max, ArgMax, Product, Id, Proj
+from frplib.symbolic   import symbols
 from frplib.vec_tuples import VecTuple, vec_tuple, as_vec_tuple, is_vec_tuple
 
 
@@ -86,3 +87,6 @@ def test_vec_carrot():
 
     with pytest.raises(TypeError):
         vec_tuple(7, 15, 31) ^ 10
+
+    a, b, c = symbols('a b c')
+    vec_tuple(1, a, b, c, a*b*c) ^ Sum == vec_tuple(1 + a + b + c + a*b*c)
