@@ -53,7 +53,7 @@ def test_conditional_frps():
     assert Kind.equal(kind(v >> u ^ Proj[2]), kind(u // v))  # tests fix of Bug 10
 
     k1 = conditional_kind({0: either(0, 1), 1: either(0, 2), 2: either(0, 3)})
-    f1 = conditional_frp(k1)   # type: ignore
+    f1 = conditional_frp(k1)
 
     assert typeof(f1) == '1 -> 2'
     assert typeof(f1) == typeof(clone(f1))
@@ -109,10 +109,10 @@ def test_conditional_frps():
         conditional_frp(__)
 
     with pytest.raises(ConstructionError):
-        conditional_frp(2)
+        conditional_frp(2)    # type: ignore
 
     with pytest.raises(ConstructionError):
-        conditional_frp([])
+        conditional_frp([])   # type: ignore
 
 
 def test_auto_clone():

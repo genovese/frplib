@@ -1674,7 +1674,7 @@ def Variance(value):
 
 @scalar_statistic(name='argmax', codim=(1, infinity))
 def ArgMax(val):
-    'returns the index of the maximum component of a non-empty tuple'
+    'returns the index (from 0) of the maximum component of a non-empty tuple'
     max_ind = 0
     max_val = val[0]
     for i in range(1, len(val)):
@@ -1685,7 +1685,7 @@ def ArgMax(val):
 
 @statistic(name='argmin', codim=(1, infinity))
 def ArgMin(val):
-    'returns the index of the minimum component of a non-empty tuple'
+    'returns the index (from 0) of the minimum component of a non-empty tuple'
     min_ind = 0
     min_val = val[0]
     for i in range(1, len(val)):
