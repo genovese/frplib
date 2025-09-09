@@ -7,7 +7,7 @@ from PIL import ImageOps, ImageShow
 
 __all__ = [
     'random_image', 'ImageModels', 'show_image',
-    'empty_image', 'pixel0', 'pixel1', 'as_image', 'add_image',
+    'empty_image', 'pixel0', 'pixel1', 'as_image', 'add_image', 'add_base',
     'width_of', 'height_of', 'size_of',
     'clockwise', 'counter_clockwise', 'reflect_image_horizontally',
     'reflect_image_vertically', 'invert_image',
@@ -159,7 +159,7 @@ def image_data(image: Image) -> tuple[int, int, ImageData]:
     data = cast(ImageData, image[2:])
     return (wd, ht, data)
 
-def add_base(base: Image):
+def add_base(base: Image) -> Statistic:
     "Returns a statistic that adds a given base image to its input image."
     wd, ht = base[:2]
     n = wd * ht
@@ -1015,7 +1015,24 @@ def max_likelihood_image(
         end_p=0.5,
         start_p=0.001
 ) -> Statistic:
-    """ATTN
+    """Returns a statistic that performs maximum likelihood reconstruction on a noisy image.
+
+    The likelihood is based on the Kind of FRPs produced by random_image.
+    This performs a simple grid search over [0 __ 1] and over the
+    selected model to maximize the likelihood.
+
+    Parameters
+    ----------
+    model_id: name for model to observe data from, see ImageModels
+    return_p [=False]: if False, return the reconstructed image, else
+        return the reconstructed image and the estimated p
+    delta_p [=0.001]: the step size in a grid search for the estimated p
+    end_p [=0.5]: the final value of p in the grid search
+    start_p [=0.001]: the initial value of p in the grid search
+
+    If return_p is False (the default), returns the reconstructed image.
+    If return_p is True, returns a tuple containing the reconstructed image
+    with the estimated value of p *appended* to the end.
 
     """
 
