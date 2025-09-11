@@ -278,11 +278,12 @@ class IMixtureExpression(FrpExpression):
                     cache_value = False
             if cache_kind:
                 if f._cached_kind is not None:
-                    logsize += math.log2(f._cached_kind.size)
-                    if logsize <= threshold:
-                        combined_kind = combined_kind * f._cached_kind
-                    else:
-                        cache_kind = False
+                    if f._cached_kind.size > 0:  # Empty Kind is identity element
+                        logsize += math.log2(f._cached_kind.size)
+                        if logsize <= threshold:
+                            combined_kind = combined_kind * f._cached_kind
+                        else:
+                            cache_kind = False
                 else:
                     cache_kind = False
             elif not cache_value:
@@ -365,9 +366,11 @@ class IMixPowerExpression(FrpExpression):
         super().__init__()
         self._term = term
         self._pow = pow
-        if (term._cached_kind is not None and
-           pow * math.log2(term._cached_kind.size) <= math.log2(FRP.COMPLEXITY_THRESHOLD)):
-            self._cached_kind = term._cached_kind ** pow
+        if term._cached_kind is not None:
+            if term._cached_kind.size == 0:
+                self._cached_kind = term._cached_kind  # Empty Kind is identity for *
+            elif pow * math.log2(term._cached_kind.size) <= math.log2(FRP.COMPLEXITY_THRESHOLD):
+                self._cached_kind = term._cached_kind ** pow
 
     def sample1(self) -> ValueType:
         draws = [self._term.sample1() for _ in range(self._pow)]
@@ -1675,7 +1678,7 @@ class FRP:
 
     def __pow__(self, n, modulo=None):  # Self -> int -> FRP
         is_kinded = self.is_kinded()
-        if is_kinded and math.log2(self.size) * n <= math.log2(self.COMPLEXITY_THRESHOLD):
+        if is_kinded and (self.size == 0 or math.log2(self.size) * n <= math.log2(self.COMPLEXITY_THRESHOLD)):
             return FRP(self.kind ** n)
 
         if not is_kinded and isinstance(self._expr, IMixPowerExpression):
