@@ -155,6 +155,14 @@ def combine_arities(has_arity, more) -> ArityType:
 #
 
 def analyze_domain(fn: Callable) -> ArityType:
+    """Analyzes a callable to determine valid number of positional parameters.
+
+    Returns a pair (required, required + accepted) where required is the
+    number of required parameters and accepted is the number of additional
+    optional positional arguments. Keyword-only arguments are not counted
+    but must have defaults or an error is raised.
+
+    """
     # sig = inspect.signature(fn)
     sig = inspect.Signature.from_callable(fn)
     requires: int = 0
@@ -170,9 +178,18 @@ def analyze_domain(fn: Callable) -> ArityType:
         elif param.kind == inspect.Parameter.VAR_POSITIONAL:
             accepts = infinity   # No upper bound
             break
+        # ATTN: This check should be fine, but need to check this.
+        elif param.kind == inspect.Parameter.KEYWORD_ONLY and param.default == inspect.Parameter.empty:
+            raise MismatchedDomain('Custom statistic signature has keyword-only arguments without a default')
     return (requires, requires + accepts)
 
-def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, strict=True) -> Callable:
+def tuple_safe(
+        fn: Callable,
+        *,
+        arities: Optional[int | ArityType] = None,
+        strict=True,
+        convert=as_quant_vec
+) -> Callable:
     """Returns a function that can accept a single tuple or multiple individual arguments.
 
     Ensures that the returned function has an `arity` attribute set
@@ -181,7 +198,7 @@ def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, stric
     If arities is None and fn accepts only one argument, it is imputed that
     any tuple dimension is allowed.
 
-    If strict is False, the retured function accepts a tuple of dimension
+    If strict is False, the returned function accepts a tuple of dimension
     higher than the upper arity. If strict is True, the argument dimension
     must fall within the specified range.
 
@@ -233,14 +250,14 @@ def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, stric
             @wraps(fn)
             def f(*x):
                 if len(x) == 1 and is_tuple(x[0]):
-                    return as_vec_tuple(fn(x[0]))
-                return as_quant_vec(fn(x))
+                    return convert(fn(x[0]))
+                return convert(fn(x))
         else:
             @wraps(fn)
             def f(*x):
                 if len(x) == 1 and is_tuple(x[0]):
-                    return as_vec_tuple(fn(*x[0]))
-                return as_quant_vec(fn(*x))
+                    return convert(fn(*x[0]))
+                return convert(fn(*x))
         setattr(f, 'arity', arities)
         setattr(f, 'strict_arity', strict)
         return f
@@ -252,18 +269,18 @@ def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, stric
         @wraps(fn)
         def g(*x):
             if len(x) == 0 or (strict and len(x) > 1):
-                raise DomainDimensionError(f'A function (probably a Statistic) '
+                raise DomainDimensionError(f'A function (probably a Statistic or conditional Kind/FRP) '
                                            f'expects one scalar argument {len(x)} given.')
             if is_tuple(x[0]):
                 nargs = len(x[0])
                 if nargs == 0 or (strict and nargs > 1):
-                    raise DomainDimensionError(f'A function (probably a Statistic) '
+                    raise DomainDimensionError(f'A function (probably a Statistic or conditional Kind/FRP) '
                                                f'expects a scalar argument, but a tuple'
                                                f' of dimension {nargs} was given.')
                 arg = x[0][0]
             else:
                 arg = x[0]
-            return as_quant_vec(fn(arg))
+            return convert(fn(arg))
         setattr(g, 'arity', arities)
         setattr(g, 'strict_arity', strict)
         return g
@@ -276,10 +293,10 @@ def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, stric
                 else:
                     args = x
                 if len(args) < arities[0]:
-                    raise DomainDimensionError(f'A function (probably a Statistic)'
+                    raise DomainDimensionError(f'A function (probably a Statistic or conditional Kind/FRP)'
                                                f' expects input of dimension at least {arities[0]}'
                                                f' dimension {len(args)} was given.')
-                return as_quant_vec(fn(args))
+                return convert(fn(args))
         else:
             @wraps(fn)
             def h(*x):
@@ -288,10 +305,10 @@ def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, stric
                 else:
                     args = x
                 if len(args) < arities[0]:
-                    raise DomainDimensionError(f'A function (probably a Statistic)'
+                    raise DomainDimensionError(f'A function (probably a Statistic or conditional Kind/FRP)'
                                                f' expects input of dimension at least {arities[0]}'
                                                f' dimension {len(args)} was given.')
-                return as_quant_vec(fn(*args))
+                return convert(fn(*args))
         setattr(h, 'arity', arities)
         setattr(h, 'strict_arity', strict)
         return h
@@ -305,17 +322,17 @@ def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, stric
                 args = x
             nargs = len(args)
             if nargs < arities[0]:
-                raise DomainDimensionError(f'A function (probably a Statistic)'
+                raise DomainDimensionError(f'A function (probably a Statistic or conditional Kind/FRP)'
                                            f' expects input of dimension at least {arities[0]}'
                                            f' dimension {nargs} was given.')
             if strict and nargs > arities[1]:
-                raise DomainDimensionError(f'A function (probably a Statistic)'
+                raise DomainDimensionError(f'A function (probably a Statistic or conditional Kind/FRP)'
                                            f' expects input of dimension at most {arities[1]}'
                                            f' but dimension {nargs} was given.')
 
             take = cast(int, min(arities[1], nargs))  # Implicit project if not strict
 
-            return as_quant_vec(fn(tuple(args[:take])))
+            return convert(fn(tuple(args[:take])))
     else:
         @wraps(fn)
         def ff(*x):
@@ -325,17 +342,17 @@ def tuple_safe(fn: Callable, *, arities: Optional[int | ArityType] = None, stric
                 args = x
             nargs = len(args)
             if nargs < arities[0]:
-                raise DomainDimensionError(f'A function (probably a Statistic)'
+                raise DomainDimensionError(f'A function (probably a Statistic or conditional Kind/FRP)'
                                            f' expects input of dimension at least {arities[0]}'
                                            f' but dimension {len(args)} was given.')
             if strict and nargs > arities[1]:
-                raise DomainDimensionError(f'A function (probably a Statistic)'
+                raise DomainDimensionError(f'A function (probably a Statistic or conditional Kind/FRP)'
                                            f' expects input of dimension at most {arities[1]}'
                                            f' but dimension {nargs} was given.')
 
             take = cast(int, min(arities[1], nargs))  # Implicit project if not strict
 
-            return as_quant_vec(fn(*args[:take]))
+            return convert(fn(*args[:take]))
     setattr(ff, 'arity', arities)
     setattr(ff, 'strict_arity', strict)
     return ff
@@ -795,7 +812,7 @@ class Statistic:
 
     def __truediv__(self, other):
         codim: int | ArityType = 0
-        dim : int | None = None
+        dim: int | None = None
         if isinstance(other, Statistic):
             if Statistic._unequal_nonscalar_dims(self, other):
                 # Dimensions are known to be incompatible
@@ -812,6 +829,7 @@ class Statistic:
             def a_div_b(*x):
                 return self(*x) / f(*x)
             label = str(other)
+        # ATTN! if other is a VecTuple, allow division by scalar or by tuple of same dimension.
         else:
             def a_div_b(*x):
                 return self(*x) / as_real(as_scalar_strict(other))
@@ -835,7 +853,7 @@ class Statistic:
 
     def __floordiv__(self, other):
         codim = self.codim
-        dim : int | None = None
+        dim: int | None = None
         if isinstance(other, Statistic):
             if Statistic._unequal_nonscalar_dims(self, other):
                 # Dimensions are known to be incompatible
@@ -1520,6 +1538,8 @@ Tanh = Statistic(math.tanh, codim=1, dim=1, name='tan', strict=True,
 @statistic(codim=(1, infinity), dim=1, name='abs',
            description='returns the absolute value of the given number or the modulus of a tuple')
 def Abs(x):
+    # ATTN: if x has symbolic components, it would be nice to handle this
+    #       need representation of functions in symbolic.py
     if len(x) == 1:
         return numeric_abs(x[0])
     return numeric_sqrt(sum(u * u for u in x))
