@@ -23,7 +23,7 @@ from typing            import cast, Union
 
 from frplib.exceptions import StatisticError
 from frplib.frps       import FRP, frp, is_frp
-from frplib.kinds      import fast_mixture_pow, weighted_as
+from frplib.kinds      import Kind, fast_mixture_pow, weighted_as
 from frplib.statistics import (Condition, Constantly, Id, Sum,
                                condition, is_true, scalar_statistic, statistic)
 from frplib.quantity   import as_quantity
@@ -35,8 +35,8 @@ from frplib.vec_tuples import VecTuple, as_scalar_strict, as_vec_tuple, is_vec_t
 # Kind/FRP Factories
 #
 
-def edge_kind(p='1/2'):
-    """Returns the kind of a single edge in a random graph.
+def edge_kind(p='1/2') -> Kind:
+    """Returns the Kind of a single edge in a random graph.
 
     Parameters
     ----------
@@ -48,7 +48,26 @@ def edge_kind(p='1/2'):
     p = as_quantity(p)
     return weighted_as(0, 1, weights=[1 - p, p])
 
-def random_graph(n, p='1/2'):
+def random_graph(n, p='1/2') -> FRP:
+    """Returns an FRP representing an Erdos-Renyi random graph.
+
+    This is always a simple, undirected graph without loops.
+
+    An edge between any two nodes is included in the graph
+    with Kind specified by `edge_kind(p)`. All edges
+    are independent, i.e., the Kind of the included
+    edge is an independent mixture.
+
+    Parameters
+    ----------
+    n - the number of nodes in the 
+    p - the probability of any particular edge being included
+
+    Returns an FRP representing the graph. The values are
+    tuples indicating the presence of each pair of edges,
+    as described in Section 2.5 of Probability Explained.
+
+    """
     p = as_quantity(p)
     m = (n * (n - 1)) // 2
     return frp(edge_kind(p)) ** m
@@ -208,9 +227,15 @@ def connected_components(graph):
     """A statistic that identifies the connected components of an undirected, simple graph without loops.
 
     Input to the condition is a tuple giving the row-wise, upper
-    triangle of the graph's adjacency matrix.
+    triangle of the graph's adjacency matrix, as for the values
+    of FRPs produced by `random_graph`.
 
-    Returns a tuple ATTN
+    Returns a tuple whose dimension is the number of nodes in the graph,
+    giving an integer in [1..c] for each node, where c is the number of
+    connected components. Two nodes have the same value in this tuple
+    if they belong to the same connected component. Nodes are listed
+    in the same order as in the graph tuple structure and adjacency
+    matrix/list.
 
     """
     n = _node_count(graph)
@@ -240,7 +265,7 @@ def connected_component_count(graph):
     triangle of the graph's adjacency matrix.
 
     """
-    return max(connected_components(graph))  # type: ignore
+    return max(connected_components(graph))
 
 def path_between(node_i, node_j):
     """Returns a condition testing whether there is a path between node_i and node_j in the given graph.
@@ -553,7 +578,7 @@ def show_graph(graph_spec: Union[Iterable, FRP]):
         edges = { node: set(_neighbors(n, node, graph)) for node in range(n) }  # type: ignore
         view_port = int(175 * math.ceil(math.sqrt(n))) + 50
 
-        comp_of: VecTuple = connected_components(graph)  # type: ignore
+        comp_of: VecTuple = connected_components(graph)
         num_components = max(comp_of)
         components = defaultdict(set)
         for node in range(n):
