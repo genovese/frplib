@@ -25,9 +25,9 @@ from frplib.kind_trees import (KindBranch,
 from frplib.numeric    import (Numeric, ScalarQ, Nothing, is_nothing, as_nice_numeric, as_numeric, as_real,
                                is_numeric, numeric_abs, numeric_floor, numeric_log2, numeric_ln)
 from frplib.output     import RichReal, RichString
-from frplib.protocols  import Projection, SupportsKindOf
+from frplib.protocols  import Projection, SupportsKindOf, SupportsConditionalKindOf, Kinded
 from frplib.quantity   import as_quantity, as_nice_quantity, as_quant_vec, show_quantities, show_qtuples
-from frplib.statistics import Condition, MonoidalStatistic, Statistic, compose2, Proj
+from frplib.statistics import Condition, MonoidalStatistic, Statistic, compose2, Proj, tuple_safe
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol, is_zero
 from frplib.utils      import compose, const, dim, identity, is_interactive, is_tuple, lmap
 from frplib.vec_tuples import (VecTuple, as_numeric_vec, as_scalar_strict, as_vec_tuple, vec_tuple,
@@ -950,7 +950,15 @@ class TaggedKind(Kind):
 #
 # See also the generic utilities size, dim, values, frp, unfold, clone, et cetera.
 
-def kind(any) -> Kind:
+@overload
+def kind(any: SupportsConditionalKindOf) -> ConditionalKind:
+    ...
+
+@overload
+def kind(any: Kind | Kinded | SupportsKindOf | str | Sequence | list | None | Literal[False]) -> Kind:
+    ...
+
+def kind(any):
     "A generic constructor for kinds, from strings, other kinds, FRPs, and more."
     if isinstance(any, Kind):
         return any
@@ -958,10 +966,10 @@ def kind(any) -> Kind:
     if isinstance(any, SupportsKindOf):  # FRPExpressions have .kind_of and .kind methods
         return any.kind_of()
 
-    # ATTN: Add case for conditional FRP to produce a conditional Kind
-    #       Types(union) might be an issue downstream but probably not
-    #       Maybe add a Kind property to ConditionalFRP to handle this?
-    if hasattr(any, 'kind'):
+    if isinstance(any, SupportsConditionalKindOf): # ConditionalFRPs use this to produce their conditional Kind
+        return any.conditional_kind_of()
+
+    if hasattr(any, 'kind'):  # Kinded case but more general
         return any.kind
 
     if not any:
@@ -1921,20 +1929,25 @@ class ConditionalKind:
                 if has_domain_set and len(domain_dims) == 1:  # Known to have elements of only one dimension
                     _codim = list(domain_dims)[0]
                 else:
-                    _codim = None  # Cannot infer a single codim, accept any type of values
-                    # raise ConstructionError('Cannot infer codimension of conditional Kind from given dict, '
-                    #                         'please supply a codim argument or keys of common dimension')
+                    # Because we cannot infer a single codim, accept any type of values
+                    # ATTN: It would be nice to have a range here for codim in conditional_kind
+                    _codim = None
             else:
                 _codim = codim
+
+            # Make the wrapped function accept flexible arguments of specified number
+            mapping_t = tuple_safe(mapping, arities=_codim, convert=kind)  # ATTN: need to set codim=1 explicitly to get scalar unwrapping?
+            arities = getattr(mapping_t, 'arity')
+
+            # Recheck codim from inspection when it was not yet specified
+            if _codim is None and arities[0] == arities[1]:
+                _codim = arities[0]     # ATTN: if we allowed a range, use arities
 
             if _codim == 1:  # Account for scalar functions from user
                 if domain is not None and not has_domain_set:
                     # domain is a function assumed to take a scalar, so we unwrap it
                     original_domain = self._domain
                     self._domain = lambda v: original_domain(as_scalar_weak(v))
-                # function is assumed to take a scalar, so we unwrap it
-                original_fn = mapping
-                mapping = scalar_safe(original_fn)
 
             if dim is None and target_dim is None:
                 _dim = None
@@ -1986,7 +1999,7 @@ class ConditionalKind:
                 if value in self._mapping:
                     return self._mapping[value]
                 try:
-                    result = mapping(value)
+                    result = mapping_t(value)
                 except Exception as e:
                     raise MismatchedDomain(f'encountered a problem passing {value} to a conditional Kind: {str(e)}')
 
@@ -2011,7 +2024,7 @@ class ConditionalKind:
                 if value in self._targets:
                     return self._targets[value]
                 try:
-                    result = mapping(value)
+                    result = mapping_t(value)
                 except Exception as e:
                     raise MismatchedDomain(f'encountered a problem passing {value} to a conditional Kind: {str(e)}')
 
@@ -2062,7 +2075,7 @@ class ConditionalKind:
         """
         return self._domain(as_vec_tuple(v))
 
-    def kind_of(self) -> 'ConditionalKind':
+    def conditional_kind_of(self) -> 'ConditionalKind':
         return self
 
     def clone(self) -> 'ConditionalKind':
@@ -2348,7 +2361,7 @@ def conditional_kind(
 
 @overload
 def conditional_kind(
-        mapping: CondKindInput | ConditionalKind,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind,
+        mapping: CondKindInput | ConditionalKind | SupportsConditionalKindOf,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind,
         *,
         codim: int | None = None,
         dim: int | None = None,
@@ -2392,9 +2405,13 @@ def conditional_kind(
         elif not callable(mapping) and not isinstance(mapping, dict) and not isinstance(mapping, Kind):
             raise ConstructionError('Cannot create Conditional Kind from the given '
                                     f'object of type {type(mapping).__name__}')
-        elif hasattr(mapping, '_auto_clone'):  # Hack to detect ConditionalFRP and avoid circularity
-            raise ConstructionError('To create a Conditional Kind from a ConditionalFRP X '
-                                    'pass kind(X) to conditional_kind')
+        # elif hasattr(mapping, '_auto_clone'):  # Hack to detect ConditionalFRP and avoid circularity
+        #     raise ConstructionError('To create a Conditional Kind from a ConditionalFRP X '
+        #                             'pass kind(X) to conditional_kind')
+
+        # Handle ConditionalFRPs without import circularity
+        if isinstance(mapping, SupportsConditionalKindOf):
+            return mapping.conditional_kind_of()
 
         if isinstance(mapping, ConditionalKind):
             if codim is None and dim is None and target_dim is None and domain is None:

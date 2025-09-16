@@ -594,7 +594,7 @@ class ConditionalFRP:
             target_dim = mapping._target_dim if target_dim is None else target_dim
             if domain is None and not mapping._trivial_domain:
                 domain = mapping._domain_set if mapping._has_domain_set else mapping._domain
-            mapping = mapping.map(frp)  # dictionary of target FRPs
+            mapping = mapping.map(frp)  # convert target Kinds to FRPs
         elif isinstance(mapping, FRP):
             target_dim = target_dim or mapping.dim
             mapping = const(mapping)
@@ -773,14 +773,17 @@ class ConditionalFRP:
             else:
                 _codim = codim
 
+            mapping_t = tuple_safe(mapping, arities=_codim, convert=frp)
+            arities = getattr(mapping_t, 'arity')
+
+            if codim is None and arities[0] == arities[1]:
+                _codim = arities[0]
+
             if _codim == 1:  # Account for scalar functions from user
                 if domain is not None and not has_domain_set:
                     # domain is a function assumed to take a scalar, so we unwrap it
                     original_domain = self._domain
                     self._domain = lambda v: original_domain(as_scalar_weak(v))
-                # function is assumed to take a scalar, so we unwrap it
-                original_fn = mapping
-                mapping = scalar_safe(original_fn)
 
             if dim is None and target_dim is None:
                 _dim = None
@@ -830,7 +833,7 @@ class ConditionalFRP:
                 if not self._auto_clone and value in self._mapping:
                     return self._mapping[value]
                 try:
-                    result = cast('FRP', mapping(value))
+                    result = cast('FRP', mapping_t(value))
                 except Exception as e:
                     raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP: {str(e)}')
 
@@ -859,7 +862,7 @@ class ConditionalFRP:
                 if not self._auto_clone and value in self._targets:
                     return self._targets[value]
                 try:
-                    result = cast('FRP', mapping(value))
+                    result = cast('FRP', mapping_t(value))
                 except Exception as e:
                     raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP: {str(e)}')
 
@@ -913,7 +916,7 @@ class ConditionalFRP:
         """
         return self._domain(as_vec_tuple(v))
 
-    def kind_of(self) -> 'ConditionalKind':
+    def conditional_kind_of(self) -> 'ConditionalKind':
         "Computes the conditional Kind of this conditional FRP. Warning: Evaluates target Kinds."
         if self._is_dict:
             c_kind = {k: kind(v) for k, v in self._targets.items()}
@@ -1338,7 +1341,8 @@ def conditional_frp(
         FRPs. (Default: False)
 
     If mapping is missing, this function can acts as a decorator on the
-    function definition following.
+    function definition following. If mapping is a conditional FRP and none
+    of its attributes are being changed by the other arguments, return it as is.
 
     Returns a ConditionalFRP (if mapping given) or a decorator.
 
@@ -1353,6 +1357,10 @@ def conditional_frp(
                                     f'object of type {type(mapping).__name__}')
 
         if isinstance(mapping, ConditionalFRP):
+            if codim is None and dim is None and target_dim is None and\
+               domain is None and auto_clone == mapping._auto_clone:
+                return mapping  # No changes so return as is, for cloning use clone
+
             codim = mapping._codim if codim is None else codim
             dim = mapping._dim if dim is None else dim
             target_dim = mapping._target_dim if target_dim is None else target_dim
@@ -1900,7 +1908,15 @@ class FRP:
 # Constructors and Tests
 #
 
-def frp(spec) -> FRP:
+@overload
+def frp(spec: ConditionalFRP | ConditionalKind) -> ConditionalFRP:
+    ...
+
+@overload
+def frp(spec: FRP | FrpExpression | Kind | str ) -> FRP:
+    ...
+
+def frp(spec):
     """A generic constructor for FRPs from a variety of objects.
 
     Parameter `spec` can be a string, a Kind, an FRP, or an FRP
@@ -1914,6 +1930,17 @@ def frp(spec) -> FRP:
 
     if isinstance(spec, str):
         return FRP(kind(spec))
+
+    # frp on a conditional Kind produces a conditional FRP, analogously
+    # to how kind on a conditional FRP produces a conditional Kind.
+    # This is not strictly, speaking, ideal, but using kind() and frp()
+    # this way is convenient for the user, so we'll keep it.
+    if isinstance(spec, (ConditionalFRP, ConditionalKind)):
+        # type 0 -> n ConditionalX converted to a regular FRP
+        # ATTN? Should this special case be dropped?
+        if spec._codim == 0:
+            return frp(spec.target())
+        return conditional_frp(spec)
 
     if not isinstance(spec, (FRP, FrpExpression, Kind)):
         raise FrpError(f'Cannot construct an FRP from object of type {type(spec).__name__}.')

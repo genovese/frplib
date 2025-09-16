@@ -45,3 +45,17 @@ class SupportsKindOf(Protocol):
     "Describes objects X for which kind(X) is meaningful, excluding Kinds themselves."
     def kind_of(self):
         ...
+
+@runtime_checkable
+class SupportsConditionalKindOf(Protocol):
+    "Describes objects X for which kind(X) is meaningful, excluding Kinds themselves."
+    def conditional_kind_of(self):
+        ...
+
+@runtime_checkable
+class Kinded(Protocol):
+    "Describes objects X for which kind(X) is meaningful, excluding Kinds themselves."
+
+    @property
+    def kind(self):
+        ...
