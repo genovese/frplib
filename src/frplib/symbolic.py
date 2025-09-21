@@ -463,6 +463,20 @@ symbolic_one = SymbolicMulti.pure(1)
 #
 # Symbolic Function Calls
 #
+# 20 Sep 2025 CRG
+# The example implementation below is old, and I'm not sure it is the way.
+# Consider making SymbolicUFn for unary functions, name and a symbolic
+# arg; pure if the arg is pure; derivative, etc.
+# It should not be a SymbolicMulti but something one level up,
+# like SymbolicTerm. The SymbolicMulti inheritance muddles things up.
+# Below, the idea is that the function eval is like a variable in
+# a symbolic multi.  This isn't terrible but seems complex ultimately.
+#
+# Key use for unary function is all the numeric_* functions have a symbolic
+# version, allowing quantity_* functions to be used in general making
+# much more work.  Binary functions and higher arity could of course
+# be useful, but unary is the leading case and makes some things easier, no?
+#
 
 # class SymbolicFn(SymbolicMulti):
 #     def __init__(self, fn: NamedCallable, args: list[Symbolic]) -> None:
@@ -1169,6 +1183,20 @@ def is_symbolic(obj) -> TypeGuard[SymbolicMulti | SymbolicMultiSum | SymbolicMul
 
 def symbolic_sqrt(x: Symbolic) -> Symbolic:
     raise ConstructionError(f'Symbolic square root not yet implemented: {str(x)}')
+
+def symbolic_abs(x: Symbolic) -> Symbolic:
+    raise ConstructionError(f'Symbolic absolute value not yet implemented: {str(x)}')
+
+def symbolic_exp(x: Symbolic) -> Symbolic:
+    raise ConstructionError(f'Symbolic exponential not yet implemented: {str(x)}')
+
+def symbolic_ln(x: Symbolic) -> Symbolic:
+    raise ConstructionError(f'Symbolic natural log not yet implemented: {str(x)}')
+
+def symbolic_lg(x: Symbolic) -> Symbolic:
+    raise ConstructionError(f'Symbolic log_2 not yet implemented: {str(x)}')
+
+# ... etc.
 
 
 #

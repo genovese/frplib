@@ -1215,17 +1215,17 @@ def statistic(
 # ) -> Statistic | Callable[[Callable], Statistic]:
 
 def statistic(
-        maybe_fn = None,      # If supplied, return Statistic, else a decorator
+        maybe_fn=None,        # If supplied, return Statistic, else a decorator
         *,
-        name = None,          # A user-facing name for the statistic
-        codim = None,         # Codimension (i.e., dimension of the domain)
+        name=None,            # A user-facing name for the statistic
+        codim=None,           # Codimension (i.e., dimension of the domain)
                               # (a, b) means fn accepts a <= n <= b args; a means (a, a)
                               # infinity allowed for b; None means infer by inspection
-        dim = None,           # Dimension (of the codomain); None means don't know
-        description = None,   # A description used as a __doc__ string for the Statistic
+        dim=None,             # Dimension (of the codomain); None means don't know
+        description=None,     # A description used as a __doc__ string for the Statistic
         monoidal=None,        # If not None, the unit for a Monoidal Statistic
         strict=True,          # If true, then strictly enforce codim upper bound
-        arg_convert = None    # If not None, a function applies to every input component
+        arg_convert=None      # If not None, a function applies to every input component
 ):
     """Statistics factory and decorator. Converts a function into a Statistic.
 
