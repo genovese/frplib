@@ -32,6 +32,9 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
+    - name: Install Click until 8.3 bug fix
+      run: pip install --upgrade "click>=8.1.4,< 8.3.0"
+
     - name: Install Hatch
       run: pip install --upgrade hatch
 
