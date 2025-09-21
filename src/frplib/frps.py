@@ -1557,6 +1557,17 @@ class FRP:
         n = int(math.ceil(tolerance ** -2))
         return scalarize(sum(FRP.sample(n, self, summary=False)) / as_real(n))  # type: ignore
 
+    @property
+    def entropy(self) -> QuantityType:
+        "The entropy of this FRP. Currently, this requires that the Kind be computable."
+        if self.is_kinded():
+            return self.kind.entropy
+        else:
+            assert self._expr is not None
+            if self._expr._cached_kind is not None:
+                return self._expr._cached_kind.entropy
+            raise FrpError("entropy current requires that an FRP's Kind be computable; that is not apparent here.")
+
     empty = EmptyFrpDescriptor()
 
     def __str__(self) -> str:
