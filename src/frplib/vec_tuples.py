@@ -565,6 +565,6 @@ def value_set_from(vals: Iterable) -> set[VecTuple]:
     """
     vs = set([as_vec_tuple(v) for v in vals])
     dims = set(map(len, vs))
-    if len(dims) != 1:
+    if len(dims) > 1:  # Was != 1 but want to allow empty Kinds where appropriate
         raise MismatchedDomain(f'Value set elements have different dimensions, {dims}.')
     return vs
