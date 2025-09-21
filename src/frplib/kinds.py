@@ -491,6 +491,8 @@ class Kind:
             well_defined = cond_kind.well_defined_on(self.value_set)
             if well_defined is not True:
                 raise KindError(well_defined)
+            if self.dim == 0:
+                return cond_kind.target()
             return self.bind(cond_kind)
 
         # This use case is discouraged for users but useful internally
