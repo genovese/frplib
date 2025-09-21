@@ -2158,7 +2158,7 @@ class ConditionalKind:
             title = f'A conditional Kind{tlabel} with wiring:\n'
             return title + tbl
         elif tbl:
-            mlabel = f'.\nIt\'s wiring includes:\n{tbl}\n  ...more kinds\n'
+            mlabel = f'.\nIts wiring includes:\n{tbl}\n  ...more kinds\n'
             return f'A conditional Kind{tlabel} as a function{dlabel or mlabel or "."}'
         return f'A conditional Kind{tlabel} as a function{dlabel or "."}'
 
