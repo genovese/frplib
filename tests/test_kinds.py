@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from frplib.exceptions import (EvaluationError, ConstructionError, KindError, MismatchedDomain)
-from frplib.frps       import frp, conditional_frp, evolve
+from frplib.frps       import ConditionalFRP, frp, conditional_frp, evolve
 from frplib.kinds      import (Kind, ConditionalKind, kind, conditional_kind, clean,
                                constant, either, uniform, binary,
                                symmetric, linear, geometric,
@@ -16,7 +16,7 @@ from frplib.numeric    import as_numeric, numeric_log2
 from frplib.quantity   import as_quantity
 from frplib.statistics import __, Proj, Sum, Min, Max
 from frplib.symbolic   import symbol
-from frplib.utils      import every, frequencies, irange, lmap, size
+from frplib.utils      import codim, every, frequencies, irange, lmap, size
 from frplib.vec_tuples import vec_tuple
 
 
@@ -368,8 +368,73 @@ def test_conditional_kinds():
     with pytest.raises(ConstructionError):
         conditional_kind([])
 
-    with pytest.raises(ConstructionError):
-        conditional_kind(conditional_frp({0: frp(uniform(1, 2, 3)), 1: frp(either(8, 9))}))
+    # Testing Issue 52: frp(cKind) and conditional_kind(cFRP) allowed
+
+    ckcff = conditional_frp({0: frp(uniform(1, 2, 3)), 1: frp(either(8, 9))})
+    ckcf1 = conditional_kind(ckcff)
+    ckcfk = conditional_kind({0: uniform(1, 2, 3), 1: either(8, 9)})
+
+    assert ckcf1._domain_set == ckcfk._domain_set
+    for val in ckcfk._domain_set:
+        assert Kind.equal(ckcf1.target(val), ckcfk.target(val))
+
+    assert isinstance(frp(ckcfk), ConditionalFRP)
+    there_and_back = conditional_kind(frp(ckcfk))
+    assert there_and_back._domain_set == ckcfk._domain_set
+    for val in ckcfk._domain_set:
+        assert Kind.equal(there_and_back.target(val), ckcfk.target(val))
+
+    # Testing Issue 38 that unpacks ConditionalKind arguments in the specification
+    # Fixed in 0.2.11+; also determines codim
+
+    @conditional_kind     # type: ignore
+    def foo1(a, b, c):
+        if a > 0:
+            return either(a, b)
+        return either(a, c)
+
+    assert codim(foo1) == 3
+    assert Kind.equal(foo1.target(1, 2, 3), either(1, 2))
+    assert Kind.equal(foo1.target(-9, 2, 3), either(-9, 3))
+
+    with pytest.raises(MismatchedDomain):
+        foo1(1, 2, 3, 4)
+
+    @conditional_kind(codim=1)
+    def foo2(a):
+        if isinstance(a, tuple):
+            return constant(0)
+        return constant(a)
+
+    assert codim(foo2) == 1
+    assert Kind.equal(foo2.target(10), constant(10))
+
+    @conditional_kind            # type: ignore
+    def foo3(a, b, *c):
+        if len(c) == 0:
+            return constant(a, b)
+        return uniform(a, *c)
+
+    assert codim(foo3) is None  # None means cannot infer
+    assert Kind.equal(foo3.target(1, 2), constant(1, 2))
+    assert Kind.equal(foo3.target(1, 2, 3), uniform(1, 3))
+    assert Kind.equal(foo3.target(1, 2, 3, 4, 5), uniform(1, 3, 4, 5))
+    assert Kind.equal(foo3.target(1, 2, 3, 4, 5, 6, 7, 8), uniform(1, 3, 4, 5, 6, 7, 8))
+
+    @conditional_kind
+    def foo4():
+        return uniform(1, 2, 3)
+
+    assert codim(foo4) == 0
+    assert Kind.equal(foo4(), uniform(1, 2, 3))
+    assert Kind.equal(foo4.target(), uniform(1, 2, 3))
+    assert Kind.equal(Kind.empty >> foo4, uniform(1, 2, 3))
+
+    foo5 = conditional_kind(uniform(1, 2, 3))
+    assert codim(foo5) is None
+    assert Kind.equal(foo5(), uniform(1, 2, 3))
+    assert Kind.equal(foo5.target(), uniform(1, 2, 3))
+    assert Kind.equal(uniform(4, 5, 6) >> foo5, uniform(4, 5, 6) * uniform(1, 2, 3))
 
 def test_kernel():
     k = weighted_as({1: 2, 2: 4, 3: 8, 4: 2})

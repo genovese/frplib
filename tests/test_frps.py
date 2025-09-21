@@ -203,6 +203,14 @@ def test_evolve():
     ev = evolve(init, step, 50, transform=FRP.activate)
     assert -50 <= ev.value[0] <= 50
 
+def test_entropy():  # Test Issue 55
+    assert frp(constant(1)).entropy == pytest.approx(0)
+    assert frp(uniform(1, 2)).entropy == pytest.approx(1)
+    assert frp(uniform(1, 2, ..., 4)).entropy == pytest.approx(2)
+    assert frp(uniform(1, 2, ..., 8)).entropy == pytest.approx(3)
+    assert frp(uniform(1, 2, ..., 16)).entropy == pytest.approx(4)
+    assert frp(uniform(1, 2, ..., 32)).entropy == pytest.approx(5)
+
 def kind_gen(d, s):
     weights = decimals(min_value=1, max_value=1000, allow_nan=False, allow_infinity=False)
     values = lists(decimals(min_value=-5000, max_value=5000, allow_nan=False, allow_infinity=False), min_size=d, max_size=d).map(as_vec_tuple)   # type: ignore
