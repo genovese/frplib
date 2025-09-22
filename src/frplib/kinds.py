@@ -1027,6 +1027,7 @@ def is_kind(x) -> TypeGuard[Kind]:
 
 @dataclass(frozen=True)
 class UnfoldedKind:
+    "A transient representation of an unfolded Kind that prints nicely in the repl."
     unfolded: list  # KindTree
     upicture: str
 
@@ -1041,10 +1042,18 @@ class UnfoldedKind:
             return str(self)
         return Panel(str(self), expand=False, box=box.SQUARE)
 
-def unfold(k: Kind) -> UnfoldedKind:  # ATTN: Return an object that prints this string, later
-    if any(branch.is_symbolic() for branch in k._canonical):
-        raise KindError('unfold on symbolic Kinds is not yet supported.')
+def unfold(k: Kind) -> UnfoldedKind:
+    """Shows a canonical Kind unfolds to width == dimension.
 
+    Parameter
+    ---------
+    k -- a Kind (in canonical form)
+
+    Returns an object that when printed will display the
+    Kind in the repl. Use str() on that object to get
+    a pure string format.
+
+    """
     dim = k.dim
     unfolded = unfold_tree(k._canonical)
     if unfolded is None:

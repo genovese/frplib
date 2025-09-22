@@ -7,7 +7,9 @@
 #
 from __future__ import annotations
 
-from dataclasses  import dataclass
+from dataclasses  import dataclass, field
+from decimal      import Decimal, ROUND_HALF_UP
+from typing       import TypedDict
 
 from rich.console import Console
 from rich.theme   import Theme
@@ -37,6 +39,28 @@ dark_theme = Theme({
     "markdown.code_block": "#4682b4 on white",
 })
 
+class NumericOutParams(TypedDict):
+    rational_denom_limit: int
+    denom_limit: int
+    max_denom: int
+    exclude_denoms: set[int]
+    rounding: str
+    round_mask: Decimal
+    decimal_digits: int
+    nice_digits: int
+
+def default_numeric_out_params() -> NumericOutParams:
+    return {
+        'rational_denom_limit': 1000000000,
+        'denom_limit': 10**9,
+        'max_denom': 50,
+        'exclude_denoms': {10, 20, 25, 50, 100, 125, 250, 500, 1000},
+        'rounding': ROUND_HALF_UP,
+        'round_mask': Decimal('1.000000000'),
+        'decimal_digits': 27,
+        'nice_digits': 16,
+    }
+
 
 @dataclass
 class Environment:
@@ -46,6 +70,7 @@ class Environment:
     dark_mode: bool = False
     is_interactive: bool = False
     console: Console = Console(highlight=True, theme=bright_theme)
+    numeric_out_params: NumericOutParams = field(default_factory=default_numeric_out_params)
 
     def on_ascii_only(self) -> None:
         "Require ASCII-only output, no rich text, unicode, or markdown."

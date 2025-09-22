@@ -14,14 +14,13 @@ from typing_extensions import Any, TypeAlias
 from parsy             import ParseError
 
 from frplib.exceptions           import KindError
-from frplib.numeric              import (Numeric, ScalarQ, as_nice_numeric, as_real,
-                                         show_values, show_tuples)
+from frplib.numeric              import Numeric, as_nice_numeric, as_real
 from frplib.parsing.kind_strings import canonical_tree, kind_sexp, validate_kind
 from frplib.parsing.parsy_adjust import parse_error_message
-from frplib.quantity             import as_quantity, as_quant_vec, as_real_quantity
-from frplib.symbolic             import Symbolic, is_symbolic
+from frplib.quantity             import as_quantity, as_quant_vec, as_real_quantity, show_quantities, show_qtuples
+from frplib.symbolic             import is_symbolic
 from frplib.utils                import identity
-from frplib.vec_tuples           import VecTuple, as_vec_tuple, vec_tuple
+from frplib.vec_tuples           import VecTuple, vec_tuple
 
 #
 # Types
@@ -37,7 +36,7 @@ from frplib.vec_tuples           import VecTuple, as_vec_tuple, vec_tuple
 
 # Moved from kinds, needs refactoring
 
-FRACTION_ROUNDING: int = 10**9
+FRACTION_ROUNDING: int = 10**9   # ATTN: Get this from environment now, cf. Issue 61
 
 def rational_prob(x):  # ATTN: Add some methods to Numeric for this
     "Convert a probability to rational form. Some rounding of floats is done to get a nice value."
@@ -266,9 +265,9 @@ STree: TypeAlias = 'list[Union[str, STree]]'
 
 
 def unfolded_labels(unfolded_branches, root_str, level, widths) -> STree:
-    w_strs = show_values(subtree[0] for subtree in unfolded_branches)
-    v_strs = show_tuples([subtree[1] if isinstance(subtree[1], tuple) else subtree[1][0]
-                          for subtree in unfolded_branches], scalarize=False)
+    w_strs = show_quantities(subtree[0] for subtree in unfolded_branches)
+    v_strs = show_qtuples([subtree[1] if isinstance(subtree[1], tuple) else subtree[1][0]
+                           for subtree in unfolded_branches], scalarize=False)
     w_max = max(len(w) for w in w_strs) + 2  # for spaces
     v_max = max(len(v) for v in v_strs) + 2  # for spaces
     w_strs = ['{0:-<{wd}}'.format(' ' + w + ' ', wd=w_max) for w in w_strs]
