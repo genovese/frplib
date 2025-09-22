@@ -215,7 +215,7 @@ class Kind:
             try:
                 branches = canonical_from_tree(spec)
             except Exception as e:
-                raise KindError(f'Problem building a Kind a KindTree: {str(e)}')
+                raise KindError(f'Problem building a Kind a KindTree:\n  {str(e)}')
         else:
             raise KindError(f'Cannot construct a Kind from object of type {type(spec).__name__}, {spec}')
 
@@ -586,7 +586,7 @@ class Kind:
             return self.map(f)
         except Exception as e:
             raise KindError(f'Statistic {name} appears incompatible with this Kind. '
-                            f'({e.__class__.__name__}: {str(e)})')
+                            f'({e.__class__.__name__}:\n  {str(e)})')
 
     def conditioned_on(self, cond_kind):
         """Kind Combinator: computes the kind of the target conditioned on the mixer (this kind).
@@ -665,7 +665,7 @@ class Kind:
             for datum in data:
                 log_likelihood += numeric_ln(self.kernel(datum, as_float=False))  # type: ignore
         except Exception as e:
-            raise KindError(f'Could not compute log likelihood for kind: {str(e)}')
+            raise KindError(f'Could not compute log likelihood for kind:\n  {str(e)}')
         return log_likelihood
 
     @property
@@ -1015,7 +1015,7 @@ def kind(any):
     try:
         return Kind(any)
     except Exception as e:
-        raise KindError(f'I could not create a Kind from {any}: {str(e)}')
+        raise KindError(f'I could not create a Kind from {any}:\n  {str(e)}')
 
 def is_kind(x) -> TypeGuard[Kind]:
     return isinstance(x, Kind)
@@ -2045,7 +2045,7 @@ class ConditionalKind:
                 try:
                     result = mapping_t(value)
                 except Exception as e:
-                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional Kind: {str(e)}')
+                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional Kind:\n  {str(e)}')
 
                 extended = result.map(lambda u: VecTuple.concat(value, u))  # Input pass through
                 self._mapping[value] = extended   # Cache, fn should be pure
@@ -2070,7 +2070,7 @@ class ConditionalKind:
                 try:
                     result = mapping_t(value)
                 except Exception as e:
-                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional Kind: {str(e)}')
+                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional Kind:\n  {str(e)}')
 
                 extended = result.map(lambda u: VecTuple.concat(value, u))  # Input pass through
                 self._mapping[value] = extended   # Cache, fn should be pure
@@ -2263,7 +2263,7 @@ class ConditionalKind:
                     return statistic(self._fn(*value))
                 except Exception as e:
                     raise KindError(f'Statistic {statistic.name} appears incompatible with this conditional Kind. '
-                                    f'({e.__class__.__name__}: {str(e)})')
+                                    f'({e.__class__.__name__}:\n  {str(e)})')
         return ConditionalKind(transformed, codim=self._codim, target_dim=s_dim, domain=domain)
 
     def __xor__(self, statistic):

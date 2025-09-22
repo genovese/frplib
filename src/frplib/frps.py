@@ -1722,7 +1722,7 @@ class FRP:
                 return NotImplemented
             except Exception as e:
                 raise FrpError(f'In an mixture with an FRP, there was a problem '
-                               f'obtaining a conditional FRP: {str(e)}')
+                               f'obtaining a conditional FRP:\n  {str(e)}')
 
         mix_kind: Kind | None = None
         mixer_val = self._get_cached_value()
@@ -1731,7 +1731,7 @@ class FRP:
                 target_val = c_frp.target(mixer_val)._get_cached_value()
             except Exception as e:
                 raise FrpError(f'In a mixture, conditional FRP appears incompatible with mixer '
-                               f'at value {mixer_val}: {str(e)}')
+                               f'at value {mixer_val}:\n  {str(e)}')
         else:
             target_val = None
 
@@ -1748,7 +1748,7 @@ class FRP:
                     target = c_frp.target(branch.vs)
                 except Exception as e:
                     raise FrpError(f'In a mixture, conditional FRP appears incompatible with mixer '
-                                   f'at value {branch.vs}: {str(e)}')
+                                   f'at value {branch.vs}:\n  {str(e)}')
 
                 if not target.is_kinded() or (dim * target.kind.dim > self.COMPLEXITY_THRESHOLD):
                     make_kinded = False
@@ -1959,7 +1959,7 @@ def frp(spec):
     try:
         return FRP(spec)
     except Exception as e:
-        raise FrpError(f'Could not create an FRP from {spec}: {str(e)}')
+        raise FrpError(f'Could not create an FRP from {spec}:\n  {str(e)}')
 
 def is_frp(x) -> TypeGuard[FRP]:
     return isinstance(x, FRP)

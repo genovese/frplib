@@ -175,7 +175,7 @@ class PlaygroundRepl(PythonRepl):
             try:
                 environment.console.print(result.__frplib_repr__())
             except Exception as e:
-                environment.console.print(f'Could not print result due to an error: {str(e)}')
+                environment.console.print(f'Could not print result due to an error:\n  {str(e)}')
         else:
             formatted_text_output = self._format_result_output(result)
 

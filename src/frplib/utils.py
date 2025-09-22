@@ -92,7 +92,7 @@ def clone(x):
     try:
         return x.clone()
     except Exception as e:
-        raise OperationError(f'Could not clone object {x}: {str(e)}')
+        raise OperationError(f'Could not clone object {x}:\n  {str(e)}')
 
 
 #

@@ -392,12 +392,12 @@ class VecTuple(tuple[T, ...]):
         except (OperationError, MismatchedDimensionError):
             return False
         except TypeError as e:
-            raise OperationError(f'Could not test for == with {other}: {str(e)}')
+            raise OperationError(f'Could not test for == with {other}:\n  {str(e)}')
         # other = from_scalar(other)   # Allow scalar equality of VecTuples, no invariants changed
         # try:
         #     return super().__eq__(other)
         # except TypeError as e:
-        #     raise OperationError(f'Could not test for == with {other}: {str(e)}')
+        #     raise OperationError(f'Could not test for == with {other}:\n  {str(e)}')
 
     def __hash__(self):  # Need this because we play with __eq__
         return super().__hash__()  # Modified __eq__ does not change the invariant
@@ -408,56 +408,56 @@ class VecTuple(tuple[T, ...]):
         except (OperationError, MismatchedDimensionError):
             return True
         except TypeError as e:
-            raise OperationError(f'Could not test for != with {other}: {str(e)}')
+            raise OperationError(f'Could not test for != with {other}:\n  {str(e)}')
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
         # try:
         #     return super().__ne__(other)
         # except TypeError as e:
-        #     raise OperationError(f'Could not test for != with {other}: {str(e)}')
+        #     raise OperationError(f'Could not test for != with {other}:\n  {str(e)}')
 
     def __lt__(self, other):
         try:
             return extended_all_cmp(le, self, other) and extended_some_cmp(lt, self, other)
         except TypeError as e:
-            raise OperationError(f'Could not test for < with {other}: {str(e)}')
+            raise OperationError(f'Could not test for < with {other}:\n  {str(e)}')
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
         # try:
         #     return super().__lt__(other)
         # except TypeError as e:
-        #     raise OperationError(f'Could not test for != with {other}: {str(e)}')
+        #     raise OperationError(f'Could not test for != with {other}:\n  {str(e)}')
 
     def __le__(self, other):
         try:
             return extended_all_cmp(le, self, other)
         except TypeError as e:
-            raise OperationError(f'Could not test for <= with {other}: {str(e)}')
+            raise OperationError(f'Could not test for <= with {other}:\n  {str(e)}')
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
         # try:
         #     return super().__le__(other)
         # except TypeError as e:
-        #     raise OperationError(f'Could not test for != with {other}: {str(e)}')
+        #     raise OperationError(f'Could not test for != with {other}:\n  {str(e)}')
 
     def __gt__(self, other):
         try:
             return extended_all_cmp(ge, self, other) and extended_some_cmp(gt, self, other)
         except TypeError as e:
-            raise OperationError(f'Could not test for > with {other}: {str(e)}')
+            raise OperationError(f'Could not test for > with {other}:\n  {str(e)}')
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
         # try:
         #     return super().__gt__(other)
         # except TypeError as e:
-        #     raise OperationError(f'Could not test for != with {other}: {str(e)}')
+        #     raise OperationError(f'Could not test for != with {other}:\n  {str(e)}')
 
     def __ge__(self, other):
         try:
             return extended_all_cmp(ge, self, other)
         except TypeError as e:
-            raise OperationError(f'Could not test for >= with {other}: {str(e)}')
+            raise OperationError(f'Could not test for >= with {other}:\n  {str(e)}')
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
         # try:
         #     return super().__ge__(other)
         # except TypeError as e:
-        #     raise OperationError(f'Could not test for != with {other}: {str(e)}')
+        #     raise OperationError(f'Could not test for != with {other}:\n  {str(e)}')
 
     def __xor__(self, other):
         "Evaluation: v ^ f is a shorthand for f(v); u ^ v is componentwise xor."

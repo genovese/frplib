@@ -914,7 +914,7 @@ class Statistic:
                 try:
                     return scalarize(self(*x)) % as_quantity(other)
                 except Exception as e:
-                    raise OperationError(f'Could not compute {self.name} % {other}: {str(e)}')
+                    raise OperationError(f'Could not compute {self.name} % {other}:\n  {str(e)}')
             label = str(other)
         else:
             def a_mod_b(*x):
@@ -925,7 +925,7 @@ class Statistic:
                 try:
                     return scalarize(self(*x)) % as_quantity(other)
                 except Exception as e:
-                    raise OperationError(f'Could not compute {self.name} % {other}: {str(e)}')
+                    raise OperationError(f'Could not compute {self.name} % {other}:\n  {str(e)}')
             label = str(other)
         return Statistic(a_mod_b, dim=dim, codim=codim, name=f'{stat_label(self)} % {label}')
 
@@ -944,11 +944,12 @@ class Statistic:
 
     def __pow__(self, other):
         codim = self.codim
-        dim : int | None = None
+        dim: int | None = None
         if isinstance(other, Statistic):
             if Statistic._unequal_nonscalar_dims(self, other):
                 # Dimensions are known to be incompatible
-                raise StatisticError(f'Invalid attempt to exponentiate statistics of incompatible dimensions {self.dim} and {other.dim}')
+                raise StatisticError(f'Invalid attempt to exponentiate statistics of '
+                                     f'incompatible dimensions {self.dim} and {other.dim}')
 
             def a_pow_b(*x):
                 return self(*x) ** other(*x)
