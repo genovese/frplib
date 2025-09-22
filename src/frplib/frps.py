@@ -22,7 +22,7 @@ from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
 from frplib.numeric    import Numeric, Nothing, show_tuple, as_real
 from frplib.protocols  import Projection, SupportsExpectation, SupportsKindOf
 from frplib.quantity   import as_quant_vec
-from frplib.statistics import Statistic, compose2, infinity, tuple_safe, Proj, Prepend
+from frplib.statistics import Statistic, statistic, compose2, infinity, tuple_safe, Proj, Prepend
 from frplib.symbolic   import Symbolic
 from frplib.utils      import const, is_tuple, scalarize
 from frplib.vec_tuples import (VecTuple, as_scalar, as_scalar_weak, as_vec_tuple, vec_tuple, value_set_from)
@@ -322,12 +322,13 @@ class IMixtureExpression(FrpExpression):
         new_expr._cached_kind = self._cached_kind
         return new_expr
 
+    @property
     def expectation(self):
         cached = [k._cached_kind for k in self._operands]
         if all(k is not None for k in cached):
-            return as_vec_tuple([k.expectation() for k in cached])   # type: ignore
+            return as_vec_tuple([k.expectation for k in cached])   # type: ignore
         elif all(isinstance(term, SupportsExpectation) for term in self._operands):
-            return as_vec_tuple([term.expectation() for term in self._operands])  # type: ignore
+            return as_vec_tuple([term.expectation for term in self._operands])  # type: ignore
         raise ComplexExpectationWarning('The expectation of this FRP could not be computed '
                                         'without first finding its kind.')
 
@@ -391,12 +392,13 @@ class IMixPowerExpression(FrpExpression):
         new_expr._cached_kind = self._cached_kind
         return new_expr
 
+    @property
     def expectation(self):
         if self._term._cached_kind is not None:
-            exp = self._term._cached_kind.expectation()
+            exp = self._term._cached_kind.expectation
             return as_vec_tuple([exp] * self._pow)
         elif isinstance(self._term, SupportsExpectation):
-            exp = self._term.expectation()
+            exp = self._term.expectation
             return as_vec_tuple([exp] * self._pow)
         raise ComplexExpectationWarning('The expectation of this FRP could not be computed '
                                         'without first finding its kind.')
@@ -535,9 +537,10 @@ class PureExpression(FrpExpression):
         new_expr._target._kind = self._target._kind
         return new_expr
 
+    @property
     def expectation(self):
         if self._target.is_kinded():
-            return self._target.kind.expectation()
+            return self._target.kind.expectation
         raise ComplexExpectationWarning('The expectation of this FRP could not be computed '
                                         'without first finding its kind.')
 
@@ -580,7 +583,7 @@ class ConditionalFRP:
     """
     def __init__(
             self,
-            mapping: CondFrpInput,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind,
+            mapping: CondFrpInput,  # Callable[[ValueType], FRP] | dict[ValueType, FRP] | dict[QuantityType, FRP] | ConditionalKind,
             *,
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,
@@ -835,7 +838,7 @@ class ConditionalFRP:
                 try:
                     result = cast('FRP', mapping_t(value))
                 except Exception as e:
-                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP: {str(e)}')
+                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP:\n  {str(e)}')
 
                 extended = result.transform(Prepend(value))  # Input pass through
 
@@ -864,7 +867,7 @@ class ConditionalFRP:
                 try:
                     result = cast('FRP', mapping_t(value))
                 except Exception as e:
-                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP: {str(e)}')
+                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP:\n  {str(e)}')
 
                 if self._auto_clone:
                     result = result.clone()
@@ -953,91 +956,110 @@ class ConditionalFRP:
             return ConditionalFRP(fn, codim=self._codim, dim=self._dim, domain=self._domain,
                                   auto_clone=self._auto_clone)
 
-    def expectation(self):
-        """Returns a function from values to the expectation of the corresponding FRP.
+    @property
+    def expectation(self) -> Statistic:
+        """Returns a statistic from values to the expectation of the corresponding target FRP.
 
         Note that for a lazily evaluated FRP, it may be costly to compute the expectation
         so this will fail with a warning. See the forced_expectation and approximate_expectation
         methods for alternatives in that case.
 
-        The domain, dim, and codim of the conditional Kind are each included as an
-        attribute ('domain', 'dim', and 'codim', respetively) of the returned
-        function. These may be None if not available.
+        This sets the codim and dim of the statistic based on what is known about
+        this conditional FRP. They may be None if unavailable; codim will typically be a tuple.
+        The domain of the returned function is also specified as an attribute.
 
         """
-        def fn(*x):
-            frp = self._target_fn(*x)
-            return frp.expectation()
-
-        setattr(fn, 'codim', self._codim)
         if self._codim is not None and self._dim is not None:
-            setattr(fn, 'dim', self._dim - self._codim)
+            my_dim = self._dim - self._codim
         elif self._target_dim is not None:
-            setattr(fn, 'dim', self._target_dim)
+            my_dim = self._target_dim
         else:
-            setattr(fn, 'dim', None)
+            my_dim = None
+
+        @statistic(codim=self._codim, dim=my_dim)
+        def fn(*x):
+            "the expectation of a conditional FRP as a function of its values"
+            frp = self._target_fn(*x)
+            return frp.expectation
+
         setattr(fn, 'domain', self._domain if not self._trivial_domain else None)
 
         return fn
 
-    def forced_expectation(self):
-        """Returns a function from values to the expectation of the corresponding FRP.
+    def forced_expectation(self) -> Statistic:
+        """Returns a statistic from values to the expectation of the corresponding FRP.
 
         This forces computation of the expectation even if doing so
-        is computationally costly. See expectation and
-        approximate_expectation properties for alternatives in that
-        case.
+        is computationally costly. See expectation and approximate_expectation
+        properties for alternatives in that case.
 
-        The domain, dim, and codim of the conditional Kind are each included as an
-        attribute ('domain', 'dim', and 'codim', respetively) of the returned
-        function. These may be None if not available.
+        This sets the codim and dim of the statistic based on what is known about
+        this conditional FRP. They may be None if unavailable; codim will typically be a tuple.
+        The domain of the returned function is also specified as an attribute.
 
         """
+        if self._codim is not None and self._dim is not None:
+            my_dim = self._dim - self._codim
+        elif self._target_dim is not None:
+            my_dim = self._target_dim
+        else:
+            my_dim = None
+
+        @statistic(codim=self._codim, dim=my_dim)
         def fn(*x):
-            try:
-                frp = self._target_fn(*x)
-            except MismatchedDomain:
-                return None
+            "the expectation of a conditional FRP as a function of its values"
+            frp = self._target_fn(*x)
             return frp.forced_expectation()
 
-        setattr(fn, 'codim', self._codim)
-        if self._codim is not None and self._dim is not None:
-            setattr(fn, 'dim', self._dim - self._codim)
-        elif self._target_dim is not None:
-            setattr(fn, 'dim', self._target_dim)
-        else:
-            setattr(fn, 'dim', None)
         setattr(fn, 'domain', self._domain if not self._trivial_domain else None)
 
         return fn
 
-    def approximate_expectation(self, tolerance=0.01):
-        """Returns a function from values to the approximate expectation of the corresponding FRP.
+    def approximate_expectation(self, tolerance=0.01) -> Statistic:
+        """Returns a statistic from values to the approximate expectation of the corresponding FRP.
 
         The approximation is computed to the specified tolerance
         using an appropriate number of samples. See expectation and
         approximate_expectation properties for alternatives in that
         case.
 
-        The domain, dim, and codim of the conditional Kind are each included as an
-        attribute ('domain', 'dim', and 'codim', respetively) of the returned
-        function. These may be None if not available.
+        This sets the codim and dim of the statistic based on what is known about
+        this conditional FRP. They may be None if unavailable; codim will typically be a tuple.
+        The domain of the returned function is also specified as an attribute.
 
         """
+        if self._codim is not None and self._dim is not None:
+            my_dim = self._dim - self._codim
+        elif self._target_dim is not None:
+            my_dim = self._target_dim
+        else:
+            my_dim = None
+
+        @statistic(codim=self._codim, dim=my_dim)
         def fn(*x):
-            try:
-                frp = self._target_fn(*x)
-            except MismatchedDomain:
-                return None
+            "the expectation of a conditional FRP as a function of its values"
+            frp = self._target_fn(*x)
             return frp.approximate_expectation(tolerance)
 
-        setattr(fn, 'codim', self._codim)
-        if self._codim is not None and self._dim is not None:
-            setattr(fn, 'dim', self._dim - self._codim)
-        elif self._target_dim is not None:
-            setattr(fn, 'dim', self._target_dim)
-        else:
-            setattr(fn, 'dim', None)
+        setattr(fn, 'domain', self._domain if not self._trivial_domain else None)
+
+        return fn
+
+    @property
+    def conditional_entropy(self) -> Statistic:
+        """Returns a statistic from values to the entropy of the corresponding target FRP.
+
+        This sets the codim of the statistic based on what is known about
+        this conditional FRP. This may be None if unavailable; codim will typically be a tuple.
+        The domain of the returned function is also specified as an attribute.
+
+        """
+        @statistic(codim=self._codim, dim=1)
+        def fn(*x):
+            "the expectation of a conditional FRP as a function of its values"
+            frp = self._target_fn(*x)
+            return frp.entropy
+
         setattr(fn, 'domain', self._domain if not self._trivial_domain else None)
 
         return fn
@@ -1526,6 +1548,7 @@ class FRP:
         val = self._get_cached_value()
         return val is None
 
+    @property
     def expectation(self):
         """Returns the expectation of this FRP, unless computationally inadvisable.
 
@@ -1540,7 +1563,7 @@ class FRP:
 
         """
         if self.is_kinded():
-            return self.kind.expectation()
+            return self.kind.expectation
         else:
             assert self._expr is not None
             return _expectation_from_expr(self._expr)
@@ -1548,9 +1571,9 @@ class FRP:
     def forced_expectation(self):
         "Returns the expectation of this FRP, computing the kind if necessary to do so."
         try:
-            return self.expectation()
+            return self.expectation
         except ComplexExpectationWarning:
-            return self.kind.expectation()
+            return self.kind.expectation
 
     def approximate_expectation(self, tolerance=0.01) -> ValueType:
         "Computes an approximation to this FRP's expectation to the specified tolerance."
@@ -2187,7 +2210,7 @@ def _expectation_from_expr(expr: FrpExpression):
     # For instance, mixture powers or PureExpressions where the kind is available
     # should be automatic
     if expr._cached_kind is not None:
-        return expr._cached_kind.expectation()
+        return expr._cached_kind.expectation
     raise ComplexExpectationWarning('The expectation of this FRP could not be computed without first finding its kind.')
 
 

@@ -29,7 +29,7 @@ from frplib.numeric    import (Numeric, ScalarQ, Nothing, is_nothing, as_nice_nu
 from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection, SupportsKindOf, SupportsConditionalKindOf, Kinded
 from frplib.quantity   import as_quantity, as_nice_quantity, as_quant_vec, show_quantities, show_qtuples
-from frplib.statistics import Condition, MonoidalStatistic, Statistic, compose2, Proj, tuple_safe
+from frplib.statistics import Condition, MonoidalStatistic, Statistic, compose2, Proj, statistic, tuple_safe
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol, is_zero
 from frplib.utils      import compose, const, dim, identity, is_interactive, is_tuple, lmap
 from frplib.vec_tuples import (VecTuple, as_numeric_vec, as_scalar_strict, as_vec_tuple, vec_tuple,
@@ -615,6 +615,7 @@ class Kind:
                             'matching mapping of values to kinds of the same dimension')
         return self.bind(cond_kind)
 
+    @property
     def expectation(self):
         """Computes the expectation of this kind. Scalar expectations are unwrapped. (Internal use.)
 
@@ -2144,24 +2145,28 @@ class ConditionalKind:
             return transform(fn(*x))
         return trans_map
 
-    def expectation(self) -> Callable:
-        """Returns a function from values to the expectation of the corresponding target Kind.
+    @property
+    def expectation(self) -> Statistic:
+        """Returns a statistic from values to the expectation of the corresponding target Kind.
 
-        The domain, dim, and codim of the returned function are each specified as attributes
-        attribute ('domain', 'dim', and 'codim', respectively). These may be None if unavailable.
+        This sets the codim and dim of the statistic based on what is known about
+        this conditional Kind. They may be None if unavailable; codim will typically be a tuple.
+        The domain of the returned function is also specified as an attribute.
 
         """
-        def fn(*x):
-            k = self._target_fn(*x)
-            return k.expectation()
-
-        setattr(fn, 'codim', self._codim)
         if self._codim is not None and self._dim is not None:
-            setattr(fn, 'dim', self._dim - self._codim)
+            my_dim = self._dim - self._codim
         elif self._target_dim is not None:
-            setattr(fn, 'dim', self._target_dim)
+            my_dim = self._target_dim
         else:
-            setattr(fn, 'dim', None)
+            my_dim = None
+
+        @statistic(codim=self._codim, dim=my_dim)
+        def fn(*x):
+            "the expectation of a conditional Kind as a function of its values"
+            k = self._target_fn(*x)
+            return k.expectation
+
         setattr(fn, 'domain', self._domain if not self._trivial_domain else None)
 
         return fn

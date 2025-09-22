@@ -9,7 +9,7 @@ from frplib.kinds      import Kind, ConditionalKind
 from frplib.output     import in_panel
 from frplib.protocols  import SupportsExpectation, SupportsApproxExpectation, SupportsForcedExpectation
 from frplib.quantity   import show_qtuple
-from frplib.statistics import Statistic, statistic, __, Proj
+from frplib.statistics import Statistic, statistic, _codim_str, __, Proj
 from frplib.utils      import codim, dim
 from frplib.vec_tuples import VecTuple, as_vec_tuple
 
@@ -51,19 +51,33 @@ def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
 
     """
     if isinstance(x, (ConditionalKind, ConditionalFRP)):
-        f = x.expectation()
+        f = x.expectation
         codim = getattr(f, 'codim')
         dim = getattr(f, 'dim')
-        codim_str = f'{codim}' if codim is not None else '*'
+        codim_str = _codim_str(codim) if codim is not None else '*'
         dim_str = f'{dim}' if dim is not None else '*'
         f_type = f'{codim_str} -> {dim_str}'
 
         @wraps(f)
         def c_expectation(*xs):
-            e = f(*xs)
-            if e is None:  # ATTN: None case was deprecated, can remove
-                return None
-            return Expectation(as_vec_tuple(e))
+            label = ''
+            try:
+                e = f(*xs)
+                if e is None:  # ATTN: None case was deprecated, can remove
+                    return None
+            except ComplexExpectationWarning as err:  # Only for conditional FRPs
+                if force_kind and isinstance(x, SupportsForcedExpectation):
+                    e = x.forced_expectation()(*xs)
+                elif isinstance(x, SupportsApproxExpectation):
+                    e = x.approximate_expectation(tolerance)(*xs)
+                    label = (f'Computing approximation (tolerance {tolerance}) '
+                             f'as exact calculation may be costly')  # ':\n  {str(err)}\n'
+                else:
+                    raise err
+            expect = Expectation(as_vec_tuple(e))
+            if label:
+                expect.label = label
+            return expect
         setattr(c_expectation, '__frplib_repr__',
                 lambda: f'A conditional expectation as a function of type {f_type}.')
         return c_expectation
@@ -71,14 +85,14 @@ def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
     if isinstance(x, SupportsExpectation):
         label = ''
         try:
-            expect = x.expectation()
+            expect = x.expectation
         except ComplexExpectationWarning as e:
             if force_kind and isinstance(x, SupportsForcedExpectation):
                 expect = x.forced_expectation()
             elif isinstance(x, SupportsApproxExpectation):
                 expect = x.approximate_expectation(tolerance)
                 label = (f'Computing approximation (tolerance {tolerance}) '
-                         f'as exact calculation may be costly')  # ': {str(e)}\n'
+                         f'as exact calculation may be costly')  # ':\n  {str(e)}\n'
             else:
                 raise e
         expect = Expectation(as_vec_tuple(expect))
@@ -113,13 +127,8 @@ def Var(x, force_kind=False, allow_approx=True, tolerance=0.01):
         if c is None or d is None or d - c != 1:
             raise ComplexExpectationWarning('Var currently only supports scalar targets in conditional Kinds/FRPs.')
 
-        e = E(x)
-
-        @statistic(codim=d, dim=1)
-        def ex(v):
-            return e(v[:-1]).raw
-
-        y = x.transform((Proj[-1] - ex) ** 2)
+        e = x.expectation
+        y = x.transform((Proj[-1] - e(Proj[:-1])) ** 2)
         f = E(y)
         setattr(f, '__frplib_repr__',
                 lambda: f'A conditional variance as a function of type {str(c) if c else "*"} -> 1.')
