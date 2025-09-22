@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pickle
 import math
 import random
 import re
@@ -924,6 +925,25 @@ class Kind:
     def serialize(self) -> str:
         "Returns the s-expression string representation of the Kind for serialization."
         return f'(<> {" ".join(str(b.p) + " " + str(b.vs) for b in self._canonical)})'
+
+    def dump(self, filepath: str | Path) -> None:
+        "Saves a loadable version of this Kind to a file specified by a path string or object."
+        path = Path(filepath)
+        try:
+            with path.open('wb') as f:
+                pickle.dump(self, f)
+        except IOError as e:
+            raise OperationError(f'Could not dump Kind to file {path}:\n  {e}')
+
+    @classmethod
+    def load(cls, filepath: str | Path) -> Kind:
+        "Loads a saved version of this Kind from a file specified by a path string or object."
+        path = Path(filepath)
+        try:
+            with path.open('rb') as f:
+                return pickle.load(f)
+        except IOError as e:
+            raise OperationError(f'Could not load Kind from file {path}:\n  {e}')
 
 # Tagged kinds for context in conditionals
 #

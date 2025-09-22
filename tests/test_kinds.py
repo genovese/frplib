@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import pathlib
 import pytest
+import tempfile
 
-from frplib.exceptions import (EvaluationError, ConstructionError, KindError, MismatchedDomain)
+from frplib.exceptions import (EvaluationError, ConstructionError, KindError, MismatchedDomain, OperationError)
 from frplib.frps       import ConditionalFRP, frp, conditional_frp, evolve
 from frplib.kinds      import (Kind, ConditionalKind, kind, conditional_kind, clean,
                                constant, either, uniform, binary,
@@ -491,3 +493,28 @@ def test_evolve():
     for _ in range(50):
         ev0b = clean(step0 // ev0b)
     assert Kind.equal(ev0a, ev0b)
+
+def test_serialization():
+    k1 = uniform(1, 2, ..., 16)
+    k2 = weighted_as((1, 2), (3, 4), (5, 6), (7, 8), weights=[4, 2, 1, 3])
+
+    # # This only works in 3.12+ so we do something simpler
+    # with tempfile.NamedTemporaryFile(delete_on_close=False) as fp:
+    #     k1.dump(fp.name)
+    #     assert Kind.equal(k1, Kind.load(fp.name))
+    # with tempfile.NamedTemporaryFile(delete_on_close=False) as fp:
+    #     k2.dump(fp.name)
+    #     assert Kind.equal(k2, Kind.load(fp.name))
+
+    _, fpath = tempfile.mkstemp(prefix='kind', suffix='.pkl')
+    k1.dump(fpath)
+    assert Kind.equal(k1, Kind.load(fpath))
+    pathlib.Path(fpath).unlink()
+
+    _, fpath = tempfile.mkstemp(prefix='kind', suffix='.pkl')
+    k2.dump(fpath)
+    assert Kind.equal(k2, Kind.load(fpath))
+    pathlib.Path(fpath).unlink()
+
+    with pytest.raises(OperationError):
+        k1.dump('/x33sksdadff/fosadf3.pkl')
