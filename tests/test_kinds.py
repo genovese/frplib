@@ -509,12 +509,12 @@ def test_serialization():
     _, fpath = tempfile.mkstemp(prefix='kind', suffix='.pkl')
     k1.dump(fpath)
     assert Kind.equal(k1, Kind.load(fpath))
-    pathlib.Path(fpath).unlink()
+    # pathlib.Path(fpath).unlink()   # This fails on Windows on github
 
     _, fpath = tempfile.mkstemp(prefix='kind', suffix='.pkl')
     k2.dump(fpath)
     assert Kind.equal(k2, Kind.load(fpath))
-    pathlib.Path(fpath).unlink()
+    # pathlib.Path(fpath).unlink()   # This fails on Windows on github
 
     with pytest.raises(OperationError):
         k1.dump('/x33sksdadff/fosadf3.pkl')
