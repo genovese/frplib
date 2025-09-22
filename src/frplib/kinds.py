@@ -9,8 +9,9 @@ from dataclasses       import dataclass
 from decimal           import Decimal
 from enum              import Enum, auto
 from itertools         import chain, combinations, permutations, product, starmap
-from typing            import Literal, Callable, overload, Union, cast
-from typing_extensions import Any, TypeAlias, TypeGuard
+from pathlib           import Path
+from typing            import Literal, Callable, overload, Union
+from typing_extensions import TypeAlias, TypeGuard
 
 
 from rich              import box
@@ -47,9 +48,18 @@ ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 # NOTE: This assumes NumericD for Numeric, which is why Decimal is used
 # ATTN: Change dict[ValueType, 'Kind'] to dict[tuple[ValueType, ...], 'Kind'] here?
 #       VecTuple is a subtype but we use tuples in practice with dicts, so this seems a win.
-# CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'], dict[ValueType, 'Kind'], dict[QuantityType, 'Kind'], dict[int, 'Kind'], dict[Decimal, 'Kind'], dict[Symbolic, 'Kind'], 'Kind']
-# CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'], dict[tuple[QuantityType, ...], 'Kind'], dict[QuantityType, 'Kind'], dict[int, 'Kind'], dict[Decimal, 'Kind'], dict[Symbolic, 'Kind'], 'Kind']
-CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'], dict[ValueType, 'Kind'], dict[tuple[QuantityType, ...], 'Kind'], dict[QuantityType, 'Kind'], dict[int, 'Kind'], dict[Decimal, 'Kind'], dict[Symbolic, 'Kind'], 'Kind']
+# CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'], dict[ValueType, 'Kind'], dict[QuantityType, 'Kind'],
+#                                  dict[int, 'Kind'], dict[Decimal, 'Kind'], dict[Symbolic, 'Kind'], 'Kind']
+# CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'], dict[tuple[QuantityType, ...], 'Kind'],
+#                                  dict[QuantityType, 'Kind'], dict[int, 'Kind'], dict[Decimal, 'Kind'], dict[Symbolic, 'Kind'], 'Kind']
+CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'],
+                                 dict[ValueType, 'Kind'],
+                                 dict[tuple[QuantityType, ...], 'Kind'],
+                                 dict[QuantityType, 'Kind'],
+                                 dict[int, 'Kind'],
+                                 dict[Decimal, 'Kind'],
+                                 dict[Symbolic, 'Kind'],
+                                 'Kind']
 
 
 #
@@ -296,6 +306,9 @@ class Kind:
     #         Handling boolean and {0,1} equivalently in predicates (so events are as we describe them later)
     # Note A: Large powers maybe can be handled differently to get better performance; or have a reducing method
     #         when doing things like  d6 ** 10 ^ (Sum / 10 - 5)
+    # Note B: If there are possible optimizations that leave expressions equivalent (e.g., monoidal stats and related),
+    #         we can have transforms and others make expression objects that are analyzed and optimized
+    #         to finalize the Kind.  Just a thought, not sure how broadly useful it would be.
 
     def map(self, f):
         "A functorial transformation of this kind. This is for internal use; use .transform() instead."
@@ -380,7 +393,8 @@ class Kind:
 
         if max_diff > tol:
             return RichString(f'The two kinds [bold red]differ[/] in their weights,  '
-                              f'with a max difference of [red]{str(max_diff)}[/] at value [bold]{v}[/] ({w1[v]} and {w2[v]}).')
+                              f'with a max difference of [red]{str(max_diff)}[/] at '
+                              f'value [bold]{examp_diff}[/] ({w1[examp_diff]} and {w2[examp_diff]}).')
 
         return RichString(f'The two kinds are the [bold green]same[/] within numerical tolerance {str(tolerance)}.')
 
@@ -572,7 +586,6 @@ class Kind:
         except Exception as e:
             raise KindError(f'Statistic {name} appears incompatible with this Kind. '
                             f'({e.__class__.__name__}: {str(e)})')
-
 
     def conditioned_on(self, cond_kind):
         """Kind Combinator: computes the kind of the target conditioned on the mixer (this kind).
@@ -968,7 +981,7 @@ def kind(any):
     if isinstance(any, SupportsKindOf):  # FRPExpressions have .kind_of and .kind methods
         return any.kind_of()
 
-    if isinstance(any, SupportsConditionalKindOf): # ConditionalFRPs use this to produce their conditional Kind
+    if isinstance(any, SupportsConditionalKindOf):  # ConditionalFRPs use this to produce their conditional Kind
         return any.conditional_kind_of()
 
     if hasattr(any, 'kind'):  # Kinded case but more general
@@ -1761,7 +1774,7 @@ class ConditionalKind:
     """
     def __init__(
             self,
-            mapping: CondKindInput, # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind,
+            mapping: CondKindInput,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind,
             *,
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,    # If not supplied, this inferred in dict case
@@ -2342,17 +2355,19 @@ class ConditionalKind:
 
 # # Original
 # def conditional_kind(
-#         mapping: CondKindInput | ConditionalKind | None = None,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind | None = None,
+#         mapping: CondKindInput | ConditionalKind | None = None,
 #         *,
 #         codim: int | None = None,
 #         dim: int | None = None,
 #         domain: Iterable[ValueType] | Callable[[ValueType], bool] | None = None,
 #         target_dim: int | None = None
 # ) -> ConditionalKind | Callable[..., ConditionalKind]:
+#
+# Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind | None = None,
 
 @overload
 def conditional_kind(
-        mapping: None = None,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind | None = None,
+        mapping: None = None,
         *,
         codim: int | None = None,
         dim: int | None = None,
@@ -2363,7 +2378,7 @@ def conditional_kind(
 
 @overload
 def conditional_kind(
-        mapping: CondKindInput | ConditionalKind | SupportsConditionalKindOf,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind,
+        mapping: CondKindInput | ConditionalKind | SupportsConditionalKindOf,
         *,
         codim: int | None = None,
         dim: int | None = None,
@@ -2373,12 +2388,12 @@ def conditional_kind(
     ...
 
 def conditional_kind(
-        mapping = None,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind = None,
+        mapping=None,
         *,
-        codim = None,
-        dim = None,
-        domain = None,
-        target_dim = None
+        codim=None,
+        dim=None,
+        domain=None,
+        target_dim=None
 ):
     """Converts a mapping from values to FRPs into a conditional FRP.
 

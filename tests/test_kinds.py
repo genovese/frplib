@@ -438,17 +438,17 @@ def test_conditional_kinds():
 
 def test_kernel():
     k = weighted_as({1: 2, 2: 4, 3: 8, 4: 2})
-    assert k.kernel(1) == 1/8
-    assert k.kernel(2) == 1/4
-    assert k.kernel(3) == 1/2
-    assert k.kernel(4) == 1/8
+    assert k.kernel(1) == 1 / 8
+    assert k.kernel(2) == 1 / 4
+    assert k.kernel(3) == 1 / 2
+    assert k.kernel(4) == 1 / 8
     assert k.kernel(5) == 0
     assert k.kernel(-1) == 0
 
-    assert k.kernel(1, as_float=False) == as_quantity('1/8') 
-    assert k.kernel(2, as_float=False) == as_quantity('1/4') 
-    assert k.kernel(3, as_float=False) == as_quantity('1/2') 
-    assert k.kernel(4, as_float=False) == as_quantity('1/8') 
+    assert k.kernel(1, as_float=False) == as_quantity('1/8')
+    assert k.kernel(2, as_float=False) == as_quantity('1/4')
+    assert k.kernel(3, as_float=False) == as_quantity('1/2')
+    assert k.kernel(4, as_float=False) == as_quantity('1/8')
     assert k.kernel(5, as_float=False) == as_quantity('0')
 
 def test_ops():
@@ -470,12 +470,12 @@ def test_ops():
 
 def test_evolve():
     small = as_quantity(1e-18)
-    half = as_quantity(1/2)
+    half = as_quantity(1 / 2)
 
     @conditional_kind(codim=1)
     def step0(current):
         return weighted_as(-1, 0, 1, weights=[half - small / 2, small, half - small / 2]) ^ (__ + current)
-        
+
     @conditional_kind(codim=1)
     def step1(current):
         return uniform(-1, 1) ^ (__ + current)
