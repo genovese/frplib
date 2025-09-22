@@ -2185,6 +2185,25 @@ class ConditionalKind:
         k = self.target(as_vec_tuple(x))
         return k.kernel(v, as_float=as_float)
 
+    @property
+    def conditional_entropy(self) -> Statistic:
+        """Returns a statistic from values to the entropy of the corresponding target Kind.
+
+        This sets the codim of the statistic based on what is known about
+        this conditional Kind. This may be None if unavailable; codim will typically be a tuple.
+        The domain of the returned function is also specified as an attribute.
+
+        """
+        @statistic(codim=self._codim, dim=1)
+        def fn(*x):
+            "the expectation of a conditional Kind as a function of its values"
+            k = self._target_fn(*x)
+            return k.entropy
+
+        setattr(fn, 'domain', self._domain if not self._trivial_domain else None)
+
+        return fn
+
     def well_defined_on(self, values) -> Union[bool, str]:
         "If possible, check that every value is in the domain."
         val_set = value_set_from(values)

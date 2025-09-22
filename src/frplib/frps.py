@@ -2147,6 +2147,53 @@ def evolve(start, next_state, n_steps=1, transform = None):
             current = next_state // current
     return current
 
+@overload
+def average_conditional_entropy(kX: FRP, cZ: ConditionalFRP) -> Numeric:
+    ...
+
+@overload
+def average_conditional_entropy(kX: Kind, cZ: ConditionalKind) -> Numeric:
+    ...
+
+def average_conditional_entropy(kX, cZ):
+    """Returns the average (predicted) conditional entropy of the mixture kX >> cZ.
+
+    This can operate either on a Kind and Conditional Kind or on an FRP and a
+    conditional FRP.
+
+    If kX represents an FRP X and Y = cZ // X, then in mathematical notation
+    this returns the average conditional entropy H(Y | X).
+
+    (For reference, cZ.conditional_entropy(x) gives H(Y | X = x).)
+
+    """
+    cond_entropy = kX ^ cZ.conditional_entropy  # A Kind or FRP
+    return as_scalar(cond_entropy.expectation)
+
+@overload
+def mutual_information(kX: FRP, cZ: ConditionalFRP) -> Numeric:
+    ...
+
+@overload
+def mutual_information(kX: Kind, cZ: ConditionalKind) -> Numeric:
+    ...
+
+def mutual_information(kX, cZ):
+    """Returns the mutual information I(Y; X) where Y and X are derived from a mixture.
+
+    We get a Kind/FRP kX and a conditional Kind/FRP cZ where kY is defined
+    by
+          kY = cZ // kX
+
+    We compute I(Y; X) = H(Y) - H(Y | X)
+
+    This can operate either on a Kind and Conditional Kind or on an FRP and a
+    conditional FRP.
+
+    """
+    kY = cZ // kX   # A Kind or FRP
+    return as_scalar(kY.entropy - average_conditional_entropy(kX, cZ))
+
 class FisherYates(FrpExpression):
     def __init__(self, items: Iterable):
         super().__init__()

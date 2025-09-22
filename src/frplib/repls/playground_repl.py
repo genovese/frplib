@@ -110,7 +110,8 @@ playground_imports: dict[str, list[str]] = {
     ],
     'expectations': ['E', 'Var', 'D_'],
     'frps': [
-        'FRP', 'frp', 'conditional_frp', 'is_frp', 'evolve', 'shuffle',
+        'FRP', 'frp', 'conditional_frp', 'is_frp', 'evolve',
+        'average_conditional_entropy', 'mutual_information', 'shuffle',
     ],
     'calculate': ['substitute', 'substitute_with', 'substitution'],
     'numeric': ['numeric_exp', 'numeric_ln', 'numeric_log10', 'numeric_log2',
