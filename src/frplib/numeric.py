@@ -15,7 +15,7 @@ import re
 from abc               import abstractmethod
 from collections.abc   import Iterable
 from dataclasses       import dataclass
-from decimal           import Decimal, ROUND_HALF_UP, ROUND_UP, ROUND_FLOOR, ROUND_CEILING
+from decimal           import Decimal, ROUND_HALF_UP, ROUND_FLOOR, ROUND_CEILING
 from enum              import Enum, auto
 from fractions         import Fraction
 from itertools         import zip_longest
@@ -267,7 +267,7 @@ NumericB: TypeAlias = Union[int, float]     # Binary floating point numbers
 NumericD: TypeAlias = Union[int, Decimal]   # Decimal floating point numbers
 NumericF: TypeAlias = Union[int, Fraction]  # Arbitrary Precision rational numbers
 
-Numeric:  TypeAlias = NumericD  # Default underlying numeric representation
+Numeric:  TypeAlias = NumericD  # Default underlying numeric representation (ATTN: what about Nothing?)
 
 def is_scalar_q(x) -> TypeGuard[Union[int, float, Fraction, Decimal, NumericQ, str]]:
     return isinstance(x, (int, float, Fraction, Decimal, NumericQuantity, str, bool))  # bool auto cast to int
@@ -458,8 +458,8 @@ def nround(x: Numeric, mask=ROUND_MASK, rounding=ROUND_HALF_UP) -> Decimal:
 def as_frac(x: Numeric, denom_limit=DEC_DENOMINATOR_LIMIT) -> Fraction:
     return Fraction(x).limit_denominator(denom_limit)
 
-def denom_rules(denominator, max_denom=MAX_DENOMINATOR_EXC, exclude=EXCLUDE_DENOMINATOR) -> bool:
-    return denominator < max_denom and denominator not in exclude
+def denom_rules(denominator, max_denom=MAX_DENOMINATOR_EXC, exclude_denoms=EXCLUDE_DENOMINATOR) -> bool:
+    return denominator < max_denom and denominator not in exclude_denoms
 
 def show_prob(p: Numeric) -> str:
     "Provide a human readable view of a fractional number in [0,1]."
@@ -505,7 +505,7 @@ def show_nice_numeric(
     return str(nice_round(x, digits).normalize())
 
 def show_values(
-        xs: Iterable[Numeric],
+        xs: Iterable[Numeric | Nothing],
         max_denom=MAX_DENOMINATOR_EXC,
         exclude_denoms=EXCLUDE_DENOMINATOR,
         rounding_mask=ROUND_MASK,
@@ -517,7 +517,7 @@ def show_values(
     # If so, show as rationals with common denominator
     # ATTN: If there are *two* shared denominators that follow the rules, that would be useful
     xs = list(xs)
-    ratl_xs = [as_rational(x, limit_denominator=DEC_DENOMINATOR_LIMIT)
+    ratl_xs = [as_rational(x, limit_denominator=DEC_DENOMINATOR_LIMIT)   # type: ignore
                if x is not nothing else nothing
                for x in xs]
     common_denom = math.lcm(*[r.denominator for r in ratl_xs if r is not nothing])   # type: ignore
@@ -529,7 +529,7 @@ def show_values(
                 for x in ratl_xs]
 
     # Otherwise, show as real numbers, rounding all to a reasonable common scale
-    real_xs = [as_real(x) for x in xs]
+    real_xs = [as_real(x) if x is not nothing else nothing for x in xs]  # type: ignore
     ## Original rounding approach
     # expts = [x.copy_abs() for x in real_xs if x != REAL_ZERO]
     # size = (sum(expts) / len(expts)).log10() if len(expts) > 0 else digit_shift  # type: ignore
@@ -537,7 +537,7 @@ def show_values(
     # mask = Decimal('1.' + ('0' * digits)) if digits > 0 else REAL_ONE
     # return [str(nround(x, mask)) for x in real_xs]
 
-    return [str(nice_round(x, 5)) for x in real_xs]
+    return [str(nice_round(x, 5)) if x is not nothing else str(nothing) for x in real_xs]  # type: ignore
 
 def show_tuples(
         tups: Iterable[tuple],

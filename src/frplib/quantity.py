@@ -27,7 +27,7 @@ def as_quantity(
 
 @overload
 def as_quantity(
-        x: Symbolic, 
+        x: Symbolic,
         convert_numeric: Callable[[NumericQ], Numeric] = as_numeric
 ) -> Symbolic:
     ...
@@ -47,8 +47,8 @@ def as_quantity(
     ...
 
 def as_quantity(
-        x = 0,
-        convert_numeric = as_numeric  # as_nice_numeric  # ATTN: as_numeric instead??
+        x=0,
+        convert_numeric=as_numeric  # as_nice_numeric  # ATTN: as_numeric instead??
 ):
     if isinstance(x, Symbolic):
         return x
@@ -108,8 +108,8 @@ def show_quantity(x: Numeric | Symbolic, digits=NICE_DIGITS) -> str:
         return str(x)
     return show_nice_numeric(x, digits)
 
-def show_quantities(xs: Iterable[Numeric | Symbolic]) -> list[str]:
-    numerics: list[Numeric] = []
+def show_quantities(xs: Iterable[Numeric | Nothing | Symbolic]) -> list[str]:
+    numerics: list[Numeric | Nothing] = []
     symbols: list[str] = []
     place_at: list[tuple[int, bool]] = []
 
