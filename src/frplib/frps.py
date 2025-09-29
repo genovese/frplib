@@ -21,10 +21,10 @@ from frplib.exceptions import (ConditionMustBeCallable, ComplexExpectationWarnin
 from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
 from frplib.numeric    import Numeric, Nothing, show_tuple, as_real
 from frplib.protocols  import Projection, SupportsExpectation, SupportsKindOf
-from frplib.quantity   import as_quant_vec
+from frplib.quantity   import as_quant_vec, show_qtuple
 from frplib.statistics import Statistic, statistic, compose2, infinity, tuple_safe, Proj, Prepend
-from frplib.symbolic   import Symbolic
-from frplib.utils      import const, is_tuple, scalarize
+from frplib.symbolic   import Symbolic, is_symbolic
+from frplib.utils      import const, is_tuple, scalarize, some
 from frplib.vec_tuples import (VecTuple, as_scalar, as_scalar_weak, as_vec_tuple, vec_tuple, value_set_from)
 
 
@@ -1070,7 +1070,7 @@ class ConditionalFRP:
         tbl = '\n'.join('  {value:<16s}  {frp:<s}'.format(value=str(k), frp='A fresh FRP' if v.is_fresh else str(v))
                         for k, v in sorted(self._targets.items(), key=lambda item: tuple(item[0]))
                         if self._domain(k))
-        dlabel = f' with domain={str(self._domain_set)}.' if self._has_domain_set else ''
+        dlabel = f' with domain={str(set(map(str, self._domain_set)))}.' if self._has_domain_set else ''
         tlabel = f' of type {self.type}'
 
         if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
@@ -1078,7 +1078,7 @@ class ConditionalFRP:
         elif tbl:
             cont = '  {value:<16s}  {frp:<s}'.format(value='...', frp='...more FRPs')
             mlabel = f'\nIt\'s wiring includes:\n{tbl}\n{cont}'
-            return f'A conditional FRP{tlabel} as a function{dlabel or mlabel or "."}'
+            return f'A conditional FRP{tlabel} as a function{dlabel or "."}{mlabel}'
         else:
             return f'A conditional FRP as a function{dlabel or "."}'
 
@@ -1597,6 +1597,8 @@ class FRP:
         if self._kind == Kind.empty:
             return 'The empty FRP with value <>'
         if self._kind is not None:
+            if some(is_symbolic, self.value):
+                return (f'An FRP with value {show_qtuple(self.value, scalarize=False)}')
             return (f'An FRP with value {show_tuple(self.value, max_denom=10)}')
         return f'An FRP with value {show_tuple(self.value, max_denom=10)}. (It may be slow to evaluate its kind.)'
 
@@ -1609,6 +1611,10 @@ class FRP:
 
     def __repr__(self) -> str:
         if environment.is_interactive:
+            if self.is_fresh:
+                return 'A fresh FRP'
+            elif some(is_symbolic, self.value):
+                return f'FRP(value={show_qtuple(self.value, scalarize=False)})'
             return f'FRP(value={show_tuple(self.value, max_denom=10)})'
         return super().__repr__()
 
@@ -2055,7 +2061,7 @@ def evolve(start: Kind, next_state: ConditionalKind, n_steps: int = 1, transform
 def evolve(start: FRP, next_state: ConditionalFRP, n_steps: int = 1, transform: Union[None, Callable] = None) -> FRP:
     ...
 
-def evolve(start, next_state, n_steps=1, transform = None):
+def evolve(start, next_state, n_steps=1, transform=None):
     """Evolves a Markovian system through a specified number of steps.
 
     In typical use, start will be the Kind of the system's initial state,

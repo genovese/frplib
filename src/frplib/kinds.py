@@ -2219,15 +2219,15 @@ class ConditionalKind:
         pad = ': '
         tbl = '\n\n'.join([show_labeled(self.target(k), str(k) + pad)
                            for k in sorted(self._mapping.keys(), key=tuple) if self._domain(k)])
-        dlabel = f' with domain={str(self._domain_set)}.' if self._has_domain_set else ''
+        dlabel = f' with domain={str(set(map(str, self._domain_set)))}.' if self._has_domain_set else ''
         tlabel = f' of type {self.type}'
 
         if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
             title = f'A conditional Kind{tlabel} with wiring:\n'
             return title + tbl
         elif tbl:
-            mlabel = f'.\nIts wiring includes:\n{tbl}\n  ...more kinds\n'
-            return f'A conditional Kind{tlabel} as a function{dlabel or mlabel or "."}'
+            mlabel = f'\nIts wiring includes:\n{tbl}\n  ...more kinds\n'
+            return f'A conditional Kind{tlabel} as a function{dlabel or "."}{mlabel}'
         return f'A conditional Kind{tlabel} as a function{dlabel or "."}'
 
     def __frplib_repr__(self):
