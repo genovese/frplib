@@ -1,5 +1,62 @@
 # Changelog
 
+## 0.2.12 - 2025-10-08
+
+### Changed
+
+- Applying E to a conditional Kind/FRP returns an object
+  whose 'raw' component is the conditional expectation
+  as a *statistic*. So, E(ckF).raw is the same
+  as ckF.expecdtation.
+  
+### Added
+
+- (EXPERIMENTAL) Enabled the operation stat // knd,
+  where knd is a Kind and stat is a compatible statistic.
+  This represents the averaging of the statistic
+  by the Kind, E(knd ^ stat) as raw value.
+
+  The primary utility of this is that it makes
+
+  (ck // knd).expectation = ck.expectation // knd
+
+  for a conditional Kind ck, giving a nice expression
+  of the conditining operator in terms of expectations.
+  This is good.
+
+  The downside is muddying the types of the operators
+  and (internally) complicating module import.
+
+  This should not be counted on for future versions
+  until it can be fully considered.
+
+- New statistic IndexOf searches for a value
+  as a contiguous sub-value of another tuple,
+  returning the first starting index if so,
+  or -1 if none.
+  
+  The condition Contains tests whether this
+  search is successful.
+
+- New statistic Freqs computes the (nothing-padded)
+  tuple of frequencies for a tuple in descending
+  order.
+
+- The VecTuple.pad_to class method pads (or truncates)
+  a tuple out to a specified length with a given
+  value (nothing by default).
+
+- Info documentation for the new statistics
+
+- Some new tests
+
+### Fixed
+
+- Unary negation of symbolic quantities is implemented.
+  This was inadvertently omitted in earlier versions.
+
+- Several docstrings improved
+
 ## 0.2.11 - 2025-09-23
 
 ### Changed

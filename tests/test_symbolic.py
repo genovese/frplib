@@ -40,6 +40,13 @@ def test_symbol_arithmetic():
     assert str(a / s + b / s + c / s) == '1'
     assert str(0.5 * a / s) == '0.5 a/(a + b + c)'
 
+    assert str(-a) == '-1 a'
+    assert -(-a) == a
+    assert str(-s) == '-1 a + -1 b + -1 c'
+    assert -(-s) == s
+    assert (-s) * (-s) == s * s
+    assert (-s) ** 2 == s * s
+
 
 def test_symbol_simplifier():
     "Simple simplifications."

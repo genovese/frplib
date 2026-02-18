@@ -978,7 +978,7 @@ class ConditionalFRP:
 
         @statistic(codim=self._codim, dim=my_dim)
         def fn(*x):
-            "the expectation of a conditional FRP as a function of its values"
+            "returns the expectation of a conditional FRP as a function of its values"
             frp = self._target_fn(*x)
             return frp.expectation
 

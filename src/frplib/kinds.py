@@ -2163,7 +2163,7 @@ class ConditionalKind:
 
         @statistic(codim=self._codim, dim=my_dim)
         def fn(*x):
-            "the expectation of a conditional Kind as a function of its values"
+            "returns the expectation of a conditional Kind as a function of its values"
             k = self._target_fn(*x)
             return k.expectation
 

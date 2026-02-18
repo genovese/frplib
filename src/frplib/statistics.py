@@ -6,7 +6,7 @@ import re
 import textwrap
 
 from collections       import defaultdict
-from collections.abc   import Iterable, Collection
+from collections.abc   import Iterable, Collection, Sequence
 from decimal           import Decimal
 from fractions         import Fraction
 from functools         import wraps
@@ -17,14 +17,14 @@ from typing_extensions import Self, TypeAlias, TypeGuard
 
 from frplib.exceptions import (OperationError, StatisticError, DomainDimensionError,
                                InputError, MismatchedDomain)
-from frplib.numeric    import (ScalarQ, Numeric, nothing, as_real, numeric_sqrt,
+from frplib.numeric    import (ScalarQ, Numeric, Nothing, nothing, as_real, numeric_sqrt,
                                numeric_exp, numeric_ln, numeric_log10, numeric_log2,
                                numeric_abs, numeric_floor, numeric_ceil)
 
 from frplib.protocols  import Projection, Transformable
 from frplib.quantity   import as_quant_vec, as_quantity
 from frplib.symbolic   import Symbolic
-from frplib.utils      import dim, identity, is_interactive, is_tuple, scalarize
+from frplib.utils      import dim, frequencies, identity, is_interactive, is_tuple, scalarize
 from frplib.vec_tuples import (VecTuple, as_bool, as_scalar, as_scalar_strict, as_scalar_weak,
                                as_vec_tuple, is_vec_tuple, vec_tuple, join)
 
@@ -38,7 +38,7 @@ from frplib.vec_tuples import (VecTuple, as_bool, as_scalar, as_scalar_strict, a
 #
 
 ArityType: TypeAlias = tuple[int, Union[int, float]]   # Would like Literal[infinity] here, but mypy rejects
-QuantityType: TypeAlias = Union[Numeric, Symbolic]
+QuantityType: TypeAlias = Union[Numeric, Symbolic, Nothing]
 
 #
 # Special Numerical Values
@@ -852,12 +852,36 @@ class Statistic:
         return Statistic(a_div_b, codim=codim, name=f'{str(other)} / {stat_label(self)}')
 
     def __floordiv__(self, other):
+        # EXPERIMENTAL: Allow stat // kind for analogous averaging of conditioning operator
+        # Problem: this requires a circular import
+        # Solution: use a lazy import in this function alone
+        from frplib.kinds import Kind
+
         codim = self.codim
         dim: int | None = None
+
+        # EXPERIMENTAL FEATURE: Nice that E(cK // k).raw == E(cK).raw // k
+        # stat // kind === (kind ^ stat).expectation
+        if isinstance(other, Kind):
+            # ATTN: Check codims here
+            if self.dim is not None:
+                avg = as_vec_tuple([0] * self.dim)
+                for val, wgt in other:
+                    avg += wgt * self(val)
+            else:
+                avg = as_vec_tuple()
+                for val, wgt in other:
+                    if len(avg) == 0:
+                        avg = wgt * self(val)
+                    else:
+                        avg += wgt * self(val)
+            return avg
+
         if isinstance(other, Statistic):
             if Statistic._unequal_nonscalar_dims(self, other):
                 # Dimensions are known to be incompatible
-                raise StatisticError(f'Invalid attempt to divide statistics of incompatible dimensions {self.dim} and {other.dim}')
+                raise StatisticError(f'Invalid attempt to divide statistics '
+                                     f'of incompatible dimensions {self.dim} and {other.dim}')
 
             def a_div_b(*x):
                 return self(*x) // other(*x)
@@ -2373,6 +2397,24 @@ def Bag(v):
         bag.extend([k, v])
     return bag
 
+@statistic
+def Freqs(xs):
+    """returns the counts of unique components in the input tuple in descending order
+
+    The dimension of the output tuple is always equal to the dimension of the
+    input tuple. Unneeded components are padded with the special `nothing`
+    value, which always comes at the end.
+
+    Examples: Freqs(2, 3, 2, 2, 4, 3) == <3, 2, 1, _, _, _>
+              Freqs(1, 1, 1, 1, 1, 7) == <5, 1, _, _, _, _>
+              Freqs(1, 2, 3, 4, 5, 6) == <1, 1, 1, 1, 1, 1>
+              Freqs(2, 2, 4, 6, 8, 0) == <2, 1, 1, 1, 1, _>
+
+    """
+    n = len(xs)
+    cnts = frequencies(xs, counts_only=True)
+    return VecTuple.pad_to(cnts, n)
+
 def Append(*v):
     """Statistics factory. The returned statistic appends given values to its input.
 
@@ -2504,7 +2546,8 @@ def Keep(predicate: Condition, pad=nothing) -> Statistic:
     + Keep(__ > 0, pad=0)(-20, 2, -2, 10, 20) == <2, 10, 20, 0, 0>
 
     """
-    p = lambda v: as_bool(predicate(v))
+    def p(v):
+        return as_bool(predicate(v))
 
     @statistic(description=f'keeps components satisfying predicate {predicate._name or predicate.__doc__}')
     def keep(value):
@@ -2607,6 +2650,90 @@ def MaybeMap(stat: Statistic, pad=nothing) -> Statistic:
 
     return maybe_map
 
+def IndexOf(*items):
+    """Statistic factory that gives first index of specified tuple within its input tuple, or -1 if none.
+
+    Accepts a single sequence or multiple arguments that are combined into a sequence.
+
+    Parameter `items` is an indexable sequence. This tests if this sequence
+    is a contiguous subsequence in the input tuple, returning the (0-based) index
+    of the *first* occurrence, or -1 if no subsequence is found.
+
+    See Contains() for an analogous condition.
+
+    Examples:
+    + qvec(0, 1, 2, 3, 4, 5, 6) ^ IndexOf(4, 5)  #=> 4
+    + qvec(0, 1, 2, 3, 4, 5, 6) ^ IndexOf(4, 7)  #=> -1
+    + qvec(0, 1, 2, 3, 4, 5, 6) ^ IndexOf(2)     #=> 2
+    + qvec(0, 1, 2, 3, 4, 5, 6) ^ IndexOf(9)     #=> -1
+
+    """
+    def kmp_tbl(w):
+        m = len(w)
+        tbl = [-1] * m
+        cnd = 0
+        pos = 1
+        while pos < m:
+            if w[pos] == w[cnd]:
+                tbl[pos] = tbl[cnd]
+            else:
+                tbl[pos] = cnd
+                while cnd >= 0 and w[pos] != w[cnd]:
+                    cnd = tbl[cnd]
+            pos += 1
+            cnd += 1
+        return tbl
+
+    if len(items) == 1 and isinstance(items[0], Sequence):
+        xs = as_vec_tuple(items[0])   # type: ignore
+    elif len(items) == 0:
+        raise StatisticError('IndexOf requires a non-empty search sequence.')
+    else:
+        xs = as_vec_tuple(items)      # type: ignore
+
+    n = len(xs)
+    kmp = kmp_tbl(xs)
+
+    @statistic
+    def contains_comp(value):
+        d = len(value)
+        j = k = 0
+        while j < d:
+            if xs[k] == value[j]:
+                j += 1
+                k += 1
+                if k == n:
+                    return j - k
+            else:
+                k = kmp[k]
+                if k < 0:
+                    j += 1
+                    k += 1
+
+        return -1
+
+    return contains_comp
+
+def Contains(*items):
+    """Statistic factory that tests ifa specified tuple is within its input tuple, or -1 if none.
+
+    Accepts a single sequence or multiple arguments that are combined into a sequence.
+
+    Parameter `items` is an indexable sequence. This tests if this sequence
+    is a contiguous subsequence of the input tuple, returning true (1) if so
+    or false (0) otherwise.
+
+    See IndexOf() for an analogous statistic that finds the first index.
+
+    Examples:
+    + qvec(0, 1, 2, 3, 4, 5, 6) ^ Contains(4, 5)  #=> 1
+    + qvec(0, 1, 2, 3, 4, 5, 6) ^ Contains(4, 7)  #=> 0
+    + qvec(0, 1, 2, 3, 4, 5, 6) ^ Contains(2)     #=> 1
+    + qvec(0, 1, 2, 3, 4, 5, 6) ^ Contains(9)     #=> 0
+
+    """
+    return IndexOf(*items) >= 0
+
 
 #
 # Info tags
@@ -2622,6 +2749,8 @@ setattr(Append, '__info__', 'statistic-factories')
 setattr(Prepend, '__info__', 'statistic-factories')
 setattr(ElementOf, '__info__', 'statistic-factories')
 setattr(Get, '__info__', 'statistic-factories')
+setattr(IndexOf, '__info__', 'statistic-factories')
+setattr(Contains, '__info__', 'statistic-factories')
 
 setattr(__, '__info__', 'statistic-builtins')
 setattr(Id, '__info__', 'statistic-builtins')
@@ -2670,6 +2799,7 @@ setattr(StdDev, '__info__', 'statistic-builtins')
 setattr(Variance, '__info__', 'statistic-builtins')
 setattr(Cases, '__info__', 'statistic-builtins')
 setattr(Bag, '__info__', 'statistic-builtins')
+setattr(Freqs, '__info__', 'statistic-builtins')
 setattr(top, '__info__', 'statistic-builtins')
 setattr(bottom, '__info__', 'statistic-builtins')
 

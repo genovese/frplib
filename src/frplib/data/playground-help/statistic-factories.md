@@ -52,6 +52,12 @@
 + `Get` :: Creates a statistic that uses its argument as a lookup key in an array/list,
            dictionary, or indexable object. The factory takes the object.
 
++ `IndexOf` :: Creates a statistic that searches for a specified value as a sub-sequence of its input,
+               returning the (0-based) index of the *first* occurrence, or -1 if not found.
+
++ `Contains` :: Creates a statistic that tests whether a specified value is a sub-sequence of its input.
+
+
 ## Sub-topics
 
 projections, Get, Permute

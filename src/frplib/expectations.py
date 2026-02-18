@@ -80,6 +80,7 @@ def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
             return expect
         setattr(c_expectation, '__frplib_repr__',
                 lambda: f'A conditional expectation as a function of type {f_type}.')
+        setattr(c_expectation, 'raw', f)  # The underlying statistic
         return c_expectation
 
     if isinstance(x, SupportsExpectation):

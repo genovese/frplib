@@ -201,6 +201,9 @@ class Symbolic(ABC):
     def __rmul__(self, other):
         ...
 
+    def __neg__(self):
+        return -1 * self
+
     def __eq__(self, other):
         if isinstance(other, Symbolic):
             return is_zero(self - other)

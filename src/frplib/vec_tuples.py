@@ -45,7 +45,7 @@ from operator          import (add, mul, sub, truediv, floordiv, mod, pow,
 from typing            import cast, Type, TypeVar, Union
 from typing_extensions import Self, TypeGuard
 
-from frplib.exceptions import (OperationError, NumericConversionError,
+from frplib.exceptions import (FrplibException, OperationError, NumericConversionError,
                                MismatchedDimensionError, MismatchedDomain)
 from frplib.numeric    import Numeric, NumericF, NumericD, NumericB, Nothing, nothing, numeric_sqrt  # ATTN: Numeric+Symbolic+SupportsVec
 from frplib.numeric    import as_numeric as scalar_as_numeric
@@ -483,6 +483,32 @@ class VecTuple(tuple[T, ...]):
     @classmethod
     def concat(cls: Type[Self], *values: Self) -> Self:
         return cls.join(values)
+
+    @classmethod
+    def pad_to(cls: Type[Self], items: Iterable, to_len: int, pad=nothing) -> Self:
+        """Pads a tuple to a target length with a given value.
+
+        Parameters
+        ----------
+          xs - an iterable object (e.g., VecTuple, tuple, or list)
+          to_len - target length for the returned tuple, must be positive
+          pad [=nothing] - a value to fill the extra components of the expanded tuple
+
+        Returns a VecTuple of the target length. If the length is longer than the
+        input tuple, extra components at the end are filled with the pad value.
+        If the length is shorter than the input tuple, the input is truncated
+        to the target length.
+
+        """
+        xs = list(items)
+        m = len(xs)
+        if to_len > m:
+            extra_len = to_len - m
+            return cls(xs + [pad] * extra_len)
+        elif to_len > 0:
+            return cls(xs[:to_len])
+        else:
+            raise FrplibException(f'{cls}.pad_to requires a positive target length, given {to_len}')
 
 
 def vec_tuple(*a: T) -> VecTuple[T]:
