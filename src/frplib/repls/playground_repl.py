@@ -3,7 +3,8 @@ from __future__ import annotations
 from importlib                     import import_module
 from importlib.resources           import files
 
-from prompt_toolkit.formatted_text import HTML, ANSI
+from prompt_toolkit.filters        import has_focus
+from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.shortcuts      import print_formatted_text
 from ptpython.repl                 import PythonRepl
 from ptpython.python_input         import PythonInput
@@ -167,49 +168,38 @@ def remove_playground(globals) -> None:
 #
 
 class PlaygroundRepl(PythonRepl):
-    def show_result(self, result: object) -> None:
+    # def __init__(self, *args, **kwargs) -> None:
+    #     super().__init__(*args, **kwargs)
+    #
+    #     @self.add_key_binding("c-c", eager=True, filter=has_focus(self.default_buffer))
+    #     def _(event) -> None:
+    #         event.app.output.write("\rOperation Interrupted\n\n")
+    #         event.app.output.flush()
+    #         event.app.exit(exception=KeyboardInterrupt)
+
+    def _show_result(self, result: object) -> None:
         """
         Show __repr__ for an `eval` result and print to output.
         """
         if isinstance(result, Renderable) and not isinstance(result, type):
-            # Don't call for classes e.g., VecTuple as a class not instance
-            # Holding off on pager for now
+            # Don't call for classes e.g., VecTuple as a class not instance.
+            # Write via environment.console (stdout). Blank-line handling is
+            # done by run_and_show_expression in ptpython 3.0.32 after we return.
             try:
                 environment.console.print(result.__frplib_repr__())
             except Exception as e:
                 environment.console.print(f'Could not print result due to an error:\n  {str(e)}')
         else:
-            formatted_text_output = self._format_result_output(result)
-
-            if self.enable_pager:
-                self.print_paginated_formatted_text(formatted_text_output)
-            else:
-                self.print_formatted_text(formatted_text_output)
-
-        self.app.output.flush()
-        if self.insert_blank_line_after_output:
-            self.app.output.write("\n")
+            super()._show_result(result)
 
     def _handle_exception(self, e: BaseException) -> None:
-        output = self.app.output
-
         if isinstance(e, FrplibException):
-            # ATTN
-            print_formatted_text(
-                ANSI(environment.console_str(str(e))),
-                output=output
-            )
+            try:
+                environment.console.print(str(e))
+            except Exception:
+                environment.console.print(f'FrplibException: {str(e)}')
         else:
-            tokens = self._format_exception_output(e)
-
-            print_formatted_text(
-                tokens,
-                style=self._current_style,
-                style_transformation=self.style_transformation,
-                include_default_pygments_style=False,
-                output=output,
-            )
-        output.flush()
+            super()._handle_exception(e)
 
     def _handle_keyboard_interrupt(self, e: KeyboardInterrupt) -> None:
         output = self.app.output
