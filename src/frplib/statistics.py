@@ -1433,7 +1433,7 @@ def condition(
 # Statistics Combinators
 #
 
-def chain(*statistics: Statistic) -> Statistic:
+def Chain(*statistics: Statistic) -> Statistic:
     "Statistic combinator. Compose statistics in pipeline order: (f ; g)(x) = g(f(x)), read 'f then g'."
     if len(statistics) == 0:
         return Id
@@ -1445,7 +1445,7 @@ def chain(*statistics: Statistic) -> Statistic:
         if in_dim is None or s.arity[0] <= in_dim <= s.arity[1]:
             in_dim = s.dim
             continue
-        raise DomainDimensionError(f'chain requires compatible statistics, '
+        raise DomainDimensionError(f'Chain requires compatible statistics, '
                                    f'input dimension {in_dim} does not match {s.arity}.')
 
     def chained(*x):
@@ -1456,9 +1456,9 @@ def chain(*statistics: Statistic) -> Statistic:
 
     arity = statistics[0].arity
     names = ", ".join([stat.name for stat in statistics])
-    return Statistic(chained, arity, name=f'chain({names})')
+    return Statistic(chained, arity, name=f'Chain({names})')
 
-def compose(*statistics: Statistic) -> Statistic:
+def Compose(*statistics: Statistic) -> Statistic:
     "Statistic Combinator. Compose statistics in mathematical order: (f o g)(x) = f(g(x)), read 'f after g'."
     if len(statistics) == 0:
         return Id
@@ -1473,7 +1473,7 @@ def compose(*statistics: Statistic) -> Statistic:
         if in_dim is None or s.arity[0] <= in_dim <= s.arity[1]:
             in_dim = s.dim
             continue
-        raise DomainDimensionError(f'compose requires compatible statistics, '
+        raise DomainDimensionError(f'Compose requires compatible statistics, '
                                    f'input dimension {in_dim} does not match {s.arity}.')
 
     def composed(*x):
@@ -1483,7 +1483,7 @@ def compose(*statistics: Statistic) -> Statistic:
         return state
     arity = rev_statistics[0].arity
     names = ", ".join([stat.name for stat in statistics])
-    return Statistic(composed, arity, name=f'compose({names})')
+    return Statistic(composed, arity, name=f'Compose({names})')
 
 
 #

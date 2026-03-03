@@ -93,12 +93,12 @@ also `info("modules")`.
 | `bayes`               | `frplib.kinds`        |
 | `bin`                 | `frplib.kinds`        |
 | `bottom`              | `frplib.statistics`   |
-| `chain`               | `frplib.statistics`   |
+| `Chain`               | `frplib.statistics`   |
 | `clean`               | `frplib.kinds`        |
 | `clone`               | `frplib.utils`        |
 | `codim`               | `frplib.utils`        |
 | `components`          | `frplib.extras`       |
-| `compose`             | `frplib.statistics`   |
+| `Compose`             | `frplib.statistics`   |
 | `compose`             | `frplib.utils`        |
 | `condition`           | `frplib.statistics`   |
 | `conditional_frp`     | `frplib.frps`         |

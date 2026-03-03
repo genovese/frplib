@@ -5,21 +5,29 @@ them into a new statistic.
 
 ## Arithmetic and Logical Combinators and Composition
 
-Infix arithmetic operators `+`, `-`, `*`, `/`, `**`, `%` act as statistic
-combinators for appropriate statisics. The first four expect statistics
-of equal dimension; the exponentiation `**` operator can accept statistics
-of different dimension; and the mod operator `%` requires scalar statistics.
++ Infix arithmetic operators `+`, `-`, `*`, `/`, `**`, `%` act as statistic
+  combinators for appropriate statisics. The first four expect statistics
+  of equal dimension; the exponentiation `**` operator can accept statistics
+  of different dimension; and the mod operator `%` requires scalar statistics.
 
-Logical operators `<`, `>`, `<=`, `>=`, `==`, and `!=` act as statistic
-combinators that produce *conditions*.
++ Logical operators `<`, `>`, `<=`, `>=`, `==`, and `!=` act as statistic
+  combinators that produce *conditions*.
 
-Chained composition `^` with `stat1 ^ stat2` creating a new statistic
-that first calls `stat1` on the input and then calls `stat2` on the
-result. "`stat1` then `stat2`".
++ Chained composition `^` with `stat1 ^ stat2` creating a new statistic
+  that first calls `stat1` on the input and then calls `stat2` on the
+  result. "`stat1` then `stat2`".
 
-Mathematical composition `stat2(stat1)` creating a new statistic
-that first calls `stat1` on the input and then calls `stat2` on the
-result. "`stat2` after `stat1`".
++ Mathematical composition `stat2(stat1)` creating a new statistic
+  that first calls `stat1` on the input and then calls `stat2` on the
+  result. "`stat2` after `stat1`".
+
++ `Chain(s1, s2, ..., sn)` :: pipeline composition of statistics;
+  equivalent to `s1 ^ s2 ^ ... ^ sn`. Applies `s1` first, then `s2`, and so on:
+  `Chain(f, g)(x) = g(f(x))`, read "`f` then `g`".
+
++ `Compose(s1, s2, ..., sn)` :: mathematical composition of statistics;
+  equivalent to `s1(s2(s3(...(sn))))`. Applies the rightmost argument first:
+  `Compose(f, g)(x) = f(g(x))`, read "`f` after `g`".
 
 
 ## Component Combinators
@@ -76,6 +84,6 @@ result. "`stat2` after `stat1`".
 + `Any` :: condition that returns true if any components of its input
    satisfy the given condition
 
-Note that these logical combinators start with a capital letter.
-The built-in Python operators `and` and `or` *will not work* in expressions,
+Note that these logical combinators start with a capital letter. 
+The built-in Python operators `and` and `or` *will not work* in statistic expressions,
 as Python does not handle custom objects with those operators.

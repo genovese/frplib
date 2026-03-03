@@ -12,7 +12,7 @@ from frplib.numeric    import nothing
 from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                is_statistic, statistic, condition, scalar_statistic,
                                tuple_safe, infinity, ANY_TUPLE,
-                               chain, compose, scalar_fn,
+                               Chain, Compose, scalar_fn,
                                Id, Scalar, __, Proj, _x_,
                                Sum, Count, Product, Max, Min, Mean, Abs,
                                Sqrt, Floor, Ceil,
