@@ -3,7 +3,7 @@ from __future__ import annotations
 from importlib                     import import_module
 from importlib.resources           import files
 
-from prompt_toolkit.filters        import has_focus
+# from prompt_toolkit.filters        import has_focus
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.shortcuts      import print_formatted_text
 from ptpython.repl                 import PythonRepl
@@ -190,7 +190,7 @@ class PlaygroundRepl(PythonRepl):
             except Exception as e:
                 environment.console.print(f'Could not print result due to an error:\n  {str(e)}')
         else:
-            super()._show_result(result)
+            super()._show_result(result)    # type: ignore
 
     def _handle_exception(self, e: BaseException) -> None:
         if isinstance(e, FrplibException):

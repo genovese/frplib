@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from prompt_toolkit.formatted_text import HTML
-from prompt_toolkit.shortcuts      import print_formatted_text as print
+from prompt_toolkit.shortcuts      import print_formatted_text as print    # pylint: disable=redefined-builtin
 from ptpython.prompt_style         import PromptStyle
 
 from frplib.env                    import environment
@@ -51,7 +51,12 @@ def configure(repl):
         repl.use_code_colorscheme("default")
 
     # Title in status bar
-    repl.title = HTML('<style fg="#0099ff"><b>FRP Playground</b></style> ')
+    def playground_title():
+        n = repl.current_statement_index
+        return HTML(f'<style fg="#0099ff"><b>FRP Playground</b></style> [{ n }] ')
+
+    repl.title = playground_title
+    # repl.title = HTML('<style fg="#0099ff"><b>FRP Playground</b></style> ')
 
 def main():
     try:
