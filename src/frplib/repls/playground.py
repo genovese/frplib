@@ -23,12 +23,21 @@ def style_prompt_dark(text):
     return f'<style fg="#b97d4b">{text}</style>'
 
 def configure(repl):
-    # Probably, the best is to add a new PromptStyle to `all_prompt_styles` and
-    # activate it. This way, the other styles are still selectable from the
-    # menu.
+    "Sets default configuration of the playground's repl."
+
     class CustomPrompt(PromptStyle):
+        """A playground-specific prompt style used as the default.
+
+        This will also be added to `all_prompt_styles` so other styles can be
+        selected from the menu. Note also that options in the environment
+        can be used to modify this prompt (e.g., command_number_in_prompt).
+
+        """
         def in_prompt(self):
             style_prompt = style_prompt_dark if environment.dark_mode else style_prompt_bright
+            if environment.command_number_in_prompt:
+                n = repl.current_statement_index
+                return HTML(style_prompt(f"playground[{n}]&gt; "))
             return HTML(style_prompt("playground&gt; "))
 
         def in2_prompt(self, width):
@@ -52,11 +61,12 @@ def configure(repl):
 
     # Title in status bar
     def playground_title():
+        if environment.command_number_in_prompt:
+            return HTML('<style fg="#0099ff"><b>FRP Playground</b></style> ')
         n = repl.current_statement_index
         return HTML(f'<style fg="#0099ff"><b>FRP Playground</b></style> [{ n }] ')
 
     repl.title = playground_title
-    # repl.title = HTML('<style fg="#0099ff"><b>FRP Playground</b></style> ')
 
 def main():
     try:

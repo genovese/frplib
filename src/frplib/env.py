@@ -69,6 +69,7 @@ class Environment:
     ascii_only: bool = False
     dark_mode: bool = False
     is_interactive: bool = False
+    command_number_in_prompt: bool = False
     console: Console = Console(highlight=True, theme=bright_theme)
     numeric_out_params: NumericOutParams = field(default_factory=default_numeric_out_params)
 
@@ -89,6 +90,14 @@ class Environment:
         "Text color default suited for light colored terminals"
         self.dark_mode = False
         self.console.push_theme(bright_theme)
+
+    def on_command_number_in_prompt(self) -> None:
+        "Show current command number in the prompt instead of the title bar"
+        self.command_number_in_prompt = True
+
+    def off_command_number_in_prompt(self) -> None:
+        "Show current command number in the title bar instead of the prompt"
+        self.command_number_in_prompt = False
 
     def interactive_mode(self, ascii=None) -> None:
         "Indicate that this session is interactive. No need to turn this off."
