@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import ast
+import linecache
+import sys
+import traceback as tb_module
+
 from importlib                     import import_module
 from importlib.resources           import files
 
@@ -164,10 +169,153 @@ def remove_playground(globals) -> None:
 
 
 #
+# Helpers for handling IndexErrors
+#
+# As this is a commonly occurring interactive error, we want to
+# give helpful error messages without obscure stack frames in
+# simple cases and meaningful stack frames otherwise.
+#
+# For example, with
+#
+# > v = vec_tuple(1, 2, 3)
+# > v[4]
+#
+# we want a simple message identifying the type and index, without
+# a traceback referencing __getitem__.
+#
+# However, with a call to a user-defined function like foo(v), we
+# need more detail. Here, we distinguish two cases: 1. a function
+# defined in the repl as a multiline input and 2. a function defined
+# in an extern file. In case 1, we give a stack trace that is trimmed
+# to focus on the lines of code in the input. In case 2, we give
+# a simple error message with a function `explain_error` that gives
+# the full traceback.
+#
+# We also put the last exception in the variable _e for the user.
+#
+
+def _describe_indexed(obj) -> str:
+    """Human-readable description of an indexable object for IndexError messages."""
+    from frplib.vec_tuples import VecTuple
+    if isinstance(obj, VecTuple):
+        return f'a VecTuple of dimension {len(obj)}'
+    elif isinstance(obj, (list, tuple)):
+        return f'a {type(obj).__name__} of length {len(obj)}'
+    elif isinstance(obj, str):
+        return f'a string of length {len(obj)}'
+    else:
+        try:
+            return f'a {type(obj).__name__} of length {len(obj)}'
+        except TypeError:
+            return f'a {type(obj).__name__}'
+
+def _index_error_context(tb) -> str | None:
+    """Extract a helpful context string from an IndexError traceback.
+
+    Strategy 1: look for a Python __getitem__ frame and read self/key directly.
+    This works for frplib types (e.g. VecTuple) that have a Python-level
+    __getitem__, and gives both the index attempted and the object's size.
+
+    Strategy 2: read the source line directly from linecache for the innermost
+    playground frame and parse it with the AST to find the subscripted name.
+    This works for built-in types (list, tuple, str) whose __getitem__ is in C
+    and therefore has no Python frame.
+    """
+    summaries = tb_module.extract_tb(tb)
+    live = list(tb_module.walk_tb(tb))
+
+    # Strategy 1: Python-level __getitem__ frame
+    for frame, _lineno in live:
+        if frame.f_code.co_name == '__getitem__':
+            obj = frame.f_locals.get('self')
+            key = frame.f_locals.get('key')
+            if obj is not None:
+                desc = _describe_indexed(obj)
+                if key is not None and not isinstance(key, slice):
+                    return f'index {key} out of range for {desc}'
+                return f'out of range for {desc}'
+
+    # Strategy 2: source line from playground frame via linecache
+    for (frame, _lineno), summary in reversed(list(zip(live, summaries))):
+        if not _is_playground_file(summary.filename):
+            continue
+        source = linecache.getline(summary.filename, summary.lineno or 1).strip()
+        if not source:
+            return None
+        try:
+            tree = ast.parse(source, mode='eval')
+        except SyntaxError:
+            return f'`{source}`'
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Subscript):
+                continue
+            if isinstance(node.value, ast.Name):
+                name = node.value.id
+                obj = frame.f_locals.get(name)
+                if obj is None:
+                    obj = frame.f_globals.get(name)
+                if obj is not None:
+                    return f'`{source}` — {name} is {_describe_indexed(obj)}'
+            return f'`{source}`'
+        return f'`{source}`'
+    return None
+
+def _is_playground_file(filename: str) -> bool:
+    return filename.startswith('<playground-')
+
+def _has_external_frames(tb) -> bool:
+    """Return True if any non-frplib, non-playground frames follow the last <module> frame.
+
+    Used to decide whether to show the explain_error() hint alongside a clean
+    IndexError message — i.e., when the error is buried inside imported user code
+    rather than being a direct top-level expression.
+    """
+    frames = list(tb_module.walk_tb(tb))
+    last_module_idx = -1
+    for i, (frame, _) in enumerate(frames):
+        if (_is_playground_file(frame.f_code.co_filename)
+                and frame.f_code.co_name == '<module>'):
+            last_module_idx = i
+    for frame, _ in frames[last_module_idx + 1:]:
+        fname = frame.f_code.co_filename
+        if not fname.startswith('<') and 'frplib' not in fname:
+            return True
+    return False
+
+def _is_toplevel_in_repl(tb) -> bool:
+    """Return True if the IndexError originated directly at the REPL top level."""
+    last_playground = None
+    for frame, _lineno in tb_module.walk_tb(tb):
+        if _is_playground_file(frame.f_code.co_filename):
+            last_playground = frame
+    return last_playground is not None and last_playground.f_code.co_name == '<module>'
+
+def _is_explain_error_call(tb) -> bool:
+    """Return True if this traceback entry is a top-level explain_error() call.
+
+    Uses linecache (populated by _compile_with_flags) to get the source line
+    and checks via AST that it is a bare call to explain_error.
+    """
+    frame = tb.tb_frame
+    if frame.f_code.co_name != '<module>':
+        return False
+    source = linecache.getline(frame.f_code.co_filename, tb.tb_lineno).strip()
+    try:
+        node = ast.parse(source, mode='eval').body
+    except SyntaxError:
+        return False
+    return (isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == 'explain_error')
+
+
+#
 # REPL Definition
 #
 
 class PlaygroundRepl(PythonRepl):
+    """Customized playground-specific ptpython repl manager. """
+
     # def __init__(self, *args, **kwargs) -> None:
     #     super().__init__(*args, **kwargs)
     #
@@ -177,9 +325,25 @@ class PlaygroundRepl(PythonRepl):
     #         event.app.output.flush()
     #         event.app.exit(exception=KeyboardInterrupt)
 
+    def _compile_with_flags(self, code: str, mode: str):
+        filename = f'<playground-{self.current_statement_index}>'
+        result = compile(
+            code, filename, mode,
+            flags=self.get_compiler_flags(),
+            dont_inherit=True,
+        )
+        lines = code.splitlines(keepends=True)
+        if lines and not lines[-1].endswith('\n'):
+            lines[-1] += '\n'
+        linecache.cache[filename] = (len(code), None, lines, filename)
+        return result
+
     def _show_result(self, result: object) -> None:
-        """
-        Show __repr__ for an `eval` result and print to output.
+        """Displays an evaluation result in appropriate form at the output.
+
+        Specially renderable objects are displayed using their __frplib_repr__() method.
+        Other objects are displayed in ordinary style.
+
         """
         if isinstance(result, Renderable) and not isinstance(result, type):
             # Don't call for classes e.g., VecTuple as a class not instance.
@@ -192,14 +356,67 @@ class PlaygroundRepl(PythonRepl):
         else:
             super()._show_result(result)    # type: ignore
 
+    def _show_exception_trimmed(self, e: BaseException) -> None:
+        """Runs ptpython's exception display but with leading internal frames removed.
+
+        This eliminates frames that are only from the ptpython infrastructure that
+        have no real diagnostic value to the user.
+
+        """
+        # Walk e.__traceback__ forward to the first playground frame,
+        # skipping any leading explain_error() call frame as well.
+        # If no playground frame, handle the exception by the standard route.
+        trimmed = e.__traceback__
+        while trimmed is not None and not _is_playground_file(trimmed.tb_frame.f_code.co_filename):
+            trimmed = trimmed.tb_next
+        if trimmed is None:
+            super()._handle_exception(e)
+            return
+        if _is_explain_error_call(trimmed):
+            trimmed = trimmed.tb_next
+
+        # Temporarily setting e.__traceback__ to that point so display_exception shows only user frames.
+        # Then restore the original. As such pdb.pm() is unaffected because
+        # sys.last_traceback is set from sys.exc_info() at the original catch site.
+        original = e.__traceback__
+        e.__traceback__ = trimmed
+        try:
+            super()._handle_exception(e)
+        finally:
+            e.__traceback__ = original
+
     def _handle_exception(self, e: BaseException) -> None:
+        self.get_globals()['_e'] = e
+
         if isinstance(e, FrplibException):
             try:
                 environment.console.print(str(e))
             except Exception:
                 environment.console.print(f'FrplibException: {str(e)}')
+        elif isinstance(e, IndexError):
+            # Index errors are the most common problem in interactive use,
+            # so we try to give good, meaningful error messages if possible.
+            t, v, tb = sys.exc_info()
+            sys.last_type, sys.last_value, sys.last_traceback = t, v, tb
+            if _is_toplevel_in_repl(tb):
+                context = _index_error_context(tb)
+                msg = str(e) or 'index out of range'
+                hint = ('\nCall explain_error() for the full traceback.'
+                        if _has_external_frames(tb) else '')
+                environment.console.print(f'Index Error: {context or msg}{hint}')
+            else:
+                context = _index_error_context(tb)
+                if context:
+                    original_args = e.args
+                    e.args = (context,)
+                    try:
+                        self._show_exception_trimmed(e)
+                    finally:
+                        e.args = original_args
+                else:
+                    self._show_exception_trimmed(e)
         else:
-            super()._handle_exception(e)
+            self._show_exception_trimmed(e)
 
     def _handle_keyboard_interrupt(self, e: KeyboardInterrupt) -> None:
         output = self.app.output
@@ -217,14 +434,24 @@ class PlaygroundRepl(PythonRepl):
         def get_playground() -> PythonInput:
             return self
 
+        def explain_error() -> None:
+            "Show the full traceback for the most recent exception (_e)."
+            err = globals.get('_e')
+            if err is None:
+                environment.console.print('No recent error stored.')
+            else:
+                self._show_exception_trimmed(err)
+
         self._injected_globals = [
             "get_playground",
             "info",
+            "explain_error",
             "_running_in_playground"
         ]
 
         globals["get_playground"] = get_playground
         globals["info"] = info
+        globals["explain_error"] = explain_error
         globals["_running_in_playground"] = True
         environment.interactive_mode()
         import_playground(globals)
