@@ -194,11 +194,13 @@ def remove_playground(globals) -> None:
 # We also put the last exception in the variable _e for the user.
 #
 
-def _describe_indexed(obj) -> str:
-    """Human-readable description of an indexable object for IndexError messages."""
+def _describe_container(obj) -> str:
+    """Human-readable description of a subscriptable object for error messages."""
     from frplib.vec_tuples import VecTuple
     if isinstance(obj, VecTuple):
         return f'a VecTuple of dimension {len(obj)}'
+    elif isinstance(obj, dict):
+        return f'a {type(obj).__name__} of {len(obj)} entries'
     elif isinstance(obj, (list, tuple)):
         return f'a {type(obj).__name__} of length {len(obj)}'
     elif isinstance(obj, str):
@@ -209,17 +211,17 @@ def _describe_indexed(obj) -> str:
         except TypeError:
             return f'a {type(obj).__name__}'
 
-def _index_error_context(tb) -> str | None:
-    """Extract a helpful context string from an IndexError traceback.
+def _subscript_error_context(tb, s1_format) -> str | None:
+    """Shared context extraction for IndexError and KeyError tracebacks.
 
     Strategy 1: look for a Python __getitem__ frame and read self/key directly.
     This works for frplib types (e.g. VecTuple) that have a Python-level
-    __getitem__, and gives both the index attempted and the object's size.
+    __getitem__. The message is produced by s1_format(obj, key).
 
     Strategy 2: read the source line directly from linecache for the innermost
     playground frame and parse it with the AST to find the subscripted name.
-    This works for built-in types (list, tuple, str) whose __getitem__ is in C
-    and therefore has no Python frame.
+    This works for built-in types (list, tuple, str, dict) whose __getitem__
+    is in C and therefore has no Python frame.
     """
     summaries = tb_module.extract_tb(tb)
     live = list(tb_module.walk_tb(tb))
@@ -230,10 +232,7 @@ def _index_error_context(tb) -> str | None:
             obj = frame.f_locals.get('self')
             key = frame.f_locals.get('key')
             if obj is not None:
-                desc = _describe_indexed(obj)
-                if key is not None and not isinstance(key, slice):
-                    return f'index {key} out of range for {desc}'
-                return f'out of range for {desc}'
+                return s1_format(obj, key)
 
     # Strategy 2: source line from playground frame via linecache
     for (frame, _lineno), summary in reversed(list(zip(live, summaries))):
@@ -255,10 +254,26 @@ def _index_error_context(tb) -> str | None:
                 if obj is None:
                     obj = frame.f_globals.get(name)
                 if obj is not None:
-                    return f'`{source}` — {name} is {_describe_indexed(obj)}'
+                    return f'`{source}` — {name} is {_describe_container(obj)}'
             return f'`{source}`'
         return f'`{source}`'
     return None
+
+def _index_error_context(tb) -> str | None:
+    def fmt(obj, key):
+        desc = _describe_container(obj)
+        if key is not None and not isinstance(key, slice):
+            return f'index {key} out of range for {desc}'
+        return f'out of range for {desc}'
+    return _subscript_error_context(tb, fmt)
+
+def _key_error_context(tb) -> str | None:
+    def fmt(obj, key):
+        desc = _describe_container(obj)
+        if key is not None:
+            return f'key {key!r} not found in {desc}'
+        return f'key not found in {desc}'
+    return _subscript_error_context(tb, fmt)
 
 def _is_playground_file(filename: str) -> bool:
     return filename.startswith('<playground-')
@@ -385,6 +400,22 @@ class PlaygroundRepl(PythonRepl):
         finally:
             e.__traceback__ = original
 
+    def _handle_subscript_error(self, e: BaseException, tb, label: str, context: str | None, default: str) -> None:
+        if _is_toplevel_in_repl(tb):
+            hint = ('\nCall explain_error() for the full traceback.'
+                    if _has_external_frames(tb) else '')
+            environment.console.print(f'{label}: {context or default}{hint}')
+        else:
+            if context:
+                original_args = e.args
+                e.args = (context,)
+                try:
+                    self._show_exception_trimmed(e)
+                finally:
+                    e.args = original_args
+            else:
+                self._show_exception_trimmed(e)
+
     def _handle_exception(self, e: BaseException) -> None:
         self.get_globals()['_e'] = e
 
@@ -393,28 +424,20 @@ class PlaygroundRepl(PythonRepl):
                 environment.console.print(str(e))
             except Exception:
                 environment.console.print(f'FrplibException: {str(e)}')
-        elif isinstance(e, IndexError):
-            # Index errors are the most common problem in interactive use,
+        elif isinstance(e, (IndexError, KeyError)):
+            # Subscript errors are among the most common in interactive use,
             # so we try to give good, meaningful error messages if possible.
             t, v, tb = sys.exc_info()
             sys.last_type, sys.last_value, sys.last_traceback = t, v, tb
-            if _is_toplevel_in_repl(tb):
+            if isinstance(e, IndexError):
+                label = 'Index Error'
                 context = _index_error_context(tb)
-                msg = str(e) or 'index out of range'
-                hint = ('\nCall explain_error() for the full traceback.'
-                        if _has_external_frames(tb) else '')
-                environment.console.print(f'Index Error: {context or msg}{hint}')
+                default = str(e) or 'index out of range'
             else:
-                context = _index_error_context(tb)
-                if context:
-                    original_args = e.args
-                    e.args = (context,)
-                    try:
-                        self._show_exception_trimmed(e)
-                    finally:
-                        e.args = original_args
-                else:
-                    self._show_exception_trimmed(e)
+                label = 'Key Error'
+                context = _key_error_context(tb)
+                default = f'key {e.args[0]!r} not found' if e.args else 'key not found'
+            self._handle_subscript_error(e, tb, label, context, default)
         else:
             self._show_exception_trimmed(e)
 
