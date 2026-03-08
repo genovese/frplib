@@ -15,7 +15,7 @@ import re
 from abc               import abstractmethod
 from collections.abc   import Iterable
 from dataclasses       import dataclass
-from decimal           import Decimal, ROUND_HALF_UP, ROUND_FLOOR, ROUND_CEILING
+from decimal           import Decimal, ROUND_FLOOR, ROUND_CEILING
 from enum              import Enum, auto
 from fractions         import Fraction
 from itertools         import zip_longest
@@ -29,8 +29,6 @@ from frplib.exceptions import EvaluationError
 #
 # Constants
 #
-
-DEFAULT_RATIONAL_DENOM_LIMIT = 1000000000   # Default Decimal -> Fraction conversion
 
 class NumType(Enum):
     INTEGER = auto()
@@ -282,9 +280,6 @@ def is_numeric(x) -> TypeGuard[Union[int, Decimal]]:
 
 REAL_ZERO = Decimal('0')
 REAL_ONE = Decimal('1')
-DECIMAL_DIG = 27  # current decimal precision used (digits)
-NICE_DIGITS = 16  # used in nice_round; must be 0 <= _ <= DECIMAL_DIG with current Decimal setup
-
 rat_denom = r'/(?:[1-9][0-9]{0,2}(?:_[0-9]{3})+|[1-9][0-9]*)'
 decimal = r'\.[0-9]*'
 sci_exp = r'[eE][-+]?(?:0|[1-9][0-9]*)'
@@ -317,8 +312,10 @@ def numeric_q_from_str(s: str) -> NumericQ:
 def numeric_q(
         x: ScalarQ = 0,
         exclude: Literal[NumType.RATIONAL] | Literal[NumType.REAL] | None = None,
-        limit_denominator=DEFAULT_RATIONAL_DENOM_LIMIT
+        limit_denominator=None
 ) -> NumericQ:
+    if limit_denominator is None:
+        limit_denominator = environment.numeric_out_params['rational_denom_limit']
     if isinstance(x, str):
         x = numeric_q_from_str(x)    # Fall through
 
@@ -345,7 +342,7 @@ def numeric_q(
         return qvalue
 
     if isinstance(x, float):
-        val = nice_round(Decimal(x), NICE_DIGITS).normalize()
+        val = nice_round(Decimal(x)).normalize()
     else:
         val = x  # This is a Decimal
 
@@ -354,16 +351,18 @@ def numeric_q(
         return rvalue.rational()
     return rvalue
 
-def nice_round(d: Decimal, dig=NICE_DIGITS) -> Decimal:
+def nice_round(d: Decimal, dig=None) -> Decimal:
+    if dig is None:
+        dig = environment.numeric_out_params['nice_digits']
     sign, digits, exp = d.as_tuple()
-    dig = min(dig - 1, DECIMAL_DIG)  # ATTN: negative dig is ok but think about that case
+    dig = min(dig - 1, environment.numeric_out_params['decimal_digits'])  # ATTN: negative dig is ok but think about that case
     n = len(digits)
     if n <= dig + 1 or not isinstance(exp, int):  # exp can be n, N, or F
         return d
     true_exp = n - 1 + exp
     new_exp = true_exp - dig
     dtuple = (0, tuple([1] + ([0] * dig)), new_exp)
-    return d.quantize(Decimal(dtuple), ROUND_HALF_UP)  # .normalize()
+    return d.quantize(Decimal(dtuple), environment.numeric_out_params['rounding'])  # .normalize()
 
 # Adjust these parameters for a default numerical quantification policy
 def as_numeric(x: ScalarQ = RealQuantity()) -> Numeric:
@@ -379,7 +378,9 @@ def as_rational(x: ScalarQ = RationalQuantity(), limit_denominator=False) -> Fra
 def as_real(x: ScalarQ = RealQuantity()) -> Decimal:
     return numeric_q(x).real().value
 
-def as_nice_numeric(x: ScalarQ = RealQuantity(), digits=NICE_DIGITS) -> Numeric:
+def as_nice_numeric(x: ScalarQ = RealQuantity(), digits=None) -> Numeric:
+    if digits is None:
+        digits = environment.numeric_out_params['nice_digits']
     xn = as_numeric(x)
     if isinstance(xn, int):
         return xn
@@ -443,22 +444,19 @@ class RealValue(Decimal):
 # Numeric output (needs improvement)
 #
 
-# ATTN: Move these to environment as settable options, the first two
-DEC_DENOMINATOR_LIMIT: int = 10**9
-MAX_DENOMINATOR_EXC = 50
-EXCLUDE_DENOMINATOR = {10, 20, 25, 50, 100, 125, 250, 500, 1000}
-ROUND_MASK = Decimal('1.000000000')
-
-def nroundx(x: Numeric, mask=ROUND_MASK, rounding=ROUND_HALF_UP) -> Decimal:
+def nroundx(x: Numeric, mask: Decimal, rounding: str) -> Decimal:
     return Decimal(x).quantize(mask, rounding)
 
-def nround(x: Numeric, mask=ROUND_MASK, rounding=ROUND_HALF_UP) -> Decimal:
+def nround(x: Numeric, mask=None, rounding=None) -> Decimal:
+    p = environment.numeric_out_params
+    if mask is None:     mask     = p['round_mask']
+    if rounding is None: rounding = p['rounding']
     return nroundx(x, mask, rounding).normalize()
 
-def as_frac(x: Numeric, denom_limit=DEC_DENOMINATOR_LIMIT) -> Fraction:
+def as_frac(x: Numeric, denom_limit: int) -> Fraction:
     return Fraction(x).limit_denominator(denom_limit)
 
-def denom_rules(denominator, max_denom=MAX_DENOMINATOR_EXC, exclude_denoms=EXCLUDE_DENOMINATOR) -> bool:
+def denom_rules(denominator, max_denom: int, exclude_denoms: set) -> bool:
     return denominator < max_denom and denominator not in exclude_denoms
 
 def show_prob(p: Numeric) -> str:
@@ -466,24 +464,31 @@ def show_prob(p: Numeric) -> str:
     if isinstance(p, int):
         return str(p)
 
-    pf = as_frac(p)
-    if denom_rules(pf.denominator):
+    params = environment.numeric_out_params
+    pf = as_frac(p, params['denom_limit'])
+    if denom_rules(pf.denominator, params['max_denom'], params['exclude_denoms']):
         return str(pf)
 
-    return str(nround(p))
+    return str(nround(p, params['round_mask']))
 
 # ATTN: Note that as used in FrpDemoSummary, this can also be passed a string to be interpreted
 def show_numeric(
         x: Union[Numeric, Nothing],
-        max_denom=MAX_DENOMINATOR_EXC,
-        exclude_denoms=EXCLUDE_DENOMINATOR,
-        rounding_mask=ROUND_MASK,
-        rounding=ROUND_HALF_UP
+        max_denom=None,
+        exclude_denoms=None,
+        rounding_mask=None,
+        rounding=None
 ) -> str:
     if isinstance(x, (int, Nothing)) or x == _nothing_str:
         return str(x)
 
-    frac = as_frac(x)
+    p = environment.numeric_out_params
+    if max_denom is None:      max_denom      = p['max_denom']
+    if exclude_denoms is None: exclude_denoms = p['exclude_denoms']
+    if rounding_mask is None:  rounding_mask  = p['round_mask']
+    if rounding is None:       rounding       = p['rounding']
+
+    frac = as_frac(x, p['denom_limit'])
     if denom_rules(frac.denominator, max_denom, exclude_denoms):
         return str(frac)
 
@@ -491,14 +496,19 @@ def show_numeric(
 
 def show_nice_numeric(
         x: Numeric,
-        max_denom=MAX_DENOMINATOR_EXC,
-        exclude_denoms=EXCLUDE_DENOMINATOR,
-        digits=NICE_DIGITS
+        max_denom=None,
+        exclude_denoms=None,
+        digits=None
 ) -> str:
     if isinstance(x, int):
         return str(x)
 
-    frac = as_frac(x)
+    p = environment.numeric_out_params
+    if max_denom is None:      max_denom      = p['max_denom']
+    if exclude_denoms is None: exclude_denoms = p['exclude_denoms']
+    if digits is None:         digits         = p['nice_digits']
+
+    frac = as_frac(x, p['denom_limit'])
     if denom_rules(frac.denominator, max_denom, exclude_denoms):
         return str(frac)
 
@@ -506,18 +516,24 @@ def show_nice_numeric(
 
 def show_values(
         xs: Iterable[Numeric | Nothing],
-        max_denom=MAX_DENOMINATOR_EXC,
-        exclude_denoms=EXCLUDE_DENOMINATOR,
-        rounding_mask=ROUND_MASK,
-        rounding=ROUND_HALF_UP,
+        max_denom=None,
+        exclude_denoms=None,
+        rounding_mask=None,
+        rounding=None,
         digit_shift=5
 ) -> list[str]:
     "Find a pleasing common representation for a list of numeric quantities."
+    p = environment.numeric_out_params
+    if max_denom is None:      max_denom      = p['max_denom']
+    if exclude_denoms is None: exclude_denoms = p['exclude_denoms']
+    if rounding_mask is None:  rounding_mask  = p['round_mask']
+    if rounding is None:       rounding       = p['rounding']
+
     # Do the values all have a simple common denominator?
     # If so, show as rationals with common denominator
     # ATTN: If there are *two* shared denominators that follow the rules, that would be useful
     xs = list(xs)
-    ratl_xs = [as_rational(x, limit_denominator=DEC_DENOMINATOR_LIMIT)   # type: ignore
+    ratl_xs = [as_rational(x, limit_denominator=p['denom_limit'])   # type: ignore
                if x is not nothing else nothing
                for x in xs]
     common_denom = math.lcm(*[r.denominator for r in ratl_xs if r is not nothing])   # type: ignore
@@ -541,10 +557,10 @@ def show_values(
 
 def show_tuples(
         tups: Iterable[tuple],
-        max_denom=MAX_DENOMINATOR_EXC,
-        exclude_denoms=EXCLUDE_DENOMINATOR,
-        rounding_mask=ROUND_MASK,
-        rounding=ROUND_HALF_UP,
+        max_denom=None,
+        exclude_denoms=None,
+        rounding_mask=None,
+        rounding=None,
         scalarize=True
 ) -> list[str]:
     "Convert a list of tuples to strings with angle-bracket syntax, with a shared representation for each component."
@@ -563,10 +579,10 @@ def show_tuples(
 # Use VecTuple.show when value types are normalized here
 def show_tuple(
         tup: tuple,
-        max_denom=MAX_DENOMINATOR_EXC,
-        exclude_denoms=EXCLUDE_DENOMINATOR,
-        rounding_mask=ROUND_MASK,
-        rounding=ROUND_HALF_UP,
+        max_denom=None,
+        exclude_denoms=None,
+        rounding_mask=None,
+        rounding=None,
         scalarize=True
 ) -> str:
     "Show a tuple with angle bracket syntax, but drop brackets for scalars."
@@ -587,7 +603,7 @@ def show_num(number: int | float | Decimal | Fraction,
             rational = Fraction.from_float(number).limit_denominator(denom_limit)
             if rational.denominator not in skip_denoms and abs(number - float(rational)) < 1.0e-7:
                 return str(rational)
-        return str(Decimal(number).quantize(Decimal(dec_round), rounding=ROUND_HALF_UP).normalize())
+        return str(Decimal(number).quantize(Decimal(dec_round), rounding=environment.numeric_out_params['rounding']).normalize())
     return str(number)
 
 # Use VecTuple.show when value types are normalized here

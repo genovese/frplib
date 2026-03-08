@@ -47,7 +47,7 @@ class NumericOutParams(TypedDict):
     rounding: str
     round_mask: Decimal
     decimal_digits: int
-    nice_digits: int
+    nice_digits: int          # must satisfy 0 <= nice_digits <= decimal_digits
 
 def default_numeric_out_params() -> NumericOutParams:
     return {
@@ -58,7 +58,7 @@ def default_numeric_out_params() -> NumericOutParams:
         'rounding': ROUND_HALF_UP,
         'round_mask': Decimal('1.000000000'),
         'decimal_digits': 27,
-        'nice_digits': 16,
+        'nice_digits': 16,    # must satisfy 0 <= nice_digits <= decimal_digits
     }
 
 

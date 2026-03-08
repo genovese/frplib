@@ -74,8 +74,8 @@ class Market:
 
         Parameters:
 
-        + count - the number of samples to use 
-        + spec  - a Kind, FRP, or suitable specification accepted by `kind`; 
+        + count - the number of samples to use
+        + spec  - a Kind, FRP, or suitable specification accepted by `kind`;
                   this defines what is sampled
         + show [= True] - if True, print a description of the Kind just as the
                           market command does. If False, only the summary table
@@ -85,11 +85,11 @@ class Market:
 
         Returns: a table of sample results, which by default is displayed. Note that
         the return value is equivalent to that produced by `FRP.sample`.
-        
+
         """
         if show:
             if isinstance(spec, FRP) and spec._kind is None:
-                emit(f'Activated {count} FRPs')        
+                emit(f'Activated {count} FRPs')
             else:
                 k = kind(spec)
                 emit(f'Activated {count} FRPs with kind')
@@ -104,20 +104,20 @@ class Market:
 
         Parameters:
 
-        + count - the number of samples to use 
+        + count - the number of samples to use
         + prices - the list of prices (in dollars) at which purchases are made
-        + kind_spec  - a Kind, FRP, or suitable specification accepted by `kind`; 
+        + kind_spec  - a Kind, FRP, or suitable specification accepted by `kind`;
                   this defines what is sampled
 
         Returns: None.
-        
+
         """
         if count <= 0:
             return
-     
+
         k: Kind = kind(kind_spec)  # ATTN: expr only case needs to be handled (possibly with error)
         prices = sorted(prices)
-     
+
         real_prices: list[Numeric] = []
         net_payoffs: list[VecTuple] = []
         net_per_unt: list[VecTuple] = []
@@ -127,12 +127,12 @@ class Market:
             total: VecTuple = sum(k.sample(count))
             net: VecTuple = total - n * real_price
             per_unit: VecTuple = net / n
-     
+
             real_prices.append(real_price)
             net_payoffs.append(net)
             net_per_unt.append(per_unit)
             # fields = {
-            #     'price': nroundx(real_price, mask=as_real('1.00')),
+            #     'price': nroundx(real_price, mask=as_real('1.00'), rounding=ROUND_HALF_UP),
             #     'net': net,
             #     'net-per-unit': per_unit
             #     'ps':
@@ -140,15 +140,15 @@ class Market:
             # widths = (0, 0, 0)
             # widths = tuple(map(max, zip(widths, (fields['price'], fields['net'], fields['net/u']))))
             # payoffs.append(fields)
-     
+
         real_prices_s = show_values(real_prices, max_denom=1)
         net_payoffs_s = show_tuples(net_payoffs, max_denom=1)
         net_per_unt_s = show_tuples(net_per_unt, max_denom=1)
-     
+
         emit(f'Buying {int(count):,} FRPs with kind')
         emit(paneled(k.show_full()))
         emit('at each price')
-     
+
         if environment.ascii_only:
             out: list[str] = []
             for i in range(len(prices)):
@@ -157,7 +157,7 @@ class Market:
                     net='$' + net_payoffs_s[i],
                     perunit='$' + net_per_unt_s[i]
                 ))
-     
+
             header = "{price:<12}    {net:>16}    {perunit:>12}".format(
                 price='Price/Unit',
                 net='Net Payoff',
@@ -170,7 +170,7 @@ class Market:
             table.add_column('Price/Unit ($)', justify='right', style='#4682b4', no_wrap=True)
             table.add_column('Net Payoff ($)', justify='right')
             table.add_column('Net Payoff/Unit ($)', justify='right', style='#6a6c6e')
-     
+
             for i in range(len(prices)):
                 table.add_row(
                     real_prices_s[i],
@@ -178,7 +178,7 @@ class Market:
                     net_per_unt_s[i]
                 )
             emit(table)
-     
+
             return None
 
     @classmethod
@@ -189,23 +189,23 @@ class Market:
 
         Parameters:
 
-        + count - the number of samples to use 
-        + kind_spec1  - a Kind, FRP, or suitable specification accepted by `kind`; 
+        + count - the number of samples to use
+        + kind_spec1  - a Kind, FRP, or suitable specification accepted by `kind`;
                   this defines what is sampled for the first Kind
-        + kind_spec2  - a Kind, FRP, or suitable specification accepted by `kind`; 
+        + kind_spec2  - a Kind, FRP, or suitable specification accepted by `kind`;
                   this defines what is sampled for the second Kind
 
         Returns: None.
-        
+
         """
-        k1 = kind(kind_spec1)  # ATTN: check FRP expr only case though kind() may 
-        k2 = kind(kind_spec2)  # ATTN: check FRP expr only case though kind() may 
+        k1 = kind(kind_spec1)  # ATTN: check FRP expr only case though kind() may
+        k2 = kind(kind_spec2)  # ATTN: check FRP expr only case though kind() may
 
         emit(f'Comparing {count} activated FRPs each for two kinds, A and B.')
-     
+
         emit(paneled(k1.show_full(), title='Kind A'))
         emit(paneled(k2.show_full(), title='Kind B'))
-     
+
         for k, which in [(k1, 'A'), (k2, 'B')]:
             summary = FrpDemoSummary()
             for sample in k.sample(count):

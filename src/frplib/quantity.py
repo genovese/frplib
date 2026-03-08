@@ -8,7 +8,7 @@ from fractions         import Fraction
 from itertools         import zip_longest
 from typing            import Callable, overload
 
-from frplib.numeric    import (NICE_DIGITS, Numeric, NumericQ, ScalarQ, nothing, Nothing,
+from frplib.numeric    import (Numeric, NumericQ, ScalarQ, nothing, Nothing,
                                as_nice_numeric, as_numeric, as_real,
                                numeric_q_from_str, show_values, show_nice_numeric)
 from frplib.symbolic   import Symbolic, symbol
@@ -103,10 +103,10 @@ def qvec(*xs, convert=as_quantity):
         return as_quant_vec(xs[0], convert=convert)
     return as_quant_vec(xs, convert=convert)
 
-def show_quantity(x: Numeric | Symbolic, digits=NICE_DIGITS) -> str:
+def show_quantity(x: Numeric | Symbolic, digits=None) -> str:
     if isinstance(x, Symbolic):
         return str(x)
-    return show_nice_numeric(x, digits)
+    return show_nice_numeric(x, digits=digits)
 
 def show_quantities(xs: Iterable[Numeric | Nothing | Symbolic]) -> list[str]:
     numerics: list[Numeric | Nothing] = []
