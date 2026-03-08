@@ -263,7 +263,7 @@ class IMixtureExpression(FrpExpression):
         # Moreover, we ensure that the kind is not too large,
         # as determined by FRP's complexity threshold.
         # We stop as soon as these conditions are not satisfied.
-        threshold = math.log2(FRP.COMPLEXITY_THRESHOLD)
+        threshold = math.log2(environment.frp_params['complexity_threshold'])
         logsize = 0.0
         cache_kind = True
         cache_value = True
@@ -370,7 +370,7 @@ class IMixPowerExpression(FrpExpression):
         if term._cached_kind is not None:
             if term._cached_kind.size == 0:
                 self._cached_kind = term._cached_kind  # Empty Kind is identity for *
-            elif pow * math.log2(term._cached_kind.size) <= math.log2(FRP.COMPLEXITY_THRESHOLD):
+            elif pow * math.log2(term._cached_kind.size) <= math.log2(environment.frp_params['complexity_threshold']):
                 self._cached_kind = term._cached_kind ** pow
 
     def sample1(self) -> ValueType:
@@ -1419,8 +1419,6 @@ class EmptyFrpDescriptor:  # Enables FRP.empty to belong to FRP class
 #
 
 class FRP:
-    COMPLEXITY_THRESHOLD = 16384  # Maximum size to maintain kindedness (was 1024)
-    EVOLUTION_THRESHOLD = 128     # Evolving FRP for more steps activates intermediates
 
     def __init__(self, create_from: FRP | FrpExpression | Kind | str) -> None:
         if not create_from:  # Kind.empty or FRP.empty or ''
@@ -1688,7 +1686,7 @@ class FRP:
         if self.is_kinded() and frp.is_kinded():
             k1 = self.kind
             k2 = frp.kind
-            if k1.size * k2.size <= self.COMPLEXITY_THRESHOLD:
+            if k1.size * k2.size <= environment.frp_params['complexity_threshold']:
                 our_kind = k1 * k2
 
         # ATTN:Issue 43 if self and frp are expressions that happen
@@ -1726,7 +1724,7 @@ class FRP:
 
     def __pow__(self, n, modulo=None):  # Self -> int -> FRP
         is_kinded = self.is_kinded()
-        if is_kinded and (self.size == 0 or math.log2(self.size) * n <= math.log2(self.COMPLEXITY_THRESHOLD)):
+        if is_kinded and (self.size == 0 or math.log2(self.size) * n <= math.log2(environment.frp_params['complexity_threshold'])):
             return FRP(self.kind ** n)
 
         if not is_kinded and isinstance(self._expr, IMixPowerExpression):
@@ -1779,7 +1777,7 @@ class FRP:
                     raise FrpError(f'In a mixture, conditional FRP appears incompatible with mixer '
                                    f'at value {branch.vs}:\n  {str(e)}')
 
-                if not target.is_kinded() or (dim * target.kind.dim > self.COMPLEXITY_THRESHOLD):
+                if not target.is_kinded() or (dim * target.kind.dim > environment.frp_params['complexity_threshold']):
                     make_kinded = False
                     break
                 targets[branch.vs] = target
@@ -2091,7 +2089,8 @@ def evolve(start, next_state, n_steps=1, transform=None):
     to exceed Python's recursion limit. The solution is to
     activate the intermediate FRPs, which prevents large expressions.
     Passing FRP.activate as the transform argument solves this problem.
-    Alternatively, if n_steps is bigger than FRP.EVOLUTION_THRESHOLD,
+    Alternatively, if n_steps is bigger than the evolution threshold
+    (environment.frp_params['evolution_threshold'], default 128),
     the intermediate (but not the last) FRP will be activated
     automatically. It is generally preferable to use the automatic
     solution, but when a transform argument is given, this automatic
@@ -2143,7 +2142,7 @@ def evolve(start, next_state, n_steps=1, transform=None):
     if transform is not None:
         for _ in range(n_steps):
             current = transform(next_state // current)
-    elif n_steps > FRP.EVOLUTION_THRESHOLD and have == 'FRP':
+    elif n_steps > environment.frp_params['evolution_threshold'] and have == 'FRP':
         for step in range(n_steps):
             current = next_state // current
             if step < n_steps - 1:

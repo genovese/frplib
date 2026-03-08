@@ -39,6 +39,17 @@ dark_theme = Theme({
     "markdown.code_block": "#4682b4 on white",
 })
 
+class FrpParams(TypedDict):
+    complexity_threshold: int   # Maximum kind size to maintain kindedness
+    evolution_threshold: int    # Steps above which intermediate FRPs are activated automatically
+
+def default_frp_params() -> FrpParams:
+    return {
+        'complexity_threshold': 16384,   # was FRP.COMPLEXITY_THRESHOLD
+        'evolution_threshold':  128,     # was FRP.EVOLUTION_THRESHOLD
+    }
+
+
 class NumericOutParams(TypedDict):
     rational_denom_limit: int
     denom_limit: int
@@ -72,6 +83,7 @@ class Environment:
     command_number_in_prompt: bool = False
     console: Console = Console(highlight=True, theme=bright_theme)
     numeric_out_params: NumericOutParams = field(default_factory=default_numeric_out_params)
+    frp_params: FrpParams = field(default_factory=default_frp_params)
 
     def on_ascii_only(self) -> None:
         "Require ASCII-only output, no rich text, unicode, or markdown."
