@@ -18,6 +18,7 @@ from rich.markdown                 import Markdown
 from frplib.env        import environment
 from frplib.exceptions import FrplibException
 from frplib.protocols  import Renderable
+from frplib.vec_tuples import VecTuple
 
 
 #
@@ -195,21 +196,19 @@ def remove_playground(globals) -> None:
 #
 
 def _describe_container(obj) -> str:
-    """Human-readable description of a subscriptable object for error messages."""
-    from frplib.vec_tuples import VecTuple
+    """Gives a human-readable description of a subscriptable object for error messages."""
     if isinstance(obj, VecTuple):
         return f'a VecTuple of dimension {len(obj)}'
-    elif isinstance(obj, dict):
+    if isinstance(obj, dict):
         return f'a {type(obj).__name__} of {len(obj)} entries'
-    elif isinstance(obj, (list, tuple)):
+    if isinstance(obj, (list, tuple)):
         return f'a {type(obj).__name__} of length {len(obj)}'
-    elif isinstance(obj, str):
+    if isinstance(obj, str):
         return f'a string of length {len(obj)}'
-    else:
-        try:
-            return f'a {type(obj).__name__} of length {len(obj)}'
-        except TypeError:
-            return f'a {type(obj).__name__}'
+    try:
+        return f'a {type(obj).__name__} of length {len(obj)}'
+    except TypeError:
+        return f'a {type(obj).__name__}'
 
 def _subscript_error_context(tb, s1_format) -> str | None:
     """Shared context extraction for IndexError and KeyError tracebacks.
@@ -279,11 +278,14 @@ def _is_playground_file(filename: str) -> bool:
     return filename.startswith('<playground-')
 
 def _has_external_frames(tb) -> bool:
-    """Return True if any non-frplib, non-playground frames follow the last <module> frame.
+    """Returns True if any non-frplib, non-playground frames follow the last <module> frame.
+
+    Takes a single parameter: a traceback produced by an exception in the repl.
 
     Used to decide whether to show the explain_error() hint alongside a clean
-    IndexError message — i.e., when the error is buried inside imported user code
+    error message — i.e., when the error is buried inside imported user code
     rather than being a direct top-level expression.
+
     """
     frames = list(tb_module.walk_tb(tb))
     last_module_idx = -1
@@ -298,7 +300,11 @@ def _has_external_frames(tb) -> bool:
     return False
 
 def _is_toplevel_in_repl(tb) -> bool:
-    """Return True if the IndexError originated directly at the REPL top level."""
+    """Returns True if an exception originated directly at the REPL top level.
+
+    Takes a single parameter: a traceback produced by an exception in the repl.
+
+    """
     last_playground = None
     for frame, _lineno in tb_module.walk_tb(tb):
         if _is_playground_file(frame.f_code.co_filename):
@@ -306,10 +312,13 @@ def _is_toplevel_in_repl(tb) -> bool:
     return last_playground is not None and last_playground.f_code.co_name == '<module>'
 
 def _is_explain_error_call(tb) -> bool:
-    """Return True if this traceback entry is a top-level explain_error() call.
+    """Returns True if this traceback entry is a top-level explain_error() call.
+
+    Takes a single parameter: a traceback produced by an exception in the repl.
 
     Uses linecache (populated by _compile_with_flags) to get the source line
     and checks via AST that it is a bare call to explain_error.
+
     """
     frame = tb.tb_frame
     if frame.f_code.co_name != '<module>':
@@ -366,7 +375,7 @@ class PlaygroundRepl(PythonRepl):
             # done by run_and_show_expression in ptpython 3.0.32 after we return.
             try:
                 environment.console.print(result.__frplib_repr__())
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 environment.console.print(f'Could not print result due to an error:\n  {str(e)}')
         else:
             super()._show_result(result)    # type: ignore
@@ -401,6 +410,17 @@ class PlaygroundRepl(PythonRepl):
             e.__traceback__ = original
 
     def _handle_subscript_error(self, e: BaseException, tb, label: str, context: str | None, default: str) -> None:
+        """Provides a cleaner error message with source identification, with optional further explanation.
+
+        Correctly distinguishes single expressions at the repl, functions defined at the repl,
+        or functions defined in external code, giving appropriate source identification for
+        each. In appropriate cases, it will suggest a call to explain_error() to get more
+        detail from the stack.
+
+        This is focused on Index and Key errors, which are both common user mistakes and
+        also have identifiable points in the traceback for cleaning.
+
+        """
         if _is_toplevel_in_repl(tb):
             hint = ('\nCall explain_error() for the full traceback.'
                     if _has_external_frames(tb) else '')
@@ -422,7 +442,7 @@ class PlaygroundRepl(PythonRepl):
         if isinstance(e, FrplibException):
             try:
                 environment.console.print(str(e))
-            except Exception:
+            except Exception:   # pylint: disable=broad-exception-caught
                 environment.console.print(f'FrplibException: {str(e)}')
         elif isinstance(e, (IndexError, KeyError)):
             # Subscript errors are among the most common in interactive use,

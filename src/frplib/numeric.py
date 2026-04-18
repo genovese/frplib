@@ -314,7 +314,17 @@ def numeric_q(
         exclude: Literal[NumType.RATIONAL] | Literal[NumType.REAL] | None = None,
         limit_denominator=None
 ) -> NumericQ:
-    if limit_denominator is None:
+    """Converts an arbitrary scalar type into a quantity (NumericQ type).
+
+    The `exclude` parameter disambiguates handling of real and rational quantities.
+    If it is set to one of these types, a scalar of that type will be converted
+    to the other. For instance, excluding rational quantities means that rational
+    quantities will be converted to real quantities.
+
+    Returns a quantity object of the appropriate type.
+
+    """
+    if limit_denominator is None:  # ATTN: Not really using this at the moment, deprecate arg?
         limit_denominator = environment.numeric_out_params['rational_denom_limit']
     if isinstance(x, str):
         x = numeric_q_from_str(x)    # Fall through
@@ -352,10 +362,15 @@ def numeric_q(
     return rvalue
 
 def nice_round(d: Decimal, dig=None) -> Decimal:
+    """Rounds a decimal value to an aesthetically pleasing degree.
+
+    What constitutes pleasing is determined by the environment parameter 'nice_digits'.
+
+    """
     if dig is None:
         dig = environment.numeric_out_params['nice_digits']
-    sign, digits, exp = d.as_tuple()
-    dig = min(dig - 1, environment.numeric_out_params['decimal_digits'])  # ATTN: negative dig is ok but think about that case
+    _sign, digits, exp = d.as_tuple()
+    dig = min(dig - 1, environment.numeric_out_params['decimal_digits'])  # ATTN: negative dig is ok but check that
     n = len(digits)
     if n <= dig + 1 or not isinstance(exp, int):  # exp can be n, N, or F
         return d
@@ -364,21 +379,23 @@ def nice_round(d: Decimal, dig=None) -> Decimal:
     dtuple = (0, tuple([1] + ([0] * dig)), new_exp)
     return d.quantize(Decimal(dtuple), environment.numeric_out_params['rounding'])  # .normalize()
 
-# Adjust these parameters for a default numerical quantification policy
 def as_numeric(x: ScalarQ = RealQuantity()) -> Numeric:
-    "A specialized version of `numeric` that defines a system-wide quantification policy."
+    "A specialized version of `numeric_q` that defines a default quantification policy."
     return cast(
         Union[IntegerQuantity, RealQuantity],
-        numeric_q(x, exclude=NumType.RATIONAL, limit_denominator=1000000000)
+        numeric_q(x, exclude=NumType.RATIONAL, limit_denominator=environment.numeric_out_params['denom_limit'])
     ).value
 
 def as_rational(x: ScalarQ = RationalQuantity(), limit_denominator=False) -> Fraction:
+    """Converts a scalar to a fraction, approximating as closely as possible within the denominator limit."""
     return numeric_q(x).rational(limit_denominator).value
 
 def as_real(x: ScalarQ = RealQuantity()) -> Decimal:
+    """Converts a scalar to a real (floating-point) quantity."""
     return numeric_q(x).real().value
 
 def as_nice_numeric(x: ScalarQ = RealQuantity(), digits=None) -> Numeric:
+    """Like `as_numeric` but rounds with `nice_round`."""
     if digits is None:
         digits = environment.numeric_out_params['nice_digits']
     xn = as_numeric(x)
@@ -392,32 +409,40 @@ def as_nice_numeric(x: ScalarQ = RealQuantity(), digits=None) -> Numeric:
 #
 
 def numeric_sqrt(x: ScalarQ) -> Numeric:
+    """The square root of an arbitrary scalar quantity."""
     return as_real(x).sqrt()
 
 def numeric_exp(x: ScalarQ) -> Numeric:
+    """The exponential function of an arbitrary scalar quantity."""
     return as_real(x).exp()
 
 def numeric_ln(x: ScalarQ) -> Numeric:
+    """The natural log of an arbitrary scalar quantity."""
     return as_real(x).ln()
 
 def numeric_log10(x: ScalarQ) -> Numeric:
+    """The log base 10 of an arbitrary scalar quantity."""
     return as_real(x).log10()
 
 def numeric_log2(x: ScalarQ) -> Numeric:
+    """The log base 2 of an arbitrary scalar quantity."""
     c = as_real(2).ln()
     return as_real(x).ln() / c
 
 def numeric_abs(x: ScalarQ) -> Numeric:
+    """The absolute value of an arbitrary scalar quantity."""
     if isinstance(x, int):
         return abs(x)
     return as_real(x).copy_abs()
 
 def numeric_floor(x: ScalarQ) -> Numeric:
+    """The floor of an arbitrary scalar quantity."""
     if isinstance(x, int):
         return x
     return as_real(x).quantize(REAL_ONE, ROUND_FLOOR)
 
 def numeric_ceil(x: ScalarQ) -> Numeric:
+    """The ceiling of an arbitrary scalar quantity."""
     if isinstance(x, int):
         return x
     return as_real(x).quantize(REAL_ONE, ROUND_CEILING)
@@ -449,8 +474,10 @@ def nroundx(x: Numeric, mask: Decimal, rounding: str) -> Decimal:
 
 def nround(x: Numeric, mask=None, rounding=None) -> Decimal:
     p = environment.numeric_out_params
-    if mask is None:     mask     = p['round_mask']
-    if rounding is None: rounding = p['rounding']
+    if mask is None:
+        mask = p['round_mask']
+    if rounding is None:
+        rounding = p['rounding']
     return nroundx(x, mask, rounding).normalize()
 
 def as_frac(x: Numeric, denom_limit: int) -> Fraction:
@@ -460,7 +487,7 @@ def denom_rules(denominator, max_denom: int, exclude_denoms: set) -> bool:
     return denominator < max_denom and denominator not in exclude_denoms
 
 def show_prob(p: Numeric) -> str:
-    "Provide a human readable view of a fractional number in [0,1]."
+    """Provides a human readable view of a fractional number in [0,1]."""
     if isinstance(p, int):
         return str(p)
 
@@ -520,7 +547,7 @@ def show_values(
         exclude_denoms=None,
         rounding_mask=None,
         rounding=None,
-        digit_shift=5
+        digit_shift=5   # ATTN: Eliminate this arg?
 ) -> list[str]:
     "Find a pleasing common representation for a list of numeric quantities."
     p = environment.numeric_out_params
@@ -539,7 +566,7 @@ def show_values(
     common_denom = math.lcm(*[r.denominator for r in ratl_xs if r is not nothing])   # type: ignore
     if common_denom == 1:
         return list(map(str, ratl_xs))
-    elif denom_rules(common_denom, max_denom, exclude_denoms):
+    if denom_rules(common_denom, max_denom, exclude_denoms):
         return [f'{int(x.numerator * common_denom / x.denominator)}/{common_denom}'  # type: ignore
                 if x is not nothing else str(nothing)
                 for x in ratl_xs]

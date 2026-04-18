@@ -41,7 +41,7 @@ dark_theme = Theme({
 
 class FrpParams(TypedDict):
     complexity_threshold: int   # Maximum kind size to maintain kindedness
-    evolution_threshold: int    # Steps above which intermediate FRPs are activated automatically
+    evolution_threshold: int    # Evolution steps above which intermediate FRPs are automatically activated
 
 def default_frp_params() -> FrpParams:
     return {
@@ -51,19 +51,20 @@ def default_frp_params() -> FrpParams:
 
 
 class NumericOutParams(TypedDict):
-    rational_denom_limit: int
-    denom_limit: int
-    max_denom: int
-    exclude_denoms: set[int]
-    rounding: str
-    round_mask: Decimal
-    decimal_digits: int
-    nice_digits: int          # must satisfy 0 <= nice_digits <= decimal_digits
+    denom_limit: int            # Max denominator for rational approximation; see fractions.limit_denominator
+    rational_denom_limit: int   # Max denominator for Decimal to Fraction conversion. ATTN: Deprecate?
+    max_denom: int              # Maximum denominator value for which rational expression is done
+    exclude_denoms: set[int]    # Set of denominator values for which to suppress rational expression
+    rounding: str               # How rounding is done, taken from decimal package (e.g., ROUND_HALF_UP)
+    round_mask: Decimal         # Decimal value that determines the exponent of rounded values. See decimal.quantize.
+    decimal_digits: int         # Current decimal precision (in digits) used for display
+    nice_digits: int            # # digits used for aesthetically pleasing rounding
+                                # must satisfy 0 <= nice_digits <= decimal_digits    # noqa: E116
 
 def default_numeric_out_params() -> NumericOutParams:
     return {
-        'rational_denom_limit': 1000000000,
         'denom_limit': 10**9,
+        'rational_denom_limit': 1000000000,
         'max_denom': 50,
         'exclude_denoms': {10, 20, 25, 50, 100, 125, 250, 500, 1000},
         'rounding': ROUND_HALF_UP,

@@ -540,7 +540,7 @@ def _is_sequence(x) -> TypeGuard[Iterable]:
 def join(*x: T | VecTuple[T] | Iterable[T | tuple[T, ...]]) -> VecTuple[T]:
     """Concatenates one or more values in order into a single VecTuple.
 
-    Values can be given as a single iterable argument (not a tuple or string)
+    Values can be given as a single iterable argument (not a tuple or string)  # ATTN: tuple ok and useful??
     containing tuples or scalars, or as multiple tuple or scalar arguments.
 
     Returns a VecTuple joining all values in order.
