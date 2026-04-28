@@ -542,7 +542,7 @@ class PureExpression(FrpExpression):
         if self._target.is_kinded():
             return self._target.kind.expectation
         raise ComplexExpectationWarning('The expectation of this FRP could not be computed '
-                                        'without first finding its kind.')
+                                        'without first finding its kind. Consider an approximate expectation.')
 
     def _refresh_cached_value(self) -> ValueType | None:
         if self._cached_value is None:

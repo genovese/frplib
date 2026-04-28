@@ -76,6 +76,7 @@ class KindBranch(_KindBranch):
 
     @classmethod
     def make(cls, vs, p):
+        """Creates a Kind branch from a value and probability."""
         w = as_weight(p)
         if not is_symbolic(w) and w < 0:
             raise KindError(f'Kinds cannot have negative weights ({w})')
@@ -83,13 +84,13 @@ class KindBranch(_KindBranch):
 
     @property
     def value(self):
-        "Extract the value from a KindBranch, returning a scalar if value tuple has dim 1."
+        """Extracts the value from a KindBranch, returning a scalar if value tuple has dim 1."""
         if len(self.vs) == 1:
             return self.vs[0]
         return self.vs
 
     def assoc(self, *, vs=None, p=None):
-        "Returns new branch with values or prob updated by a function"
+        """Returns new branch with value and/or prob updated to those given."""
         have_v = vs is not None
         have_p = p  is not None
         if not have_v and not have_p:
@@ -100,7 +101,7 @@ class KindBranch(_KindBranch):
         return self.make(vs=val, p=prob)
 
     def update(self, *, vs=None, p=None):
-        "Returns new branch with values or prob updated by a function"
+        """Returns new branch with values or prob updated by a function."""
         have_v = vs is not None
         have_p = p  is not None
         if not have_v and not have_p:
@@ -111,17 +112,18 @@ class KindBranch(_KindBranch):
         return self.make(vs=val, p=prob)
 
     def is_symbolic(self):
+        """Tests if either value or weight of this branch is a symbolic quantity."""
         return is_symbolic(self.p) or any(is_symbolic(vi) for vi in self.vs)
 
     # (va -> vb) -> (pa -> pb) -> (KindBranch -> KindBranch)
     @staticmethod
-    def bimap(vs=identity, p=identity):
+    def bimap(f_vs=identity, f_p=identity):
         "Returns function that transforms values and probability of a kind branch"
-        if vs is identity and p is identity:
+        if f_vs is identity and f_p is identity:
             return identity
 
         def transform(branch):
-            return KindBranch.make(vs=vs(branch.vs), p=p(branch.p))
+            return KindBranch.make(vs=f_vs(branch.vs), p=f_p(branch.p))
         return transform
 
 # ATTN: This version is not called; see kinds; remove?
@@ -152,7 +154,7 @@ def canonical_from_sexp(k_sexp_str: str) -> list[KindBranch]:
     try:
         ktree = kind_sexp.parse(k_sexp_str)
     except ParseError as e:
-        raise KindError(parse_error_message(e))
+        raise KindError(parse_error_message(e)) from e
     errors = validate_kind(ktree)
     if errors:
         raise KindError("".join(errors))

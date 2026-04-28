@@ -188,7 +188,7 @@ def index_of(value, xs, not_found=-1, *, start=0, stop=sys.maxsize):
             return not_found
     else:
         for i, v in enumerate(xs):
-            if i >= start and i < stop and v == value:
+            if start <= i < stop and v == value:
                 return i
         return not_found
 

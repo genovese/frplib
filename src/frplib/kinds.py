@@ -114,17 +114,18 @@ def dict_as_value_map(d: dict, values: set | None = None) -> Callable:
 
 # ATTN: this should probably become static methods; see Conditional Kinds.
 def value_map(f, kind=None):  # ATTN: make in coming maps tuple safe; add dimension hint even if no kind
+    """ATTN"""
     # We require that all kinds returned by f are the same dimension
     # But do not check if None is passed explicitly for kind
     if callable(f):
         # ATTN: second clause requires a conditional Kind; this is fragile
         if kind is not None:
-            dim_image = set([f(as_vec_tuple(vs)).dim for vs in kind.value_set])
+            dim_image = { f(as_vec_tuple(vs)).dim for vs in kind.value_set }
             if len(dim_image) != 1:
                 raise KindError('All values for a transform or mixture must be '
                                 'associated with a Kind of the same dimension')
         return f
-    elif isinstance(f, dict):
+    if isinstance(f, dict):
         # ATTN?? Use dict_as_value_map(f, kind.value_set) here instead of the following code
         if kind is not None:
             overlapping = {as_vec_tuple(vs) for vs in f.keys()} & kind.value_set
@@ -215,7 +216,7 @@ class Kind:
             try:
                 branches = canonical_from_tree(spec)
             except Exception as e:
-                raise KindError(f'Problem building a Kind a KindTree:\n  {str(e)}')
+                raise KindError(f'Problem building a Kind a KindTree:\n  {str(e)}') from e
         else:
             raise KindError(f'Cannot construct a Kind from object of type {type(spec).__name__}, {spec}')
 
@@ -736,8 +737,7 @@ class Kind:
         another kind.
 
         """
-
-        "Conditioning on self; other is a conditional distribution."
+        # Conditioning on self; other is a conditional distribution.
         return self.conditioned_on(other)
 
     def __rshift__(self, cond_kind):
@@ -877,6 +877,13 @@ class Kind:
         size = self.size
         juncture, extra = (size // 2, size % 2 == 0)
 
+        # ATTN: add normalized=True argument
+        # Replace next with p_labels, v_labels = zip(*list(self))
+        # But multiply .p by the stored total in the unnormalized case
+        # Clean this up, but then can use show_full for unnormalized in Market.demo etc.
+        # ATTN UPDATE: Better yet, have a display_style property (enum) in the Kind
+        # and use that here. CANONICAL, UNNORMALIZED, UNFOLDED
+
         p_labels = show_quantities(branch.p  for branch in self._canonical)
         v_labels = show_qtuples(branch.vs for branch in self._canonical)
         pwidth = max(map(len, p_labels), default=0) + 2
@@ -934,7 +941,7 @@ class Kind:
             with path.open('wb') as f:
                 pickle.dump(self, f)
         except IOError as e:
-            raise OperationError(f'Could not dump Kind to file {path}:\n  {e}')
+            raise OperationError(f'Could not dump Kind to file {path}:\n  {e}') from e
 
     @classmethod
     def load(cls, filepath: str | Path) -> Kind:
@@ -944,7 +951,7 @@ class Kind:
             with path.open('rb') as f:
                 return pickle.load(f)
         except IOError as e:
-            raise OperationError(f'Could not load Kind from file {path}:\n  {e}')
+            raise OperationError(f'Could not load Kind from file {path}:\n  {e}') from e
 
 # Tagged kinds for context in conditionals
 #
@@ -987,36 +994,36 @@ class TaggedKind(Kind):
 # See also the generic utilities size, dim, values, frp, unfold, clone, et cetera.
 
 @overload
-def kind(any: SupportsConditionalKindOf) -> ConditionalKind:
+def kind(spec: SupportsConditionalKindOf) -> ConditionalKind:
     ...
 
 @overload
-def kind(any: Kind | Kinded | SupportsKindOf | str | Sequence | list | None | Literal[False]) -> Kind:
+def kind(spec: Kind | Kinded | SupportsKindOf | str | Sequence | list | None | Literal[False]) -> Kind:
     ...
 
-def kind(any):
-    "A generic constructor for kinds, from strings, other kinds, FRPs, and more."
-    if isinstance(any, Kind):
-        return any
+def kind(spec):
+    """A generic constructor for Kinds, accepting Kinds, FRPs, sexp strings, and more."""
+    if isinstance(spec, Kind):
+        return spec
 
-    if isinstance(any, SupportsKindOf):  # FRPExpressions have .kind_of and .kind methods
-        return any.kind_of()
+    if isinstance(spec, SupportsKindOf):  # FRPExpressions have .kind_of and .kind methods
+        return spec.kind_of()
 
-    if isinstance(any, SupportsConditionalKindOf):  # ConditionalFRPs use this to produce their conditional Kind
-        return any.conditional_kind_of()
+    if isinstance(spec, SupportsConditionalKindOf):  # ConditionalFRPs use this to produce their conditional Kind
+        return spec.conditional_kind_of()
 
-    if hasattr(any, 'kind'):  # Kinded case but more general
-        return any.kind
+    if hasattr(spec, 'kind'):  # Kinded case but more general
+        return spec.kind
 
-    if not any:
+    if not spec:
         return Kind.empty
-    if isinstance(any, str) and (any in {'void', 'empty'} or re.match(r'\s*\(\s*<\s*>\s*\)\s*', any)):
+    if isinstance(spec, str) and (spec in {'void', 'empty'} or re.match(r'\s*\(\s*<\s*>\s*\)\s*', spec)):
         return Kind.empty
 
     try:
-        return Kind(any)
+        return Kind(spec)
     except Exception as e:
-        raise KindError(f'I could not create a Kind from {any}:\n  {str(e)}')
+        raise KindError(f'I could not create a Kind from {spec}:\n  {str(e)}') from e
 
 def is_kind(x) -> TypeGuard[Kind]:
     return isinstance(x, Kind)

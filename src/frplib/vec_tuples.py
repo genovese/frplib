@@ -42,12 +42,13 @@ from fractions         import Fraction
 from functools         import reduce
 from operator          import (add, mul, sub, truediv, floordiv, mod, pow,
                                lt, gt, eq, le, ge)
-from typing            import cast, Type, TypeVar, Union
+from typing            import cast, Callable, Type, TypeVar, Union
 from typing_extensions import Self, TypeGuard
 
 from frplib.exceptions import (FrplibException, OperationError, NumericConversionError,
                                MismatchedDimensionError, MismatchedDomain)
-from frplib.numeric    import Numeric, NumericF, NumericD, NumericB, Nothing, nothing, numeric_sqrt  # ATTN: Numeric+Symbolic+SupportsVec
+from frplib.numeric    import (Numeric, NumericF, NumericD, NumericB, Nothing, nothing,
+                               numeric_sqrt)  # ATTN: Numeric+Symbolic+SupportsVec
 from frplib.numeric    import as_numeric as scalar_as_numeric
 from frplib.symbolic   import Symbolic, is_symbolic, symbolic_sqrt
 
@@ -392,7 +393,7 @@ class VecTuple(tuple[T, ...]):
         except (OperationError, MismatchedDimensionError):
             return False
         except TypeError as e:
-            raise OperationError(f'Could not test for == with {other}:\n  {str(e)}')
+            raise OperationError(f'Could not test for == with {other}:\n  {str(e)}') from e
         # other = from_scalar(other)   # Allow scalar equality of VecTuples, no invariants changed
         # try:
         #     return super().__eq__(other)
@@ -408,7 +409,7 @@ class VecTuple(tuple[T, ...]):
         except (OperationError, MismatchedDimensionError):
             return True
         except TypeError as e:
-            raise OperationError(f'Could not test for != with {other}:\n  {str(e)}')
+            raise OperationError(f'Could not test for != with {other}:\n  {str(e)}') from e
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
         # try:
         #     return super().__ne__(other)
@@ -419,7 +420,7 @@ class VecTuple(tuple[T, ...]):
         try:
             return extended_all_cmp(le, self, other) and extended_some_cmp(lt, self, other)
         except TypeError as e:
-            raise OperationError(f'Could not test for < with {other}:\n  {str(e)}')
+            raise OperationError(f'Could not test for < with {other}:\n  {str(e)}') from e
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
         # try:
         #     return super().__lt__(other)
@@ -430,7 +431,7 @@ class VecTuple(tuple[T, ...]):
         try:
             return extended_all_cmp(le, self, other)
         except TypeError as e:
-            raise OperationError(f'Could not test for <= with {other}:\n  {str(e)}')
+            raise OperationError(f'Could not test for <= with {other}:\n  {str(e)}') from e
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
         # try:
         #     return super().__le__(other)
@@ -441,7 +442,7 @@ class VecTuple(tuple[T, ...]):
         try:
             return extended_all_cmp(ge, self, other) and extended_some_cmp(gt, self, other)
         except TypeError as e:
-            raise OperationError(f'Could not test for > with {other}:\n  {str(e)}')
+            raise OperationError(f'Could not test for > with {other}:\n  {str(e)}') from e
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
         # try:
         #     return super().__gt__(other)
@@ -452,7 +453,7 @@ class VecTuple(tuple[T, ...]):
         try:
             return extended_all_cmp(ge, self, other)
         except TypeError as e:
-            raise OperationError(f'Could not test for >= with {other}:\n  {str(e)}')
+            raise OperationError(f'Could not test for >= with {other}:\n  {str(e)}') from e
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
         # try:
         #     return super().__ge__(other)
@@ -505,30 +506,40 @@ class VecTuple(tuple[T, ...]):
         if to_len > m:
             extra_len = to_len - m
             return cls(xs + [pad] * extra_len)
-        elif to_len > 0:
+        if to_len > 0:
             return cls(xs[:to_len])
-        else:
-            raise FrplibException(f'{cls}.pad_to requires a positive target length, given {to_len}')
+        raise FrplibException(f'{cls}.pad_to requires a positive target length, given {to_len}')
 
 
 def vec_tuple(*a: T) -> VecTuple[T]:
-    "Collects its arguments into a VecTuple"
+    """Collects its arguments into a VecTuple."""
     return VecTuple(a)
 
 def as_vec_tuple(x: T | Iterable[T] = ()) -> VecTuple[T]:
-    "Converts an iterable to (or wraps a single value in) a VecTuple"
+    """Converts an iterable to -- or wraps a single value in -- a VecTuple."""
     if isinstance(x, VecTuple):
         return x
     if isinstance(x, Iterable) and not isinstance(x, str):
         return VecTuple(x)
     return vec_tuple(x)
 
+def map_to_vec_tuple(f: Callable[..., T], *xs: Iterable[T]) -> VecTuple[T]:
+    """Maps a function over one or more iterables, converting the result to a VecTuple.
+
+    This has the same signature (and effect) as the built-in map but wraps the resulting
+    iterator in a concrete VecTuple object. As such, the function f should take
+    a number of arguments equal to the number of iterables given in the remaining
+    arguments.
+
+    """
+    return VecTuple(map(f, *xs))
+
 def as_numeric_vec(x):
+    """Converts iterable components, or a single scalar, to numeric quantities and wraps in a VecTuple."""
     # ATTN: Consider using as_real here
     if isinstance(x, Iterable) and not isinstance(x, str):
         return VecTuple(map(scalar_as_numeric, x))
-    else:
-        return vec_tuple(scalar_as_numeric(x))
+    return vec_tuple(scalar_as_numeric(x))
 
 def is_vec_tuple(x) -> TypeGuard[VecTuple[T]]:
     "Is this a VecTuple?"
@@ -574,7 +585,7 @@ def value_set(*vals) -> set[VecTuple]:
     if len(vals) == 1 and hasattr(vals[0], '__next__'):
         # We have been given a single iterator/generator, use it
         vals = vals[0]
-    vs = set([as_vec_tuple(v) for v in vals])
+    vs = { as_vec_tuple(v) for v in vals }
     dims = set(map(len, vs))
     if len(dims) != 1:
         raise MismatchedDomain(f'Value set elements have different dimensions, {dims}.')

@@ -84,7 +84,7 @@ from frplib.utils import (
 from frplib.vec_tuples import (
     VecTuple,
     as_numeric_vec, as_scalar, as_vec_tuple, as_float, as_bool,
-    is_vec_tuple, vec_tuple, join,
+    map_to_vec_tuple, is_vec_tuple, vec_tuple, join,
 )
 
 from frplib.market import Market
@@ -148,7 +148,7 @@ __all__ = [
     # frplib.vec_tuples
     'VecTuple',
     'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float', 'as_bool',
-    'is_vec_tuple', 'vec_tuple', 'join',
+    'map_to_vec_tuple', 'is_vec_tuple', 'vec_tuple', 'join',
     # frplib.market
     'Market',
     # frplib.extras

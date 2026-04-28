@@ -14,19 +14,11 @@ from parsy import (
 
 from frplib.exceptions           import KindError
 from frplib.numeric              import as_numeric, integer_re, numeric_q_from_str, numeric_re
-from frplib.vec_tuples           import VecTuple
+from frplib.vec_tuples           import VecTuple, map_to_vec_tuple
 from frplib.parsing.parsy_adjust import (generate, parse_error_message,
                                          repeat_within, with_desc, with_label)
 
 # ATTN: Use numeric.Numeric types here for the tree.
-
-#
-# Helpers
-#
-
-def convert(xs: tuple, f) -> VecTuple:
-    return VecTuple(f(x) for x in xs)
-
 
 #
 # Basic Combinators
@@ -98,7 +90,7 @@ def parse_kind_sexp(s: str, rich=True, short=False) -> list:
 
 def check_kind_tree(tree, errors, min_leaf_dim=None, max_leaf_dim=None):
     parent, *branches = tree
-    p_str = convert(parent, str)
+    p_str = map_to_vec_tuple(str, parent)
 
     def dm(x, v, f):
         if v is None:
@@ -116,10 +108,10 @@ def check_kind_tree(tree, errors, min_leaf_dim=None, max_leaf_dim=None):
             errors.append(f'Non-positive weight {weight} at subtree {parent}.')
         if isinstance(subtree, tuple):  # Leaf case
             if len(subtree) <= len(parent):
-                st_str = convert(subtree, str)
+                st_str = map_to_vec_tuple(str, subtree)
                 errors.append(f'Node {st_str} does not extend {p_str}')
             elif subtree[0:len(parent)] != parent:
-                st_str = convert(subtree, str)
+                st_str = map_to_vec_tuple(str, subtree)
                 errors.append(f'Node {st_str} inconsistent with parent {p_str}')
             else:
                 next_added[subtree[len(parent):]] += 1
@@ -127,10 +119,10 @@ def check_kind_tree(tree, errors, min_leaf_dim=None, max_leaf_dim=None):
                 max_leaf_dim = dm(len(subtree), max_leaf_dim, max)
         else:  # Subtree
             if len(subtree[0]) <= len(parent):
-                st_str = convert(subtree[0], str)
+                st_str = map_to_vec_tuple(str, subtree[0])
                 errors.append(f'Node {st_str} does not extend its parent {p_str}')
             elif subtree[0][0:len(parent)] != parent:
-                st_str = convert(subtree[0], str)
+                st_str = map_to_vec_tuple(str, subtree[0])
                 errors.append(f'Node {st_str} at subtree inconsistent with parent {p_str}')
             else:
                 next_added[subtree[0][len(parent):]] += 1
@@ -160,7 +152,7 @@ def canonical_tree(tree, p=1, weight_fn=as_numeric, value_fn=as_numeric):
     parent, *branches = tree
 
     if len(branches) == 0:
-        return [p, convert(parent, value_fn)]
+        return [p, map_to_vec_tuple(value_fn, parent)]
 
     level_sum = reduce(lambda acc, x: acc + weight_fn(x[0]), branches, 0)
     normalized = [[p * weight_fn(b[0]) / level_sum, b[1]] for b in branches]
@@ -169,7 +161,7 @@ def canonical_tree(tree, p=1, weight_fn=as_numeric, value_fn=as_numeric):
     for branch in normalized:
         weight, subtree = branch
         if isinstance(subtree, tuple):
-            canonical.append([weight, convert(subtree, value_fn)])
+            canonical.append([weight, map_to_vec_tuple(value_fn, subtree)])
         else:
             canonical.extend(canonical_tree(subtree, weight, weight_fn, value_fn))
     return canonical
