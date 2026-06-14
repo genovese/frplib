@@ -50,17 +50,33 @@ def html_escape(text: str) -> str:
     """Returns string with basic HTML escapes for &, <, and >."""
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-def is_subsequence(query: str, candidate: str) -> bool:
-    """Is query string a sub-sequence of chars in candidate string?"""
-    it = iter(candidate)
-    return all(ch in it for ch in query)
+def fuzzy_match(query: str, choices: list[str]) -> list[str]:
+    """Returns choices that contain query as a subsequence.
 
-def fuzzy_match(query, choices):
-    """Basic case-insensitive fuzzy search of query string in list of choices."""
+    All comparisons are case insensitive.
+
+    Results are sorted by (start position of first matched character, length),
+    so earlier and shorter matches rank first. Returns all choices unchanged
+    when query is empty.
+
+    """
     if not query:
         return choices
-    query = query.lower()
-    return sorted((c for c in choices if is_subsequence(query, c.lower())), key=len)
+    q = query.lower()
+    results = []
+    for choice in choices:
+        it = enumerate(choice.lower())
+        start = -1
+        for ch in q:
+            pos = next((i for i, c in it if c == ch), -1)
+            if pos == -1:
+                break
+            if start == -1:
+                start = pos
+        else:
+            results.append((start, len(choice), choice))
+    results.sort(key=lambda x: (x[0], x[1]))
+    return [choice for _, _, choice in results]
 
 def match_unique(text: str, choices: list[str]) -> str | None:
     """Returns the matching choice for text, or None if ambiguous or no match.
