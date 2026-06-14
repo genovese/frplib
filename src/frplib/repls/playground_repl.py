@@ -18,6 +18,7 @@ from rich.markdown                 import Markdown
 from frplib.env        import environment
 from frplib.exceptions import FrplibException
 from frplib.protocols  import Renderable
+from frplib.repls.info import info
 from frplib.vec_tuples import VecTuple
 
 
@@ -25,13 +26,14 @@ from frplib.vec_tuples import VecTuple
 # Help System
 #
 
-def info(obj_or_topic='topics', pager=False) -> None:
+# ATTN:Remove after full testing
+def old_info(obj_or_topic='topics', pager=False) -> None:
     """Accesses and displays help on a variety of playground topics.
 
     """
     def no_help():
         print_formatted_text(HTML('<violet>I could not find any guidance on that topic. '
-                                  'Try info() for a list of starting points.</violet>'))
+                                  'Try info() to interactively search the available topics.</violet>'))
 
     topic = []
     if not isinstance(obj_or_topic, str):

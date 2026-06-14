@@ -1,10 +1,12 @@
-#
-# A singleton environment for capturing global options in an interactive session.
-#
-# This controls the output formats of objects that should print in nice
-# or rich ways in an interactive session. While this can be used at the
-# library level, it is primarily for interactive use and not thread safe.
-#
+"""A singleton environment for capturing global options in an interactive session.
+
+This controls the output formats of objects that should print in nice
+or rich ways in an interactive session. While this can be used at the
+library level, it is primarily for interactive use and not thread safe.
+
+"""
+# pylint: disable=too-many-instance-attributes
+
 from __future__ import annotations
 
 from dataclasses  import dataclass, field
@@ -49,6 +51,16 @@ def default_frp_params() -> FrpParams:
         'evolution_threshold':  128,     # was FRP.EVOLUTION_THRESHOLD
     }
 
+class InfoParams(TypedDict):
+    pager: bool     # Use a pager to display long info docs
+    dialog: bool    # If True, use dialog interactive interface, else use completion interface
+
+def default_info_params() -> InfoParams:
+    return {
+        'pager': False,
+        'dialog': True,
+    }
+
 
 class NumericOutParams(TypedDict):
     denom_limit: int            # Max denominator for rational approximation; see fractions.limit_denominator
@@ -77,6 +89,10 @@ def default_numeric_out_params() -> NumericOutParams:
 @dataclass
 class Environment:
     """Options governing interactive sessions, globally available.
+
+    Offers several convenience methods for toggling most commonly
+    changed configuration settings.
+
     """
     ascii_only: bool = False
     dark_mode: bool = False
@@ -85,6 +101,7 @@ class Environment:
     console: Console = Console(highlight=True, theme=bright_theme)
     numeric_out_params: NumericOutParams = field(default_factory=default_numeric_out_params)
     frp_params: FrpParams = field(default_factory=default_frp_params)
+    info_params: InfoParams = field(default_factory=default_info_params)
 
     def on_ascii_only(self) -> None:
         "Require ASCII-only output, no rich text, unicode, or markdown."
@@ -111,6 +128,18 @@ class Environment:
     def off_command_number_in_prompt(self) -> None:
         "Show current command number in the title bar instead of the prompt"
         self.command_number_in_prompt = False
+
+    def on_info_dialog(self) -> None:
+        self.info_params['dialog'] = True
+
+    def off_info_dialog(self) -> None:
+        self.info_params['dialog'] = False
+
+    def on_info_pager(self) -> None:
+        self.info_params['pager'] = True
+
+    def off_info_pager(self) -> None:
+        self.info_params['pager'] = False
 
     def interactive_mode(self, ascii=None) -> None:
         "Indicate that this session is interactive. No need to turn this off."

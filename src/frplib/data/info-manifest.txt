@@ -1,0 +1,88 @@
+# File used to generate the info_tree.py data structure.
+#
+# Blank lines and lines beginning with # are ignored
+# Other lines are of the form
+#
+# <indent><Key>[<description>]:<spaces><path-components>
+#
+# <indent> is 4 * the level in the tree (top-level = 0)
+#     and tree structure is inferred from the previous
+#     indents.
+#
+# <Key> is an arbitrary phrase that has no " marks or :
+#     The end is trimmed of spaces. Keys that
+#     start with _ are present but not displayed
+#     in the interactive interface.
+#
+# <description> is a "-quoted string containing no "s.
+#     It is optional.
+#
+# <path-components> is a space-separated list of path
+#     components for the file in order. Path components
+#     *cannot* contain spaces. If path-components is
+#     missing, the node exists but is not a document
+#     endpoint
+#
+# The order of the lines here determine the order
+# in which these topics are displayed in the interactive
+# interface.
+
+Overview of frplib: overview.md
+Using the Playground: playground.md
+FRPs: frps.md
+Kinds: kinds.md
+Statistics: 
+    Overview: statistics overview.md
+    Built-Ins: statistics built-ins.md
+    Statistic Expressions: statistics expressions.md
+    Statistic Combinators: combinators statistic.md
+    Custom Statistics: statistics custom.md
+Conditional FRPs: conditional-frps.md
+Conditional Kinds: conditional-kinds.md
+The Big 3+1: big-3+1.md
+    Transforming with Statistics: big-3+1 transforms.md
+    Building with Joins: big-3+1 joins.md
+    Constraining with Observations: big-3+1 observations.md
+    Predicting with Expectations: big-3+1 expectations.md
+Factories: factories.md
+    FRP Factories: factories FRP
+        frp: factories FRP frp
+        shuffle: factories FRP shuffle
+    Kind Factories: factories kind
+        kind: factories kind kind.md
+        constant: factories kind constant.md
+        choice: factories kind choice.md
+        binary: factories kind binary.md
+        uniform: factories kind uniform.md
+        weighted_as: factories kind weighted_as.md
+        weighted_by: factories kind weighted_by.md
+        weighted_pairs: factories kind weighted_pairs.md
+        evenly_spaced: factories kind evenly_spaced.md
+        without_replacement: factories kind without_replacement.md
+    Statistic Factories: factories statistic
+        Projections: factories statistic projections.md
+        Get: factories statistic Get.md
+        Permute: factories statistic Permute.md
+    Custom Factories: factories custom
+Combinators: combinators.md
+    FRP Combinators: combinators frp.md
+    Kind Combinators: combinators kind.md
+    Statistic Combinators: combinators statistic.md
+Actions: actions.md
+Numeric Calculations: numerics.md
+Symbolic Calculations: symbolic.md
+Utilities: utilities.md
+    fold: utilities fold.md
+    index_of: utilities index_of.md
+    index_where: utilities index_where.md
+    irange: utilities irange.md
+    iterate: utilities iterate.md
+    iterates: utilities iterates.md
+    show: utilities show.md
+    symbols: symbolic.md
+Example Index: examples.md
+Module Index: modules.md
+Object Index: objects.md
+Troubleshooting: troubleshooting.md
+Resources: resources.md
+_Topics: topics.md
