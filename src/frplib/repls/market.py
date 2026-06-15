@@ -1,3 +1,5 @@
+"""REPL for the Market interface allowing interactions with the FRP Marketplace."""
+
 from __future__ import annotations
 
 import re
@@ -6,7 +8,7 @@ from importlib.resources           import files
 from pathlib                       import Path
 from typing                        import Callable
 
-from prompt_toolkit                import PromptSession, print_formatted_text
+from prompt_toolkit                import PromptSession
 from prompt_toolkit.document       import Document
 from prompt_toolkit.formatted_text import to_formatted_text, FormattedText
 from prompt_toolkit.history        import FileHistory
@@ -242,7 +244,7 @@ def _(event):
         event.current_buffer.insert_text('\n')
 
 @market_bindings.add('escape', 'enter')
-def _(event):
+def _esc_enter(event):
     doc: Document = event.current_buffer.document
     if doc.char_before_cursor == '.' and doc.is_cursor_at_the_end:
         event.current_buffer.validate_and_handle()
@@ -250,21 +252,21 @@ def _(event):
         event.current_buffer.insert_text('\n')
 
 @market_bindings.add('(')
-def _(event):
+def _lparen(event):
     event.current_buffer.insert_text('(')
     event.current_buffer.insert_text(')', move_cursor=False)
 
 @market_bindings.add(')')
-def _(event):
+def _rparen(event):
     event.current_buffer.insert_text(')', overwrite=True)
 
 @market_bindings.add('<')
-def _(event):
+def _lt(event):
     event.current_buffer.insert_text('<')
     event.current_buffer.insert_text('>', move_cursor=False)
 
 @market_bindings.add('>')
-def _(event):
+def _gt(event):
     event.current_buffer.insert_text('>', overwrite=True)
 
 
@@ -445,7 +447,11 @@ dispatch: dict[str, Callable[..., None]] = {
 # Main Entry Point
 #
 
-def main() -> None:
+def main(ascii_only: bool = False, dark: bool = False) -> None:
+    if ascii_only:
+        environment.on_ascii_only()
+    if dark:
+        environment.on_dark_mode()
     command_style = Style.from_dict(dark_theme if environment.dark_mode else bright_theme)
     lexer = PygmentsLexer(MarketCommandLexer)
     session: PromptSession = PromptSession(
@@ -465,7 +471,7 @@ def main() -> None:
         except KeyboardInterrupt:
             abort_count += 1
             if abort_count > 2:
-                exit(0)
+                return
             continue
         abort_count = 0
         if re.match(r'^\s*$', text):
@@ -473,7 +479,7 @@ def main() -> None:
         try:
             cmd_info = command.parse(text)
             if cmd_info[0] == 'exit':
-                exit(0)
+                return
 
             dispatch[cmd_info[0]](*cmd_info[1:])
         except ParseError as e:

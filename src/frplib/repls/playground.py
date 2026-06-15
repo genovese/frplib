@@ -68,7 +68,13 @@ def configure(repl):
 
     repl.title = playground_title
 
-def main():
+def main(use_config: bool = True, ascii_only: bool = False, dark: bool = False) -> None:
+    if use_config:
+        environment.load_config()
+    if ascii_only:
+        environment.on_ascii_only()
+    if dark:
+        environment.on_dark_mode()
     try:
         embed(
             globals(),

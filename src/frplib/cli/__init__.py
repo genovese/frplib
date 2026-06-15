@@ -5,7 +5,6 @@ import click
 
 from frplib.__about__ import __version__
 
-from frplib.env              import environment
 from frplib.repls.market     import main as market_repl
 from frplib.repls.playground import main as playground_repl
 
@@ -24,22 +23,16 @@ def frp():
 @click.option('-d', '--dark', is_flag=True, show_default=True, default=False,
               help="Changes text color to suit dark colored terminals")
 def market(ascii_only: bool, dark: bool):
-    if ascii_only:
-        environment.on_ascii_only()
-    if dark:
-        environment.on_dark_mode()
     click.echo('This is the market. Use "exit." to end your session and "help." for help.')
-    market_repl()
+    market_repl(ascii_only=ascii_only, dark=dark)
 
 @frp.command()
 @click.option('-a', '--ascii-only', is_flag=True, show_default=True, default=False,
               help="Produce ASCII output only, no rich text.")
 @click.option('-d', '--dark', is_flag=True, show_default=True, default=False,
               help="Changes text color to suit dark colored terminals")
-def playground(ascii_only: bool, dark: bool):
-    if ascii_only:
-        environment.on_ascii_only()
-    if dark:
-        environment.on_dark_mode()
+@click.option('--no-config', is_flag=True, show_default=True, default=False,
+              help="Skip loading .frplib.toml; start with environment defaults.")
+def playground(ascii_only: bool, dark: bool, no_config: bool):
     click.echo('This is the playground. Use "quit()" to end your session and "intro()" for help.')
-    playground_repl()
+    playground_repl(use_config=not no_config, ascii_only=ascii_only, dark=dark)
