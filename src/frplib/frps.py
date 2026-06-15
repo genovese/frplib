@@ -97,10 +97,10 @@ class FrpDemoSummary:
 
         if summary and isinstance(summary, FrpDemoSummary):
             self._size = summary._size
-            self._summary = {k: v for k, v in summary._summary.items()}
+            self._summary = dict(summary._summary.items())
         elif summary and isinstance(summary, dict):
             self._size = len(summary)
-            self._summary = {k: v for k, v in summary.items()}
+            self._summary = dict(summary.items())
         elif samples:
             for sample in samples:
                 self.add(sample)
@@ -119,10 +119,15 @@ class FrpDemoSummary:
         table.add_column('Count', justify='right')
         table.add_column('Proportion', justify='right', style='#6a6c6e')
 
+        def format_value(x):
+            if is_symbolic(x):
+                return x
+            return "{0:.4g}".format(x)
+
         values = sorted(self._summary.keys(), key=tuple)  # Dictionary order
         n = float(self._size)
         for value in values:
-            table.add_row(show_tuple(value.map(lambda x: "{0:.4g}".format(x))),
+            table.add_row(show_qtuple(value.map(format_value)),
                           str(self._summary[value]),
                           "{0:.4g}%".format(round(100 * self._summary[value] / n, 6)))
 
@@ -134,13 +139,18 @@ class FrpDemoSummary:
             title = 'Summary of output values:'
         out.append(title)
 
+        def format_value(x):
+            if is_symbolic(x):
+                return x
+            return "{0:.5g}".format(x)
+
         values = sorted(self._summary.keys(), key=tuple)  # Dictionary order
         n = float(self._size)
         widths = {'value': 0, 'count': 0, 'prop': 0}
         rows = []
         for value in values:
             cells = {
-                'value': show_tuple(value.map(lambda x: "{0:.5g}".format(x))),  # str(VecTuple(value)),
+                'value': show_qtuple(value.map(format_value)),  # str(VecTuple(value)),
                 'count': "{0:,d}".format(self._summary[value]),
                 'prop': "({0:.4f}%)".format(round(100 * self._summary[value] / n, 6))
             }
