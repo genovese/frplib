@@ -1173,6 +1173,9 @@ def sequence_of_values(
         pre_transform=identity,
         parent=''
 ) -> list[Numeric | Symbolic]:
+    """ATTN: Needs better documentation
+
+    """
     # interface that reads values in various forms
     # individual values  1, 2, 3, 4
     # elided sequences   1, 2, ..., 10
@@ -1522,7 +1525,9 @@ def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
     contained in a list or tuple. Weights can be any quantity, including
     symbols and strings representing fractions or high-precision decimals,
     e.g., '1/3'.  If the supplied list of weights is shorter than
-    the list of values, missing weights are set to 1.
+    the list of values, the *last weight* in the list is repeated
+    for the remaining values. If no weights are supplied, all
+    weights are set to 1.
 
     Values and weights can be numbers, tuples, symbols, or strings.
     In the latter case they are converted to numbers or symbols as
@@ -1553,8 +1558,13 @@ def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
         return Kind.empty
 
     kweights: list[Union[Numeric, Symbolic]] = sequence_of_values(*weights, flatten=Flatten.NON_TUPLES)
-    if len(kweights) < len(values):
-        kweights = [*kweights, *([1] * (len(values) - len(kweights)))]
+    n_wgts = len(kweights)
+    n_vals = len(values)
+    if n_wgts == 0:
+        kweights = [1] * n_vals
+    elif n_wgts < n_vals:
+        last_weight = kweights[n_wgts - 1]
+        kweights = [*kweights, *([last_weight] * (n_vals - n_wgts))]
 
     return Kind([KindBranch.make(vs=as_quant_vec(x), p=as_quantity(w))
                  for x, w in zip(values, kweights) if not is_zero(w)])
@@ -1584,7 +1594,7 @@ def weighted_pairs(*xs) -> Kind:     # Iterable[tuple[ValueType | ScalarQ, Scala
     return Kind([KindBranch.make(vs=as_quant_vec(v), p=as_quantity(w))
                  for v, w in val_wgts if not is_zero(w)])
 
-def arbitrary(*xs, names: list[str] = []):
+def arbitrary(*xs, names: list[str] | None = None):
     """Returns a Kind with the given values and arbitrary symbolic weights.
 
     Values can be specified in a variety of ways:
@@ -1622,8 +1632,11 @@ def arbitrary(*xs, names: list[str] = []):
     values = sequence_of_values(*xs, flatten=Flatten.NON_TUPLES, transform=as_numeric_vec)
     if len(values) == 0:
         return Kind.empty
-    syms = lmap(symbol, names)
-    for i in range(len(values) - len(syms)):
+    if names is None:
+        syms = []
+    else:
+        syms = lmap(symbol, names)
+    for _i in range(len(values) - len(syms)):
         syms.append(gen_symbol())
     return Kind([KindBranch.make(vs=x, p=sym) for x, sym in zip(values, syms)])
 
