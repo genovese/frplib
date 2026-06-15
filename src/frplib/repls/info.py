@@ -175,14 +175,14 @@ def menu_select_via_dialog(root_data: InfoTree, action: Callable | None, **kwds)
     while True:
         # Build choices: self-endpoint first, then back, then children
         if not path:  # Top level
-            msg = "Type to filter, Enter to select:"
+            msg = "Type to filter, Enter to select, arrows or C-n/C-p to navigate, C-c to cancel:"
             self_endpoint = []
             base_choices = [k for k in current_data if not k.startswith('_')]
         else:
             current_key, current_node = path[-1]
             self_endpoint = [f"◉ {current_key}"] if current_node.get('filepath', None) else []
             breadcrumb = " ➔ ".join(node[0] for node in path)
-            msg = f"[{breadcrumb}]  Type to filter, Enter to select:"
+            msg = f"[{breadcrumb}]  Type to filter, Enter to select, arrows or C-n/C-p to navigate, C-c to cancel:"
             base_choices = (
                 self_endpoint
                 + [BACK_LABEL]
@@ -212,7 +212,29 @@ def menu_select_via_dialog(root_data: InfoTree, action: Callable | None, **kwds)
 
         search_field.buffer.on_text_changed += on_text_changed
 
-        # Key bindings: Enter to submit, C-c to cancel
+        # Arrow-key navigation injected at BufferControl level, which sits at the top
+        # of prompt_toolkit's binding priority stack — above the default emacs
+        # auto_up/auto_down that would otherwise swallow these keys.
+        def _nav(delta: int) -> None:
+            if menu_list.values:
+                idx = max(0, min(len(menu_list.values) - 1, menu_list._selected_index + delta))  # pylint: disable=protected-access
+                menu_list._selected_index = idx   # pylint: disable=protected-access
+                menu_list.current_value = menu_list.values[idx][0]
+                get_app().invalidate()
+
+        nav_kb = KeyBindings()
+
+        @nav_kb.add("up")
+        @nav_kb.add("c-p")
+        def _nav_up(event):   _nav(-1)
+
+        @nav_kb.add("down")
+        @nav_kb.add("c-n")
+        def _nav_down(event):  _nav(1)
+
+        search_field.control.key_bindings = nav_kb
+
+        # Application-level bindings: Enter to submit, C-c to cancel
         kb = KeyBindings()
 
         @kb.add("enter")
