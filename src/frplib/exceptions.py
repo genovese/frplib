@@ -57,7 +57,11 @@ class ConditionMustBeCallable(ConstructionError):
     pass
 
 class StatisticError(ConstructionError):
-    "A problem with creating a Statistic.."
+    "A problem with creating a Statistic"
+    pass
+
+class FactoryError(ConstructionError):
+    "A problem in the definition of a Statistic, Kind, or FRP factory"
     pass
 
 class IndexingError(PlaygroundError):
