@@ -34,7 +34,7 @@ def _roulette_odd(pocket):
 
 @statistic(dim=1, codim=1)
 def _roulette_red(pocket):
-    "Play on all red pockets."
+    "represents a $1 play on all red pockets"
     if pocket in RED_SQUARES and pocket >= 1 and pocket <= 36:
         return 1
     return -1
@@ -117,7 +117,7 @@ def _roulette_column(which):
 # Line Plays
 
 def _roulette_six_line(first_row):
-    "Six Line play on six pockets in two adjaced `rows`, specified by any pocket in smallest row."
+    "Six Line play on six pockets in two adjacent `rows`, specified by any pocket in smallest row."
     if not isinstance(first_row, int) or first_row < 1 or first_row > 36:
         raise IndexingError(f'Invalid pocket {first_row} to specify Six Line play, should be in 1..36.')
 
@@ -132,7 +132,7 @@ def _roulette_six_line(first_row):
 
 @statistic(dim=1, codim=1)
 def _roulette_top_line(pocket):
-    ""
+    "represents a $1 play on pockets 00, 0, 1, 2, 3"
     if pocket <= 3:
         return 6
     return -1
@@ -175,7 +175,8 @@ def _roulette_split(first, second):
                            or (first == -1 and second in [0, 2, 3])
                            or (first == 0 and second in [1, 2])):
 
-        @statistic(dim=1, codim=1)
+        @statistic(dim=1, codim=1, name=f'split_{first}_{second}',
+                   description=f'represents a $1 play on adjacent pockets {first} and {second}')
         def split(pocket):
             if pocket == first or pocket == second:
                 return 17
@@ -191,7 +192,7 @@ def _roulette_straight(wins):
     if not isinstance(wins, int) or wins < -1 or wins > 36:
         raise IndexingError(f'Invalid pocket {wins} to specify a straight play, should be in -1, 0, 1..36.')
 
-    @statistic(dim=1, codim=1)
+    @statistic(dim=1, codim=1, name=f'straight_{wins}', description=f'represents a $1 play on pocket {wins}')
     def straight(pocket):
         if pocket == wins:
             return 35
