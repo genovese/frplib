@@ -5,76 +5,17 @@ import linecache
 import sys
 import traceback as tb_module
 
-from importlib                     import import_module
-from importlib.resources           import files
+from importlib import import_module
 
-# from prompt_toolkit.filters        import has_focus
-from prompt_toolkit.formatted_text import HTML
-from prompt_toolkit.shortcuts      import print_formatted_text
-from ptpython.repl                 import PythonRepl
-from ptpython.python_input         import PythonInput
-from rich.markdown                 import Markdown
+from ptpython.repl         import PythonRepl
+from ptpython.python_input import PythonInput
 
 from frplib.env        import environment
 from frplib.exceptions import FrplibException
 from frplib.protocols  import Renderable
+from frplib.repls.help import help              # pylint: disable=[redefined-builtin]
 from frplib.repls.info import info
 from frplib.vec_tuples import VecTuple
-
-
-#
-# Help System
-#
-
-# ATTN:Remove after full testing
-def old_info(obj_or_topic='topics', pager=False) -> None:
-    """Accesses and displays help on a variety of playground topics.
-
-    """
-    def no_help():
-        print_formatted_text(HTML('<violet>I could not find any guidance on that topic. '
-                                  'Try info() to interactively search the available topics.</violet>'))
-
-    topic = []
-    if not isinstance(obj_or_topic, str):
-        if hasattr(obj_or_topic, '__info__'):
-            topic = obj_or_topic.__info__.split('::')
-        else:
-            help(obj_or_topic)
-            return
-    else:
-        # Look for main level topic or search below
-        topic = obj_or_topic.split('::')
-
-    if topic:
-        top_level = files('frplib.data') / 'playground-help'
-
-        topic_path = top_level
-        found = True
-        for dir in topic[:-1]:
-            topic_path = topic_path / dir
-            if not topic_path.is_dir():  # Will fail if does not exist also
-                found = False
-                break
-        if found:
-            topic_path = topic_path / f'{topic[-1]}.md'
-            if not topic_path.is_file():
-                found = False
-            else:
-                help_text = topic_path.read_text()
-                # Rich behaving oddly here
-                code_theme = 'monokai' if environment.dark_mode else 'slate'
-                info_text = Markdown(help_text, code_theme=code_theme)
-                if pager:
-                    with environment.console.pager():
-                        environment.console.print(info_text)
-                else:
-                    environment.console.print(info_text)
-        if not found:
-            pass  # Search for topic in manifest
-            no_help()  # Do this if search comes up empty
-    else:
-        no_help()
 
 
 #
@@ -102,7 +43,7 @@ playground_imports: dict[str, list[str]] = {
         'tuple_safe', 'infinity', 'is_true', 'is_false',
         'Chain', 'Compose', 'scalar_fn',
         'Id', 'Scalar', '__', 'Proj', '_x_',
-        'Sum', 'Product', 'Count', 'Max', 'Min', 'Abs', 'SumSq',
+        'Sum', 'Product', 'Count', 'Max', 'Min', 'Abs',
         'Sqrt', 'Floor', 'Ceil', 'NormalCDF', 'Binomial',
         'Exp', 'Log', 'Log2', 'Log10',
         'Sin', 'Cos', 'Tan', 'ACos', 'ASin', 'ATan2', 'Sinh', 'Cosh', 'Tanh',
@@ -148,27 +89,25 @@ playground_imports: dict[str, list[str]] = {
     ],
 }
 
-# ATTN: maybe don't load the modules into globals?
+# TODO: Maybe don't load the modules into globals??
 
-def import_playground(globals) -> None:
+def import_playground(pgd_globals) -> None:
     modules = playground_imports.keys()
     for module_name in modules:
         module = import_module(f'frplib.{module_name}')
-        globals[module_name] = module
+        pgd_globals[module_name] = module
         for symbol_name in playground_imports[module_name]:
-            globals[symbol_name] = getattr(module, symbol_name)
+            pgd_globals[symbol_name] = getattr(module, symbol_name)
     d = import_module('decimal')
-    globals['decimal'] = d
-    globals['Decimal'] = getattr(d, 'Decimal')
+    pgd_globals['decimal'] = d
+    pgd_globals['Decimal'] = getattr(d, 'Decimal')
 
-def remove_playground(globals) -> None:
+def remove_playground(pgd_globals) -> None:
     modules = playground_imports.keys()
     for module_name in modules:
         for symbol_name in playground_imports[module_name]:
-            if symbol_name in globals:
-                del globals[symbol_name]
-        if module_name in globals:
-            del globals[module_name]
+            pgd_globals.pop(symbol_name, None)
+        pgd_globals.pop(module_name, None)
 
 
 #
@@ -342,14 +281,9 @@ def _is_explain_error_call(tb) -> bool:
 class PlaygroundRepl(PythonRepl):
     """Customized playground-specific ptpython repl manager. """
 
-    # def __init__(self, *args, **kwargs) -> None:
-    #     super().__init__(*args, **kwargs)
-    #
-    #     @self.add_key_binding("c-c", eager=True, filter=has_focus(self.default_buffer))
-    #     def _(event) -> None:
-    #         event.app.output.write("\rOperation Interrupted\n\n")
-    #         event.app.output.flush()
-    #         event.app.exit(exception=KeyboardInterrupt)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._injected_globals: list[str] = []
 
     def _compile_with_flags(self, code: str, mode: str):
         filename = f'<playground-{self.current_statement_index}>'
@@ -470,10 +404,8 @@ class PlaygroundRepl(PythonRepl):
         output.flush()
 
     def _add_to_namespace(self) -> None:
-        """
-        Add ptpython built-ins to global namespace.
-        """
-        globals = self.get_globals()
+        """Adds ptpython built-ins to global namespace."""
+        pgd_globals = self.get_globals()
 
         # Add a 'get_ptpython', similar to 'get_ipython'
         def get_playground() -> PythonInput:
@@ -481,31 +413,33 @@ class PlaygroundRepl(PythonRepl):
 
         def explain_error() -> None:
             "Show the full traceback for the most recent exception (_e)."
-            err = globals.get('_e')
+            err = pgd_globals.get('_e')
             if err is None:
                 environment.console.print('No recent error stored.')
             else:
                 self._show_exception_trimmed(err)
 
         self._injected_globals = [
+            "environment",
             "get_playground",
+            "help",
             "info",
             "explain_error",
             "_running_in_playground"
         ]
 
-        globals["get_playground"] = get_playground
-        globals["info"] = info
-        globals["explain_error"] = explain_error
-        globals["_running_in_playground"] = True
+        pgd_globals["environment"] = environment
+        pgd_globals["get_playground"] = get_playground
+        pgd_globals["help"] = help
+        pgd_globals["info"] = info
+        pgd_globals["explain_error"] = explain_error
+        pgd_globals["_running_in_playground"] = True
         environment.interactive_mode()
-        import_playground(globals)
+        import_playground(pgd_globals)
 
     def _remove_from_namespace(self) -> None:
-        """
-        Remove added symbols from the globals.
-        """
-        globals = self.get_globals()
+        """Removes added symbols from the playground globals."""
+        pgd_globals = self.get_globals()
         for symbol in self._injected_globals:
-            del globals[symbol]
-        remove_playground(globals)
+            pgd_globals.pop(symbol, None)
+        remove_playground(pgd_globals)
