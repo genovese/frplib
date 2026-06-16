@@ -76,9 +76,10 @@ def main(use_config: bool = True, ascii_only: bool = False, dark: bool = False) 
     if dark:
         environment.on_dark_mode()
     try:
+        user_ns: dict = {}
         embed(
-            globals(),
-            locals(),
+            user_ns,
+            user_ns,
             title='FRP Playground',
             configure=configure,
             make_repl=PlaygroundRepl,
