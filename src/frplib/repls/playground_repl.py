@@ -60,6 +60,8 @@ playground_imports: dict[str, list[str]] = {
         'Freqs', 'IndexOf', 'Contains',
     ],
     'expectations': ['E', 'Var', 'D_'],
+    'factories': ['statistic_factory', 'condition_factory',
+                  'kind_factory', 'frp_factory'],
     'frps': [
         'FRP', 'frp', 'conditional_frp', 'is_frp', 'evolve',
         'average_conditional_entropy', 'mutual_information', 'shuffle',

@@ -143,14 +143,14 @@ class KindFactory(Factory):
     def _default_prefix(self, s):
         if not s:
             return 'A Kind factory'
-        return 'A factory producing a Kind that '
+        return 'A factory producing a Kind that represents '
 
 class FrpFactory(Factory):
     """Wrapper class for an FRP factory."""
     def _default_prefix(self, s):
         if not s:
             return 'An FRP factory'
-        return 'A factory producing an FRP that '
+        return 'A factory producing an FRP that represets '
 
 
 #
@@ -384,12 +384,17 @@ def condition_factory(
 def kind_factory(
         f=None,
         *,
-        display=None  # TODO: ATTN for Kind.Display enum later
+        summary='',
+        doc='',
+        display=None,  # TODO: ATTN for Kind.Display enum later
+        name: str | None = None,
+        allow_markup=False,
 ):
     """ATTN"""
     if f is None:
         def decorator(fn: Callable):
-            return kind_factory(fn, display=display)
+            return kind_factory(fn, display=display, summary=summary, doc=doc,
+                                name=name, allow_markup=allow_markup)
         return decorator
 
     @wraps(f)
@@ -400,15 +405,29 @@ def kind_factory(
             return kind(k)  # TODO: ATTN kind(f, display=display) when display implemented
         return k
 
-    return Factory(kind_fact)
+    return KindFactory(kind_fact, summary=summary, doc=doc,
+                       name=name, allow_markup=allow_markup)
 
 
 #
 # FRP Factory Decorator
 #
 
-def frp_factory(f):
+def frp_factory(
+        f,
+        *,
+        summary='',
+        doc='',
+        name: str | None = None,
+        allow_markup=False,
+):
     """ATTN"""
+    if f is None:
+        def decorator(fn: Callable):
+            return frp_factory(fn, summary=summary, doc=doc,
+                               name=name, allow_markup=allow_markup)
+        return decorator
+
     @wraps(f)
     def frp_fact(*args, **kwds):
         x = f(*args, **kwds)
@@ -417,4 +436,5 @@ def frp_factory(f):
             return frp(x)
         return x
 
-    return Factory(frp_fact)
+    return FrpFactory(frp_fact, summary=summary, doc=doc,
+                      name=name, allow_markup=allow_markup)

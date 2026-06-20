@@ -57,6 +57,12 @@ from frplib.statistics import (
 
 from frplib.expectations import E, Var, D_
 
+from frplib.factories import (
+    statistic_factory, condition_factory,
+    kind_factory, frp_factory
+)
+
+
 from frplib.frps import (
     FRP, frp, conditional_frp, is_frp, evolve,
     average_conditional_entropy, mutual_information, shuffle,
@@ -127,6 +133,9 @@ __all__ = [
     'Freqs', 'IndexOf', 'Contains',
     # frplib.expectations
     'E', 'Var', 'D_',
+    # frplib.factories
+    'statistic_factory', 'condition_factory',
+    'kind_factory', 'frp_factory',
     # frplib.frps
     'FRP', 'frp', 'conditional_frp', 'is_frp', 'evolve',
     'average_conditional_entropy', 'mutual_information', 'shuffle',
