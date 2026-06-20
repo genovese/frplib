@@ -402,6 +402,7 @@ def kind_factory(
 
     return Factory(kind_fact)
 
+
 #
 # FRP Factory Decorator
 #
