@@ -1,3 +1,10 @@
+"""Frplib Statistics and Builtins
+
+ATTN:fill in
+
+"""
+# pylint: disable=too-many-lines
+
 from __future__ import annotations
 
 import inspect
@@ -444,18 +451,20 @@ class Statistic:
                 self.arity = codim if codim is not None else fn.arity
                 self.strict_arity = strict
 
+            # Considered but rejected: update_wrapper(self, fn, updated=())
             self.dim: Optional[int] = dim if dim is not None else fn.dim
-            self._name = name or fn.name
+            self.__name__ = name or fn.name
             self.__doc__: str = self.__describe__(description or fn.description or '')
             return
 
         f = tuple_safe(fn, arities=codim, strict=strict)
         self.fn = f
+        # Considered but rejected: update_wrapper(self, fn, updated=())
         self.arity = getattr(f, 'arity')
         self.strict_arity = getattr(f, 'strict_arity')
         self.dim = dim
-        self._name = name or fn.__name__ or ''
-        self.__doc__ = self.__describe__(description or fn.__doc__ or '')
+        self.__name__ = name or fn.__name__ or ''
+        self.__doc__ = self.__describe__(description or inspect.cleandoc(fn.__doc__ or ''))
 
     def __describe__(self, description: str, returns: Optional[str] = None) -> str:
         def splitPascal(pascal: str) -> str:
@@ -503,7 +512,13 @@ class Statistic:
 
     @property
     def name(self) -> str:
-        return self._name
+        return self.__name__
+
+    @name.setter
+    def name(self, value):
+        if not isinstance(value, str):
+            raise StatisticError(f'Statistic.name requires a string, statistic {self.__name__}.')
+        self.__name__ = value
 
     @property
     def codim(self) -> ArityType:
@@ -522,6 +537,28 @@ class Statistic:
     @property
     def description(self) -> str:
         return self.__doc__
+
+    @property
+    def doc(self) -> str:
+        return self.__doc__
+
+    @doc.setter
+    def doc(self, docstr):
+        if docstr:
+            self.__doc__ = self.__describe__(inspect.cleandoc(docstr))
+        return self
+
+    def doc_full(self, docstr='', returns: str | None = None, *, auto_prefix=True):
+        """Sets a statistics description with full control.
+
+        docstr -- the basic documentation string for the description
+        returns -- if supplied, a string describing the statistics return type.
+
+        """
+        if docstr:
+            cleaned = inspect.cleandoc(docstr)
+            self.__doc__ = self.__describe__(cleaned, returns) if auto_prefix else cleaned
+        return self
 
     def __call__(self, *args):
         # It is important that Statistics are not Transformable!
@@ -1110,6 +1147,7 @@ class ProjectionStatistic(Statistic, Projection):
     ) -> None:
         codim: Optional[int | ArityType] = 0
         dim = None
+        label = '<...>'
         if isinstance(onto, ProjectionStatistic):
             indices: Iterable[int] | slice | 'ProjectionStatistic' = onto.subspace
             dim = onto.dim
@@ -2549,7 +2587,7 @@ def Keep(predicate: Condition, pad=nothing) -> Statistic:
     def p(v):
         return as_bool(predicate(v))
 
-    @statistic(description=f'keeps components satisfying predicate {predicate._name or predicate.__doc__}')
+    @statistic(description=f'keeps components satisfying predicate {predicate.__name__ or predicate.__doc__}')
     def keep(value):
         n = len(value)
         kept = []
