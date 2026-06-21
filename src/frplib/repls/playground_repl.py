@@ -1,3 +1,5 @@
+"""Configuration and management of the frplib Playground REPL"""
+
 from __future__ import annotations
 
 import ast
@@ -30,7 +32,8 @@ playground_imports: dict[str, list[str]] = {
     'kinds': [
         'Kind', 'ConditionalKind',
         'kind', 'conditional_kind',
-        'is_kind', 'unfold', 'clean', 'fast_mixture_pow', 'bayes',
+        'is_kind', 'kind_factory',
+        'unfold', 'clean', 'fast_mixture_pow', 'bayes',
         'constant', 'uniform', 'either', 'binary',
         'symmetric', 'linear', 'geometric',
         'weighted_by', 'weighted_as', 'weighted_pairs',
@@ -40,6 +43,7 @@ playground_imports: dict[str, list[str]] = {
     'statistics': [
         'Statistic', 'Condition', 'MonoidalStatistic',
         'is_statistic', 'statistic', 'condition', 'scalar_statistic',
+        'statistic_factory', 'condition_factory',
         'tuple_safe', 'infinity', 'is_true', 'is_false',
         'Chain', 'Compose', 'scalar_fn',
         'Id', 'Scalar', '__', 'Proj', '_x_',
@@ -60,10 +64,8 @@ playground_imports: dict[str, list[str]] = {
         'Freqs', 'IndexOf', 'Contains',
     ],
     'expectations': ['E', 'Var', 'D_'],
-    'factories': ['statistic_factory', 'condition_factory',
-                  'kind_factory', 'frp_factory'],
     'frps': [
-        'FRP', 'frp', 'conditional_frp', 'is_frp', 'evolve',
+        'FRP', 'frp', 'conditional_frp', 'is_frp', 'frp_factory', 'evolve',
         'average_conditional_entropy', 'mutual_information', 'shuffle',
     ],
     'calculate': ['substitute', 'substitute_with', 'substitution'],
@@ -94,6 +96,7 @@ playground_imports: dict[str, list[str]] = {
 # TODO: Maybe don't load the modules into globals??
 
 def import_playground(pgd_globals) -> None:
+    """Imports all configured modules and symbols into the playground repl."""
     modules = playground_imports.keys()
     for module_name in modules:
         module = import_module(f'frplib.{module_name}')
@@ -105,6 +108,7 @@ def import_playground(pgd_globals) -> None:
     pgd_globals['Decimal'] = getattr(d, 'Decimal')
 
 def remove_playground(pgd_globals) -> None:
+    """Removes all specified modules and global symbols from the playground repl."""
     modules = playground_imports.keys()
     for module_name in modules:
         for symbol_name in playground_imports[module_name]:

@@ -24,7 +24,8 @@ from decimal import Decimal
 from frplib.kinds import (                                # pylint: disable=redefined-builtin
     Kind, ConditionalKind,
     kind, conditional_kind,
-    is_kind, unfold, clean, fast_mixture_pow, bayes,
+    is_kind, kind_factory,
+    unfold, clean, fast_mixture_pow, bayes,
     constant, uniform, either, binary,
     symmetric, linear, geometric,
     weighted_by, weighted_as, weighted_pairs,
@@ -35,6 +36,7 @@ from frplib.kinds import (                                # pylint: disable=rede
 from frplib.statistics import (
     Statistic, Condition, MonoidalStatistic,
     is_statistic, statistic, condition, scalar_statistic,
+    statistic_factory, condition_factory,
     tuple_safe, infinity, is_true, is_false,
     Chain, Compose, scalar_fn,
     Id, Scalar, __, Proj, _x_,
@@ -57,14 +59,8 @@ from frplib.statistics import (
 
 from frplib.expectations import E, Var, D_
 
-from frplib.factories import (
-    statistic_factory, condition_factory,
-    kind_factory, frp_factory
-)
-
-
 from frplib.frps import (
-    FRP, frp, conditional_frp, is_frp, evolve,
+    FRP, frp, conditional_frp, is_frp, frp_factory, evolve,
     average_conditional_entropy, mutual_information, shuffle,
 )
 

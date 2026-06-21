@@ -1,3 +1,7 @@
+"""FRPs ATTN
+"""
+# pylint: disable=redefined-outer-name, protected-access    # TEMP
+
 from __future__ import annotations
 
 import math
@@ -18,6 +22,7 @@ from rich.panel        import Panel
 from frplib.env        import environment
 from frplib.exceptions import (ConditionMustBeCallable, ComplexExpectationWarning, ContractError,
                                ConstructionError, FrpError, KindError, MismatchedDomain,)
+from frplib.factories  import objlike_factory, FrpFactory
 from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
 from frplib.numeric    import Numeric, Nothing, show_tuple, as_real
 from frplib.protocols  import Projection, SupportsExpectation, SupportsKindOf
@@ -38,7 +43,10 @@ ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 # Invariance of dict type causes incorrect type errors when constructing conditional FRPs
 # So we make the input type include the most common special cases individually
 # NOTE: This assumes NumericD for Numeric, which is why Decimal is used
-CondFrpInput: TypeAlias = Union[Callable[[ValueType], 'FRP'], dict[ValueType, 'FRP'], dict[QuantityType, 'FRP'], dict[int, 'FRP'], dict[Decimal, 'FRP'], dict[Symbolic, 'FRP'], ConditionalKind, 'FRP']
+CondFrpInput: TypeAlias = Union[Callable[[ValueType], 'FRP'], dict[ValueType, 'FRP'],
+                                dict[QuantityType, 'FRP'], dict[int, 'FRP'],
+                                dict[Decimal, 'FRP'], dict[Symbolic, 'FRP'],
+                                ConditionalKind, 'FRP']
 
 #
 # Helpers
@@ -237,13 +245,13 @@ class TransformExpression(FrpExpression):
         if self._cached_value is None:
             try:
                 self._cached_value = self._transform(self._target.value())
-            except Exception:  # ATTN: might be easiest to just evaluate the value at transform time
+            except Exception as exc:  # ATTN: might be easiest to just evaluate the value at transform time
                 if isinstance(self._transform, Statistic):
                     label = self._transform.name   # type: ignore
                 else:
                     label = str(self._transform)
                 raise MismatchedDomain(f'Statistic {label} is incompatible with this FRP,'
-                                       f'could not evaluate it on the FRPs value.')
+                                       f'could not evaluate it on the FRPs value.') from exc
         return self._cached_value
 
     def kind(self) -> Kind:
@@ -264,7 +272,7 @@ class TransformExpression(FrpExpression):
         return self._cached_value
 
 class IMixtureExpression(FrpExpression):
-    def __init__(self, terms: Iterable['FrpExpression']) -> None:
+    def __init__(self, terms: Iterable['FrpExpression']) -> None:    # pylint: disable=too-many-branches
         super().__init__()
         self._operands = list(terms)
 
@@ -337,7 +345,7 @@ class IMixtureExpression(FrpExpression):
         cached = [k._cached_kind for k in self._operands]
         if all(k is not None for k in cached):
             return as_vec_tuple([k.expectation for k in cached])   # type: ignore
-        elif all(isinstance(term, SupportsExpectation) for term in self._operands):
+        if all(isinstance(term, SupportsExpectation) for term in self._operands):
             return as_vec_tuple([term.expectation for term in self._operands])  # type: ignore
         raise ComplexExpectationWarning('The expectation of this FRP could not be computed '
                                         'without first finding its kind.')
@@ -407,7 +415,7 @@ class IMixPowerExpression(FrpExpression):
         if self._term._cached_kind is not None:
             exp = self._term._cached_kind.expectation
             return as_vec_tuple([exp] * self._pow)
-        elif isinstance(self._term, SupportsExpectation):
+        if isinstance(self._term, SupportsExpectation):
             exp = self._term.expectation
             return as_vec_tuple([exp] * self._pow)
         raise ComplexExpectationWarning('The expectation of this FRP could not be computed '
@@ -480,9 +488,9 @@ class ConditionalExpression(FrpExpression):
 
         if as_scalar(self._condition(val)):
             return val
-        else:
-            self._cached_kind = Kind.empty
-            return vec_tuple()  # "Value" of Empty FRP
+
+        self._cached_kind = Kind.empty
+        return vec_tuple()  # "Value" of Empty FRP
 
     def kind(self) -> Kind:
         if self._cached_kind is None:
@@ -580,7 +588,7 @@ def as_expression(frp: FRP) -> FrpExpression:
 # Conditional FRPs
 #
 
-class ConditionalFRP:
+class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
     """A unified representation of a conditional FRP.
 
     A conditional FRP is a mapping from a set of values of common
@@ -591,9 +599,9 @@ class ConditionalFRP:
     easier to define function based condtional FRPs.)
 
     """
-    def __init__(
+    def __init__(         # pylint: disable=too-many-branches, too-many-locals, too-many-statements
             self,
-            mapping: CondFrpInput,  # Callable[[ValueType], FRP] | dict[ValueType, FRP] | dict[QuantityType, FRP] | ConditionalKind,
+            mapping: CondFrpInput,
             *,
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,
@@ -635,7 +643,8 @@ class ConditionalFRP:
             self._targets: dict[ValueType, FRP] = {}  # NB: Trading space for time by keeping these
             for k, v in mapping.items():
                 if not is_frp(v):
-                    raise ConstructionError(f'Dictionary for a conditional FRP should map to FRPs, but {v} is not an FRP')
+                    raise ConstructionError(f'Dictionary for a conditional FRP should map to FRPs,'
+                                            f' but {v} is not an FRP')
                 kin = as_quant_vec(k)
                 vout = v.transform(Prepend(kin))  # Input pass through
                 self._mapping[kin] = vout
@@ -703,7 +712,7 @@ class ConditionalFRP:
 
             if domain is None:  # Infer domain set from keys
                 if _codim is not None:
-                    _domain_set = set(k for k in self._mapping.keys() if len(k) == _codim)
+                    _domain_set = set(k for k in self._mapping if len(k) == _codim)
                 else:
                     _domain_set = set(self._mapping.keys())
                 self._domain_set = _domain_set
@@ -712,7 +721,7 @@ class ConditionalFRP:
                 self._trivial_domain = False  # non-trivial domain specified implicitly
             elif has_domain_set:  # check that domains are consistent
                 if _codim is not None:
-                    mapping_domain = set(k for k in self._mapping.keys() if len(k) == _codim)
+                    mapping_domain = set(k for k in self._mapping if len(k) == _codim)
                 else:
                     mapping_domain = set(self._mapping.keys())
                 if not (self._domain_set <= mapping_domain):
@@ -848,7 +857,9 @@ class ConditionalFRP:
                 try:
                     result = cast('FRP', mapping_t(value))
                 except Exception as e:
-                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP:\n  {str(e)}')
+                    raise MismatchedDomain(
+                        f'encountered a problem passing {value} to a conditional FRP:\n  {str(e)}'
+                    ) from e
 
                 extended = result.transform(Prepend(value))  # Input pass through
 
@@ -877,7 +888,9 @@ class ConditionalFRP:
                 try:
                     result = cast('FRP', mapping_t(value))
                 except Exception as e:
-                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional FRP:\n  {str(e)}')
+                    raise MismatchedDomain(
+                        f'encountered a problem passing {value} to a conditional FRP:\n  {str(e)}'
+                    ) from e
 
                 if self._auto_clone:
                     result = result.clone()
@@ -955,16 +968,16 @@ class ConditionalFRP:
             cloned = {k: v.clone() for k, v in self._targets.items()}
             return ConditionalFRP(cloned, codim=self._codim, dim=self._dim, domain=self._domain,
                                   auto_clone=self._auto_clone)
-        else:
-            # NB! We clone here out of caution, in case a function returns an existing FRP
-            # The ConditionalFRP will cache the results for each one, so clone will only
-            # be called at most one extra time, assuming cache is True..
 
-            def fn(value):
-                return self._target_fn(value).clone()
+        # NB! We clone here out of caution, in case a function returns an existing FRP
+        # The ConditionalFRP will cache the results for each one, so clone will only
+        # be called at most one extra time, assuming cache is True..
 
-            return ConditionalFRP(fn, codim=self._codim, dim=self._dim, domain=self._domain,
-                                  auto_clone=self._auto_clone)
+        def fn(value):
+            return self._target_fn(value).clone()
+
+        return ConditionalFRP(fn, codim=self._codim, dim=self._dim, domain=self._domain,
+                              auto_clone=self._auto_clone)
 
     @property
     def expectation(self) -> Statistic:
@@ -1085,12 +1098,13 @@ class ConditionalFRP:
 
         if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
             return f'A conditional FRP{tlabel} with wiring:\n{tbl}'
-        elif tbl:
+
+        if tbl:
             cont = '  {value:<16s}  {frp:<s}'.format(value='...', frp='...more FRPs')
             mlabel = f'\nIt\'s wiring includes:\n{tbl}\n{cont}'
             return f'A conditional FRP{tlabel} as a function{dlabel or "."}{mlabel}'
-        else:
-            return f'A conditional FRP as a function{dlabel or "."}'
+
+        return f'A conditional FRP as a function{dlabel or "."}'
 
     def __frplib_repr__(self):
         if environment.ascii_only:
@@ -1114,8 +1128,7 @@ class ConditionalFRP:
         label += f', auto_clone={self._auto_clone}'
         if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
             return f'ConditionalFRP({repr(self._targets)}{label})'
-        else:
-            return f'ConditionalFRP({repr(self._target_fn)}{label})'
+        return f'ConditionalFRP({repr(self._target_fn)}{label})'
 
     # FRP operations lifted to Conditional FRPs
 
@@ -1149,8 +1162,10 @@ class ConditionalFRP:
             def transformed(*value):
                 try:
                     return statistic(self._fn(*value))
-                except Exception:
-                    raise FrpError(f'Statistic {statistic.name} appears incompatible with this conditional FRP.')
+                except Exception as exc:
+                    raise FrpError(
+                        f'Statistic {statistic.name} appears incompatible with this conditional FRP.'
+                    ) from exc
 
         return ConditionalFRP(transformed, codim=self._codim, target_dim=s_dim, domain=domain,
                               auto_clone=self._auto_clone)
@@ -1191,8 +1206,10 @@ class ConditionalFRP:
             def transformed(*value):
                 try:
                     return statistic(self._target_fn(*value))
-                except Exception:
-                    raise FrpError(f'Statistic {statistic.name} appears incompatible with this conditional FRP.')
+                except Exception as exc:
+                    raise FrpError(
+                        f'Statistic {statistic.name} appears incompatible with this conditional FRP.'
+                    ) from exc
 
         return ConditionalFRP(transformed, codim=self._codim, target_dim=s_dim, domain=domain,
                               auto_clone=self._auto_clone)
@@ -1291,7 +1308,8 @@ class ConditionalFRP:
 
 # # Original
 # def conditional_frp(
-#         mapping: CondFrpInput | ConditionalFRP | None = None,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
+#         mapping: CondFrpInput | ConditionalFRP | None = None,  # Callable[[ValueType], 'FRP'] |
+#                  dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
 #         *,
 #         codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
 #         dim: int | None = None,
@@ -1302,7 +1320,7 @@ class ConditionalFRP:
 
 @overload
 def conditional_frp(
-        mapping: None = None,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
+        mapping: None = None,
         *,
         codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
         dim: int | None = None,
@@ -1314,7 +1332,7 @@ def conditional_frp(
 
 @overload
 def conditional_frp(
-        mapping: CondFrpInput | ConditionalFRP,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
+        mapping: CondFrpInput | ConditionalFRP,
         *,
         codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
         dim: int | None = None,
@@ -1325,13 +1343,13 @@ def conditional_frp(
     ...
 
 def conditional_frp(
-        mapping = None,  # Callable[[ValueType], 'FRP'] | dict[ValueType, 'FRP'] | dict[QuantityType, 'FRP'] | ConditionalKind | None = None,
+        mapping=None,
         *,
-        codim = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
-        dim = None,
-        domain = None,
-        target_dim = None,
-        auto_clone = False
+        codim=None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
+        dim=None,
+        domain=None,
+        target_dim=None,
+        auto_clone=False
 ):
     """Converts a mapping from values to FRPs into a conditional FRP.
 
@@ -1384,7 +1402,7 @@ def conditional_frp(
         # and a general callable but not Statistics
         if isinstance(mapping, Statistic):
             raise ConstructionError('Cannot create Conditional FRP from a Statistic.')
-        elif not callable(mapping) and not isinstance(mapping, dict):
+        if not callable(mapping) and not isinstance(mapping, dict):
             raise ConstructionError('Cannot create Conditional FRP from the given '
                                     f'object of type {type(mapping).__name__}')
 
@@ -1523,10 +1541,9 @@ class FRP:
         if self._kind is None:
             if self._expr is not None and self._expr._cached_kind is not None:
                 return self._expr._cached_kind.dim
-            elif self._expr is not None and self._expr._cached_value is not None:
+            if self._expr is not None and self._expr._cached_value is not None:
                 return len(self._expr._cached_value)
-            else:
-                return len(self.value)  # The value is likely cheaper than the kind to produce here
+            return len(self.value)  # The value is likely cheaper than the kind to produce here
         return self._kind.dim
 
     @property
@@ -1572,9 +1589,9 @@ class FRP:
         """
         if self.is_kinded():
             return self.kind.expectation
-        else:
-            assert self._expr is not None
-            return _expectation_from_expr(self._expr)
+
+        assert self._expr is not None
+        return _expectation_from_expr(self._expr)
 
     def forced_expectation(self):
         "Returns the expectation of this FRP, computing the kind if necessary to do so."
@@ -1593,11 +1610,11 @@ class FRP:
         "The entropy of this FRP. Currently, this requires that the Kind be computable."
         if self.is_kinded():
             return self.kind.entropy
-        else:
-            assert self._expr is not None
-            if self._expr._cached_kind is not None:
-                return self._expr._cached_kind.entropy
-            raise FrpError("entropy current requires that an FRP's Kind be computable; that is not apparent here.")
+
+        assert self._expr is not None
+        if self._expr._cached_kind is not None:
+            return self._expr._cached_kind.entropy
+        raise FrpError("entropy current requires that an FRP's Kind be computable; that is not apparent here.")
 
     empty = EmptyFrpDescriptor()
 
@@ -1606,22 +1623,22 @@ class FRP:
             return 'The empty FRP with value <>'
         if self._kind is not None:
             if some(is_symbolic, self.value):
-                return (f'An FRP with value {show_qtuple(self.value, scalarize=False)}')
-            return (f'An FRP with value {show_tuple(self.value, max_denom=10)}')
+                return f'An FRP with value {show_qtuple(self.value, scalarize=False)}'
+            return f'An FRP with value {show_tuple(self.value, max_denom=10)}'
         return f'An FRP with value {show_tuple(self.value, max_denom=10)}. (It may be slow to evaluate its kind.)'
 
     def __frplib_repr__(self) -> str:
         if self._kind == Kind.empty:
-            return ('The [bold]empty FRP[/] of dimension [#3333cc]0[/] with value [bold #4682b4]<>[/]')
+            return 'The [bold]empty FRP[/] of dimension [#3333cc]0[/] with value [bold #4682b4]<>[/]'
         if self._kind is not None:
-            return (f'An [bold]FRP[/] with value [bold #4682b4]{self.value}[/]')
+            return f'An [bold]FRP[/] with value [bold #4682b4]{self.value}[/]'
         return f'An [bold]FRP[/] with value [bold #4682b4]{self.value}[/]. (It may be slow to evaluate its kind.)'
 
     def __repr__(self) -> str:
         if environment.is_interactive:
             if self.is_fresh:
                 return 'A fresh FRP'
-            elif some(is_symbolic, self.value):
+            if some(is_symbolic, self.value):
                 return f'FRP(value={show_qtuple(self.value, scalarize=False)})'
             return f'FRP(value={show_tuple(self.value, max_denom=10)})'
         return super().__repr__()
@@ -1734,7 +1751,8 @@ class FRP:
 
     def __pow__(self, n, modulo=None):  # Self -> int -> FRP
         is_kinded = self.is_kinded()
-        if is_kinded and (self.size == 0 or math.log2(self.size) * n <= math.log2(environment.frp_params['complexity_threshold'])):
+        if is_kinded and (self.size == 0 or
+                          math.log2(self.size) * n <= math.log2(environment.frp_params['complexity_threshold'])):
             return FRP(self.kind ** n)
 
         if not is_kinded and isinstance(self._expr, IMixPowerExpression):
@@ -1743,7 +1761,7 @@ class FRP:
             expr = IMixPowerExpression(as_expression(self), n)
         return FRP(expr)
 
-    def __rshift__(self, c_frp):
+    def __rshift__(self, c_frp):    # pylint: disable=too-many-branches
         "Mixes this FRP with a Conditional FRP (or a function/dict giving an FRP for each value)"
         if isinstance(c_frp, ConditionalKind):
             raise FrpError('A mixture with an FRP requires a conditional FRP on the right of >> '
@@ -1759,7 +1777,7 @@ class FRP:
                 return NotImplemented
             except Exception as e:
                 raise FrpError(f'In an mixture with an FRP, there was a problem '
-                               f'obtaining a conditional FRP:\n  {str(e)}')
+                               f'obtaining a conditional FRP:\n  {str(e)}') from e
 
         mix_kind: Kind | None = None
         mixer_val = self._get_cached_value()
@@ -1768,7 +1786,7 @@ class FRP:
                 target_val = c_frp.target(mixer_val)._get_cached_value()
             except Exception as e:
                 raise FrpError(f'In a mixture, conditional FRP appears incompatible with mixer '
-                               f'at value {mixer_val}:\n  {str(e)}')
+                               f'at value {mixer_val}:\n  {str(e)}') from e
         else:
             target_val = None
 
@@ -1785,7 +1803,7 @@ class FRP:
                     target = c_frp.target(branch.vs)
                 except Exception as e:
                     raise FrpError(f'In a mixture, conditional FRP appears incompatible with mixer '
-                                   f'at value {branch.vs}:\n  {str(e)}')
+                                   f'at value {branch.vs}:\n  {str(e)}') from e
 
                 if not target.is_kinded() or (dim * target.kind.dim > environment.frp_params['complexity_threshold']):
                     make_kinded = False
@@ -1821,9 +1839,9 @@ class FRP:
                 if val is not None:
                     try:
                         f_mapping(val)
-                    except Exception:
+                    except Exception as exc:
                         raise MismatchedDomain(f'Statistic {f_mapping.name} is incompatible with this FRP: '
-                                               f'could not evaluate it on the FRPs value.')
+                                               f'could not evaluate it on the FRPs value.') from exc
             stat = f_mapping
         elif callable(f_mapping) and not isinstance(f_mapping, (ConditionalKind, ConditionalFRP)):
             stat = Statistic(f_mapping)
@@ -1996,13 +2014,37 @@ def frp(spec):
     try:
         return FRP(spec)
     except Exception as e:
-        raise FrpError(f'Could not create an FRP from {spec}:\n  {str(e)}')
+        raise FrpError(f'Could not create an FRP from {spec}:\n  {str(e)}') from e
 
 def is_frp(x) -> TypeGuard[FRP]:
     return isinstance(x, FRP)
 
 def is_conditional_frp(x) -> TypeGuard[Union[FRP, ConditionalFRP]]:
-    return isinstance(x, FRP) or isinstance(x, ConditionalFRP)
+    return isinstance(x, (ConditionalFRP, FRP))
+
+
+#
+# FRP Factories
+#
+
+def frp_factory(
+        f=None,
+        *,
+        summary='',
+        doc='',
+        name: str | None = None,
+        allow_markup=False,
+):
+    """ATTN"""
+    if f is None:
+        def decorator(fn: Callable):
+            return frp_factory(fn, summary=summary, doc=doc,
+                               name=name, allow_markup=allow_markup)
+        return decorator
+
+    return objlike_factory(FRP, frp, FrpFactory, [], f,
+                           summary=summary, doc=doc, name=name, allow_markup=allow_markup)
+
 
 #
 # Tagged FRPs for context in conditionals

@@ -1,3 +1,8 @@
+"""Kinds ATTN
+"""
+# pylint: disable=too-many-lines, no-else-return
+# pylint: disable=redefined-outer-name, protected-access    # TEMP
+
 from __future__ import annotations
 
 import pickle
@@ -9,6 +14,7 @@ from collections.abc   import Collection, Iterable, Sequence
 from dataclasses       import dataclass
 from decimal           import Decimal
 from enum              import Enum, auto
+from functools         import partial
 from itertools         import chain, combinations, permutations, product, starmap
 from pathlib           import Path
 from typing            import Literal, Callable, overload, Union
@@ -21,6 +27,7 @@ from rich.panel        import Panel
 from frplib.env        import environment
 from frplib.exceptions import (ConstructionError, EvaluationError, KindError, MismatchedDomain,
                                DomainDimensionError, OperationError)
+from frplib.factories  import objlike_factory, KindFactory
 from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
@@ -52,7 +59,8 @@ ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 # CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'], dict[ValueType, 'Kind'], dict[QuantityType, 'Kind'],
 #                                  dict[int, 'Kind'], dict[Decimal, 'Kind'], dict[Symbolic, 'Kind'], 'Kind']
 # CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'], dict[tuple[QuantityType, ...], 'Kind'],
-#                                  dict[QuantityType, 'Kind'], dict[int, 'Kind'], dict[Decimal, 'Kind'], dict[Symbolic, 'Kind'], 'Kind']
+#                                  dict[QuantityType, 'Kind'], dict[int, 'Kind'], dict[Decimal, 'Kind'],
+#                                  dict[Symbolic, 'Kind'], 'Kind']
 CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'],
                                  dict[ValueType, 'Kind'],
                                  dict[tuple[QuantityType, ...], 'Kind'],
@@ -136,7 +144,7 @@ def value_map(f, kind=None):  # ATTN: make in coming maps tuple safe; add dimens
         scalars = [vs for vs in f.keys() if not is_tuple(vs) and (vs,) not in f]
         if len(scalars) > 0:  # Keep scalar keys but tuplize them as well
             f = f | {(vs,): f[vs] for vs in scalars}  # Note: not mutating on purpose
-        return (lambda vs: f[vs])
+        return lambda vs: f[vs]
     # return None
     # move this error to invokation ATTN
     raise KindError('[red]Invalid value transform or mixture provided[/]: '
@@ -198,7 +206,7 @@ class EmptyKindDescriptor:  # Allows Kind.empty to be a Kind
     def __get__(self, obj, objtype=None):
         return objtype([])
 
-class Kind:
+class Kind:                 # pylint: disable=too-many-public-methods
     """
     The Kind of a Fixed Random Payoff
 
@@ -268,7 +276,7 @@ class Kind:
 
     @property
     def _branches(self):
-        return self._canonical.__iter__()
+        return iter(self._canonical)
 
     @property
     def weights(self):
@@ -349,7 +357,7 @@ class Kind:
         return Kind([KindBranch.make(as_quant_vec(value), 1)])
 
     @classmethod
-    def compare(cls, kind1: Kind, kind2: Kind, tolerance: ScalarQ = '1e-12') -> str:
+    def compare(cls, kind1: Kind, kind2: Kind, tolerance: ScalarQ = '1e-12') -> str:  # pylint: disable=too-many-locals
         """Compares two kinds and returns a diagnostic message about the differences, if any.
 
         Parameters:
@@ -375,7 +383,8 @@ class Kind:
             distinct2 = f'the second has distinct values [red]{vs2m1}[/]' if len(vs2m1) > 0 else ''
             connect12 = 'and ' if distinct1 and distinct2 else ''
             if len(intersect12) > 0:
-                max_diff = max(abs(kind1.kernel(v, as_float=False) - kind2.kernel(v, as_float=False)) for v in intersect12)
+                max_diff = max(abs(kind1.kernel(v, as_float=False) - kind2.kernel(v, as_float=False))
+                               for v in intersect12)
                 diff_str = f' The weights differ by up to [red]{as_nice_numeric(max_diff)}[/] on common values.'
             else:
                 diff_str = ''
@@ -541,8 +550,8 @@ class Kind:
         if len(self) == 0:
             return r_kind
 
-        def combine_product(branchA, branchB):
-            return KindBranch.make(vs=list(branchA.vs) + list(branchB.vs), p=branchA.p * branchB.p)
+        def combine_product(branch_a, branch_b):
+            return KindBranch.make(vs=list(branch_a.vs) + list(branch_b.vs), p=branch_a.p * branch_b.p)
 
         return Kind([combine_product(brA, brB) for brA, brB in product(self._canonical, r_kind._canonical)])
 
@@ -572,14 +581,14 @@ class Kind:
                 try:
                     statistic(self._canonical[0].vs)
                     f = statistic
-                except DomainDimensionError:
+                except DomainDimensionError as exc:
                     raise MismatchedDomain(f'Statistic {statistic.name} appears incompatible with this Kind, '
                                            f'which has dimension {self.dim} outside of expected range '
-                                           f'[{lo}..{"" if hi == math.inf else hi}).')
+                                           f'[{lo}..{"" if hi == math.inf else hi}).') from exc
                 except Exception as e:
                     raise MismatchedDomain(f'Statistic {statistic.name} appears incompatible with this Kind, '
                                            f'which has dimension {self.dim} outside of expected range '
-                                           f'[{lo}..{"" if hi == math.inf else hi}). {"(" + str(e) + ")"}')
+                                           f'[{lo}..{"" if hi == math.inf else hi}). {"(" + str(e) + ")"}') from e
         else:
             f = compose(as_vec_tuple, value_map(statistic))  # ATTN!
             name = 'anonymous'
@@ -587,7 +596,7 @@ class Kind:
             return self.map(f)
         except Exception as e:
             raise KindError(f'Statistic {name} appears incompatible with this Kind. '
-                            f'({e.__class__.__name__}:\n  {str(e)})')
+                            f'({e.__class__.__name__}:\n  {str(e)})') from e
 
     def conditioned_on(self, cond_kind):
         """Kind Combinator: computes the kind of the target conditioned on the mixer (this kind).
@@ -611,9 +620,9 @@ class Kind:
         # Function without input pass through
         try:
             cond_kind = value_map(cond_kind, self)
-        except Exception:
+        except Exception as exc:
             raise KindError('Conditioning on this kind requires a valid and '
-                            'matching mapping of values to kinds of the same dimension')
+                            'matching mapping of values to kinds of the same dimension') from exc
         return self.bind(cond_kind)
 
     @property
@@ -667,7 +676,7 @@ class Kind:
             for datum in data:
                 log_likelihood += numeric_ln(self.kernel(datum, as_float=False))  # type: ignore
         except Exception as e:
-            raise KindError(f'Could not compute log likelihood for kind:\n  {str(e)}')
+            raise KindError(f'Could not compute log likelihood for kind:\n  {str(e)}') from e
         return log_likelihood
 
     @property
@@ -705,9 +714,9 @@ class Kind:
         # Use monoidal power trick
         if n < 0:
             raise KindError('Kind powers with negative exponents not allowed')
-        elif n == 0 or self.dim == 0:
+        if n == 0 or self.dim == 0:
             return Kind.empty
-        elif n == 1:
+        if n == 1:
             return self
 
         def combine_product(orig_branches):
@@ -763,7 +772,7 @@ class Kind:
             return self.mixture(cond_kind)
         except Exception as e:
             raise KindError('Problem computing mixture of a Kind and conditional Kind: '
-                            f'{str(e)}')
+                            f'{str(e)}') from e
 
     def __xor__(self, statistic):
         """Applies a statistic or other function to a Kind and returns a transformed kind.
@@ -821,7 +830,7 @@ class Kind:
             return Kind.empty
 
         # Check dimensions (allow negative indices python style)
-        if any([index == 0 or index < -dim or index > dim for index in indices]):
+        if any(index == 0 or index < -dim or index > dim for index in indices):
             raise KindError( f'All marginalization indices in {indices} should be between 1..{dim} or -{dim}..-1')
 
         # Marginalize
@@ -1030,6 +1039,30 @@ def is_kind(x) -> TypeGuard[Kind]:
 
 
 #
+# Kind Factories
+#
+
+def kind_factory(
+        f=None,
+        *,
+        summary='',
+        doc='',
+        display=None,  # TODO: ATTN for Kind.Display enum later when it is implemented
+        name: str | None = None,
+        allow_markup=False,
+):
+    """ATTN"""
+    if f is None:
+        def decorator(fn: Callable):
+            return kind_factory(fn, display=display, summary=summary, doc=doc,
+                                name=name, allow_markup=allow_markup)
+        return decorator
+
+    return objlike_factory(Kind, kind, KindFactory, ['display'], f,
+                           summary=summary, doc=doc, name=name, allow_markup=allow_markup, display=display)
+
+
+#
 # Kind Utilities
 #
 
@@ -1166,7 +1199,7 @@ flatteners: dict[Flatten, Callable] = {
 
 ELLIPSIS_MAX_LENGTH: int = 10 ** 6
 
-def sequence_of_values(
+def sequence_of_values(    # pylint: disable=too-many-branches
         *xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis],   # type: ignore
         flatten: Flatten = Flatten.NON_VECTORS,
         transform=identity,
@@ -1494,7 +1527,7 @@ def weighted_by(*xs, weight_by: Callable) -> Kind:
             branches.append(KindBranch.make(vs=as_quant_vec(x), p=w))
     return Kind(branches)
 
-def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
+def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] | None = None) -> Kind:
     """Returns a Kind with the specified values weighted by given weights.
 
     Parameters
@@ -1547,6 +1580,9 @@ def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] = []) -> Kind:
     + weighted_as({0: '1/2', 1: '1/3', 2: '1/6'})
 
     """
+    if weights is None:
+        weights = []
+
     if len(xs) == 1 and isinstance(xs[0], dict):
         # value: weight given in a dictionary
         val_wgt_map = xs[0]
@@ -1778,7 +1814,7 @@ def permutations_of(xs: Iterable, r=None) -> Kind:
     return Kind([KindBranch.make(vs=pi, p=1) for pi in permutations(xs, r)])
 
 # ATTN: lower does not need to be lower just any bin boundary (but watch the floor below)
-def bin(scalar_kind, lower, width):
+def bin(scalar_kind, lower, width):      # pylint: disable=redefined-builtin
     """Returns a Kind similar to that given but with values binned in specified intervals.
 
     The bins are intervals of width `width` starting at `lower`.  So, for instance,
@@ -1803,7 +1839,7 @@ def bin(scalar_kind, lower, width):
 # Conditional Kinds
 #
 
-class ConditionalKind:
+class ConditionalKind:           # pylint: disable=too-many-instance-attributes
     """A unified representation of a conditional Kind.
 
     A conditional Kind is a mapping from a set of values of common
@@ -1822,9 +1858,9 @@ class ConditionalKind:
     which see.
 
     """
-    def __init__(
+    def __init__(          # pylint: disable=too-many-locals, too-many-branches, too-many-statements
             self,
-            mapping: CondKindInput,  # Callable[[ValueType], Kind] | dict[ValueType, Kind] | dict[QuantityType, Kind] | Kind,
+            mapping: CondKindInput,
             *,
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,    # If not supplied, this inferred in dict case
@@ -1856,10 +1892,11 @@ class ConditionalKind:
             self._targets: dict[ValueType, Kind] = {}  # NB: Trading space for time by keeping these
             for k, v in mapping.items():
                 if not isinstance(v, Kind):
-                    raise ConstructionError(f'Dictionary for a conditional Kind should map to Kinds, but {v} is not a Kind')
+                    raise ConstructionError(f'Dictionary for a conditional Kind should map to Kinds,'
+                                            f' but {v} is not a Kind')
 
                 kin = as_quant_vec(k)
-                vout = v.map(lambda u: VecTuple.concat(kin, u))  # Input pass through
+                vout = v.map(partial(VecTuple.concat, kin))  # Input pass through
                 self._mapping[kin] = vout
                 self._targets[kin] = v
             self._original_fn: Callable[[ValueType], Kind] | None = None
@@ -1922,7 +1959,7 @@ class ConditionalKind:
 
             if domain is None:  # Infer domain set from keys
                 if _codim is not None:
-                    _domain_set = set(k for k in self._mapping.keys() if len(k) == _codim)
+                    _domain_set = set(k for k in self._mapping if len(k) == _codim)
                 else:
                     _domain_set = set(self._mapping.keys())
                 self._domain_set = _domain_set
@@ -1931,7 +1968,7 @@ class ConditionalKind:
                 self._trivial_domain = False  # non-trivial domain specified implicitly
             elif has_domain_set:  # check that domains are consistent
                 if _codim is not None:
-                    mapping_domain = set(k for k in self._mapping.keys() if len(k) == _codim)
+                    mapping_domain = set(k for k in self._mapping if len(k) == _codim)
                 else:
                     mapping_domain = set(self._mapping.keys())
                 if not (self._domain_set <= mapping_domain):
@@ -2001,7 +2038,8 @@ class ConditionalKind:
                 _codim = codim
 
             # Make the wrapped function accept flexible arguments of specified number
-            mapping_t = tuple_safe(mapping, arities=_codim, convert=kind)  # ATTN: need to set codim=1 explicitly to get scalar unwrapping?
+            # ATTN: need to set codim=1 explicitly to get scalar unwrapping?
+            mapping_t = tuple_safe(mapping, arities=_codim, convert=kind)
             arities = getattr(mapping_t, 'arity')
 
             # Recheck codim from inspection when it was not yet specified
@@ -2066,7 +2104,9 @@ class ConditionalKind:
                 try:
                     result = mapping_t(value)
                 except Exception as e:
-                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional Kind:\n  {str(e)}')
+                    raise MismatchedDomain(
+                        f'encountered a problem passing {value} to a conditional Kind:\n  {str(e)}'
+                    ) from e
 
                 extended = result.map(lambda u: VecTuple.concat(value, u))  # Input pass through
                 self._mapping[value] = extended   # Cache, fn should be pure
@@ -2091,7 +2131,9 @@ class ConditionalKind:
                 try:
                     result = mapping_t(value)
                 except Exception as e:
-                    raise MismatchedDomain(f'encountered a problem passing {value} to a conditional Kind:\n  {str(e)}')
+                    raise MismatchedDomain(
+                        f'encountered a problem passing {value} to a conditional Kind:\n  {str(e)}'
+                    ) from e
 
                 extended = result.map(lambda u: VecTuple.concat(value, u))  # Input pass through
                 self._mapping[value] = extended   # Cache, fn should be pure
@@ -2307,7 +2349,7 @@ class ConditionalKind:
                     return statistic(self._fn(*value))
                 except Exception as e:
                     raise KindError(f'Statistic {statistic.name} appears incompatible with this conditional Kind. '
-                                    f'({e.__class__.__name__}:\n  {str(e)})')
+                                    f'({e.__class__.__name__}:\n  {str(e)})') from e
         return ConditionalKind(transformed, codim=self._codim, target_dim=s_dim, domain=domain)
 
     def __xor__(self, statistic):
@@ -2389,6 +2431,9 @@ class ConditionalKind:
             domain = None
 
         if self._is_dict and ckind._is_dict:
+            # TODO: ATTN check if this is the intended meaning vs.
+            #       self._domain_set if self._has_domain_set else self._mapping.keys()
+            #       These differ if has_domain_set is true but domain_set is empty
             s_domain = (self._has_domain_set and self._domain_set) or self._mapping.keys()
             c_domain = (ckind._has_domain_set and ckind._domain_set) or ckind._mapping.keys()
             intersecting = s_domain & c_domain
@@ -2492,7 +2537,7 @@ def conditional_kind(
     if mapping is not None:
         if isinstance(mapping, Statistic):
             raise ConstructionError('Cannot create Conditional Kind from a Statistic.')
-        elif not callable(mapping) and not isinstance(mapping, dict) and not isinstance(mapping, Kind):
+        if not callable(mapping) and not isinstance(mapping, dict) and not isinstance(mapping, Kind):
             raise ConstructionError('Cannot create Conditional Kind from the given '
                                     f'object of type {type(mapping).__name__}')
         # elif hasattr(mapping, '_auto_clone'):  # Hack to detect ConditionalFRP and avoid circularity
@@ -2524,7 +2569,7 @@ def conditional_kind(
     return decorator
 
 def is_conditional_kind(x) -> TypeGuard[Union[Kind, ConditionalKind]]:
-    return isinstance(x, Kind) or isinstance(x, ConditionalKind)
+    return isinstance(x, (ConditionalKind, Kind))   # We consider a Kind a trivial conditional Kind
 
 
 #

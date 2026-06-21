@@ -9,17 +9,6 @@ from functools         import update_wrapper, wraps
 
 from rich.markup       import escape
 
-from frplib.exceptions import FactoryError
-
-
-__all__ = [
-    'FactoryError',
-    'statistic_factory',
-    'condition_factory',
-    'kind_factory',
-    'frp_factory',
-]
-
 
 #
 # Helpers
@@ -198,7 +187,7 @@ def _make_sig(name: str, pars, param_vals) -> str:
     sig.append(')')
     return ''.join(sig)
 
-def _statlike_factory(
+def statlike_factory(
         cast_to: type,
         cast_with: Callable,
         factory_class: type,
@@ -212,7 +201,7 @@ def _statlike_factory(
         auto_name: str | bool = True,
         allow_markup=False,
         **stat_kwds
-):                                     # pylint: disable=too-many-locals
+):                                     # pylint: disable=too-many-locals, too-many-arguments
     """ATTN"""
     stat_args = {k: stat_kwds[k] for k in valid_kwds if k in stat_kwds}
 
@@ -262,7 +251,7 @@ def _statlike_factory(
         return factory_class(stat_fact, doc=doc, summary=summary, name=factory_name,
                              allow_markup=allow_markup, auto_doc=auto_doc, pars=pars)
 
-def _objlike_factory(
+def objlike_factory(
         cast_to: type,
         cast_with: Callable,
         factory_class: type,
@@ -288,113 +277,3 @@ def _objlike_factory(
 
     return factory_class(obj_fact, summary=summary, doc=doc,
                          name=name, allow_markup=allow_markup)
-
-
-#
-# Statistic Factory Decorators (Statistic and Condition)
-#
-
-_STAT_KEYS = ['name', 'codim', 'dim', 'description', 'monoidal', 'strict', 'arg_convert']
-
-def statistic_factory(
-        f=None,
-        *,
-        doc='',
-        summary='',
-        factory_name='',
-        auto_doc: str | bool = False,
-        auto_name: str | bool = True,
-        allow_markup=False,
-        **stat_kwds
-):
-    """ATTN"""
-    from frplib.statistics import Statistic, statistic  # TODO: avoid circularity; consider move to statistics.py
-
-    if f is None:
-        def decorator(fn: Callable):
-            return statistic_factory(fn, summary=summary, doc=doc, factory_name=factory_name,
-                                     auto_doc=auto_doc, auto_name=auto_name,
-                                     allow_markup=allow_markup, **stat_kwds)
-        return decorator
-
-    return _statlike_factory(Statistic, statistic, StatisticFactory, _STAT_KEYS,
-                             f, doc=doc, summary=summary, factory_name=factory_name,
-                             auto_doc=auto_doc, auto_name=auto_name,
-                             allow_markup=allow_markup, **stat_kwds)
-
-def condition_factory(
-        f=None,
-        *,
-        doc='',
-        summary='',
-        factory_name='',
-        auto_doc: str | bool = False,
-        auto_name: str | bool = True,
-        allow_markup=False,
-        **stat_kwds
-):
-    """ATTN"""
-    from frplib.statistics import Condition, condition    # TODO: avoid circularity; consider moving to statistics.py
-
-    if f is None:
-        def decorator(fn: Callable):
-            return condition_factory(fn, summary=summary, doc=doc, factory_name=factory_name,
-                                     auto_doc=auto_doc, auto_name=auto_name,
-                                     allow_markup=allow_markup, **stat_kwds)
-        return decorator
-
-    return _statlike_factory(Condition, condition, ConditionFactory, _STAT_KEYS,
-                             f, doc=doc, summary=summary, factory_name=factory_name,
-                             auto_doc=auto_doc, auto_name=auto_name,
-                             allow_markup=allow_markup, **stat_kwds)
-
-
-#
-# Kind Factory Decorator
-#
-
-def kind_factory(
-        f=None,
-        *,
-        summary='',
-        doc='',
-        display=None,  # TODO: ATTN for Kind.Display enum later when it is implemented
-        name: str | None = None,
-        allow_markup=False,
-):
-    """ATTN"""
-    from frplib.kinds      import Kind, kind    # TODO: lazy imports avoid circularity; consider moving to kinds.py
-
-    if f is None:
-        def decorator(fn: Callable):
-            return kind_factory(fn, display=display, summary=summary, doc=doc,
-                                name=name, allow_markup=allow_markup)
-        return decorator
-
-    return _objlike_factory(Kind, kind, KindFactory, ['display'], f,
-                            summary=summary, doc=doc, name=name, allow_markup=allow_markup, display=display)
-
-
-#
-# FRP Factory Decorator
-#
-
-def frp_factory(
-        f=None,
-        *,
-        summary='',
-        doc='',
-        name: str | None = None,
-        allow_markup=False,
-):
-    """ATTN"""
-    from frplib.frps       import FRP, frp     # TODO: lazy imports avoid circularity; consider moving to frps.py
-
-    if f is None:
-        def decorator(fn: Callable):
-            return frp_factory(fn, summary=summary, doc=doc,
-                               name=name, allow_markup=allow_markup)
-        return decorator
-
-    return _objlike_factory(FRP, frp, FrpFactory, [], f,
-                            summary=summary, doc=doc, name=name, allow_markup=allow_markup)

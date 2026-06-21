@@ -3,7 +3,7 @@
 ATTN:fill in
 
 """
-# pylint: disable=too-many-lines
+# pylint: disable=too-many-lines, invalid-name, line-too-long
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ from typing_extensions import Self, TypeAlias, TypeGuard
 
 from frplib.exceptions import (OperationError, StatisticError, DomainDimensionError,
                                InputError, MismatchedDomain)
+from frplib.factories  import ConditionFactory, StatisticFactory, statlike_factory
 from frplib.numeric    import (ScalarQ, Numeric, Nothing, nothing, as_real, numeric_sqrt,
                                numeric_exp, numeric_ln, numeric_log10, numeric_log2,
                                numeric_abs, numeric_floor, numeric_ceil)
@@ -1426,12 +1427,12 @@ def condition(
     ...
 
 def condition(
-        maybe_predicate = None,  # If supplied, return Condition, else a decorator
+        maybe_predicate=None,  # If supplied, return Condition, else a decorator
         *,
-        name = None,             # A user-facing name for the statistic
-        codim = None,            # Number of arguments the function takes; 0 means tuple expected
-        description = None,      # A description used as a __doc__ string for the Statistic
-        strict=True              # If true, then strictly enforce dim upper bound
+        name=None,             # A user-facing name for the statistic
+        codim=None,            # Number of arguments the function takes; 0 means tuple expected
+        description=None,      # A description used as a __doc__ string for the Statistic
+        strict=True            # If true, then strictly enforce dim upper bound
 ):
     """Statistics factory and decorator. Converts a predicate into a Condition.
 
@@ -1468,6 +1469,61 @@ def condition(
 
 
 #
+# Statistic Factory Decorators
+#
+
+_STAT_KEYS = ['name', 'codim', 'dim', 'description', 'monoidal', 'strict', 'arg_convert']
+
+def statistic_factory(
+        f=None,
+        *,
+        doc='',
+        summary='',
+        factory_name='',
+        auto_doc: str | bool = False,
+        auto_name: str | bool = True,
+        allow_markup=False,
+        **stat_kwds
+):
+    """ATTN"""
+    if f is None:
+        def decorator(fn: Callable):
+            return statistic_factory(fn, summary=summary, doc=doc, factory_name=factory_name,
+                                     auto_doc=auto_doc, auto_name=auto_name,
+                                     allow_markup=allow_markup, **stat_kwds)
+        return decorator
+
+    return statlike_factory(Statistic, statistic, StatisticFactory, _STAT_KEYS,
+                            f, doc=doc, summary=summary, factory_name=factory_name,
+                            auto_doc=auto_doc, auto_name=auto_name,
+                            allow_markup=allow_markup, **stat_kwds)
+
+def condition_factory(
+        f=None,
+        *,
+        doc='',
+        summary='',
+        factory_name='',
+        auto_doc: str | bool = False,
+        auto_name: str | bool = True,
+        allow_markup=False,
+        **stat_kwds
+):
+    """ATTN"""
+    if f is None:
+        def decorator(fn: Callable):
+            return condition_factory(fn, summary=summary, doc=doc, factory_name=factory_name,
+                                     auto_doc=auto_doc, auto_name=auto_name,
+                                     allow_markup=allow_markup, **stat_kwds)
+        return decorator
+
+    return statlike_factory(Condition, condition, ConditionFactory, _STAT_KEYS,
+                            f, doc=doc, summary=summary, factory_name=factory_name,
+                            auto_doc=auto_doc, auto_name=auto_name,
+                            allow_markup=allow_markup, **stat_kwds)
+
+
+#
 # Statistics Combinators
 #
 
@@ -1475,7 +1531,7 @@ def Chain(*statistics: Statistic) -> Statistic:
     "Statistic combinator. Compose statistics in pipeline order: (f ; g)(x) = g(f(x)), read 'f then g'."
     if len(statistics) == 0:
         return Id
-    elif len(statistics) == 1:
+    if len(statistics) == 1:
         return statistics[0]
 
     in_dim = statistics[0].dim
@@ -2770,7 +2826,7 @@ def Contains(*items):
     + qvec(0, 1, 2, 3, 4, 5, 6) ^ Contains(9)     #=> 0
 
     """
-    return IndexOf(*items) >= 0
+    return IndexOf(*items) >= 0     # pylint: disable=comparison-with-callable
 
 
 #
