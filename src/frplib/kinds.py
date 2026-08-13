@@ -1303,8 +1303,11 @@ def binary(p='1/2'):
         return constant(1)
     return weighted_as(0, 1, weights=[1 - w, w])
 
+# DEPRECATED
 def either(a, b, weight_ratio=1) -> Kind:
     """A choice between two possibilities a and b with ratio of weights (a to b) of `weight_ratio`.
+
+    DEPRECATED: Use choice instead. Note the difference of the weight_ratio.
 
     Values can be numbers, symbols, or strings. In the latter case they are converted
     to numeric or symbolic values as appropriate. Rational values in strings (e.g., '1/7')
@@ -1315,6 +1318,20 @@ def either(a, b, weight_ratio=1) -> Kind:
     p_a = ratio / (1 + ratio)
     return Kind([KindBranch.make(vs=as_quant_vec(a), p=p_a),
                  KindBranch.make(vs=as_quant_vec(b), p=1 - p_a)])
+
+@kind_factory
+def choice(a, b, weight_ratio=1) -> Kind:
+    """a choice between two possibilities a and b with specified ratio of weights (b to a).
+
+    Values can be numbers, symbols, or strings. In the latter case, they are converted
+    to numeric or symbolic values as appropriate. Rational values in strings (e.g., '1/7')
+    are allowed but must have no space around the '/'.
+
+    """
+    ratio = as_numeric(weight_ratio)
+    p_b = ratio / (1 + ratio)
+    return Kind([KindBranch.make(vs=as_quant_vec(a), p=1 - p_b),
+                 KindBranch.make(vs=as_quant_vec(b), p=p_b)])
 
 def uniform(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis]) -> Kind:   # type: ignore
     """Returns a Kind with equal weights on the given values.

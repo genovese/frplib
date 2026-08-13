@@ -26,7 +26,7 @@ from frplib.kinds import (                                # pylint: disable=rede
     kind, conditional_kind,
     is_kind, kind_factory,
     unfold, clean, fast_mixture_pow, bayes,
-    constant, uniform, either, binary,
+    constant, uniform, choice, binary, either,   # DEPRECATED: either
     symmetric, linear, geometric,
     weighted_by, weighted_as, weighted_pairs,
     arbitrary, integers, evenly_spaced, bin,
@@ -72,7 +72,7 @@ from frplib.numeric import (
     nothing,
 )
 
-from frplib.quantity import as_quantity, qvec
+from frplib.quantity import as_quantity, qvec, tup
 
 from frplib.symbolic import gen_symbol, is_symbolic, is_zero, symbol, symbols
 
@@ -101,7 +101,7 @@ __all__ = [
     'Kind', 'ConditionalKind',
     'kind', 'conditional_kind',
     'is_kind', 'unfold', 'clean', 'fast_mixture_pow', 'bayes',
-    'constant', 'uniform', 'either', 'binary',
+    'constant', 'uniform', 'choice', 'binary', 'either',   # DEPRECATED: either
     'symmetric', 'linear', 'geometric',
     'weighted_by', 'weighted_as', 'weighted_pairs',
     'arbitrary', 'integers', 'evenly_spaced', 'bin',
@@ -142,7 +142,7 @@ __all__ = [
     'numeric_abs', 'numeric_sqrt', 'numeric_floor', 'numeric_ceil',
     'nothing',
     # frplib.quantity
-    'as_quantity', 'qvec',
+    'as_quantity', 'qvec', 'tup',
     # frplib.symbolic
     'gen_symbol', 'is_symbolic', 'is_zero', 'symbol', 'symbols',
     # frplib.utils

@@ -92,8 +92,7 @@ def as_quant_vec(x, convert=as_quantity):
     # ATTN: Consider using as_real for the convert_numeric in as_quantity
     if isinstance(x, Iterable) and not isinstance(x, str):
         return VecTuple(map(convert, x))
-    else:
-        return vec_tuple(convert(x))
+    return vec_tuple(convert(x))
 
 def qvec(*xs, convert=as_quantity):
     "Wraps its arguments in a quantitative vector. If given a single iterable, converts that instead."
@@ -102,6 +101,8 @@ def qvec(*xs, convert=as_quantity):
     if len(xs) == 1 and isinstance(xs[0], Iterable) and not isinstance(xs[0], str):
         return as_quant_vec(xs[0], convert=convert)
     return as_quant_vec(xs, convert=convert)
+
+tup = qvec  # NOTE: tup is the user-facing version we will use henceforth, allows specialization later
 
 def show_quantity(x: Numeric | Symbolic, digits=None) -> str:
     if isinstance(x, Symbolic):
