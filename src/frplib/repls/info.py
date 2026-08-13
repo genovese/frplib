@@ -26,8 +26,14 @@ from rich.markdown import Markdown
 
 from frplib.env              import environment
 from frplib.exceptions       import PlaygroundError
-from frplib.data.info_tree   import info_tree
 from frplib.repls.info_types import InfoNode, InfoTree
+
+if __name__ == '__main__':
+    # Regenerating frplib/data/info_tree.py (see below) must not require
+    # that file to already exist, so skip the real import in that case.
+    info_tree: InfoTree = {}
+else:
+    from frplib.data.info_tree import info_tree
 
 
 __all__ = ['info_interactive', 'menu_select_via_dialog', 'menu_select_via_completion']
@@ -712,5 +718,11 @@ if __name__ == '__main__':
             pprint.pp(it, stream=f, indent=4, width=100)
 
         print(" formatting...", end='', flush=True)
-        subprocess.run([sys.executable, '-m', 'black', '-q', str(physical_path)], check=True)
+        try:
+            subprocess.run(
+                [sys.executable, '-m', 'black', '-q', str(physical_path)],
+                check=True, capture_output=True,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            pass  # black is optional; leave the file pprint-formatted if unavailable
         print("Done")
