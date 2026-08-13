@@ -1315,7 +1315,7 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
 #         dim: int | None = None,
 #         domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
 #         target_dim: int | None = None,
-#         auto_clone: bool = False   # ATTN: Not yet used, if True, clone on every evaluation, e.g., in simulation
+#         auto_clone: bool = False   # If True, clone on every evaluation, e.g., in simulation
 # ) -> ConditionalFRP | Callable[..., ConditionalFRP]:
 
 @overload
@@ -1326,7 +1326,7 @@ def conditional_frp(
         dim: int | None = None,
         domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
         target_dim: int | None = None,
-        auto_clone: bool = False   # ATTN: Not yet used, if True, clone on every evaluation, e.g., in simulation
+        auto_clone: bool = False   # If True, clone on every evaluation, e.g., in simulation
 ) -> Callable[..., ConditionalFRP]:
     ...
 
@@ -1338,7 +1338,7 @@ def conditional_frp(
         dim: int | None = None,
         domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
         target_dim: int | None = None,
-        auto_clone: bool = False   # ATTN: Not yet used, if True, clone on every evaluation, e.g., in simulation
+        auto_clone: bool = False   # If True, clone on every evaluation, e.g., in simulation
 ) -> ConditionalFRP:
     ...
 

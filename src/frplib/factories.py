@@ -223,7 +223,7 @@ class FrpFactory(Factory):
     def _default_prefix(self, s):
         if not s:
             return 'An FRP factory'
-        return 'A factory producing an FRP that represets '
+        return 'A factory producing an FRP that represents '
 
 
 #
