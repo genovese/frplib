@@ -5,7 +5,7 @@ import pytest
 from hypothesis             import given
 from hypothesis.strategies  import integers, decimals, tuples, lists, one_of, dictionaries
 
-from frplib.exceptions   import ConstructionError
+from frplib.exceptions   import ConstructionError, FrpError
 from frplib.expectations import E
 from frplib.frps         import FRP, frp, conditional_frp, PureExpression, MixtureExpression, evolve
 from frplib.kinds        import Kind, kind, conditional_kind, constant, either, uniform, weighted_as
@@ -14,14 +14,18 @@ from frplib.statistics   import __, Proj
 from frplib.utils        import dim, codim, typeof, clone, const
 from frplib.vec_tuples   import as_vec_tuple, join
 
-def test_empty_conditional():
+def test_observations_nonfresh_or_empty():
     X = frp(uniform(1, 2, ..., 8))
     a = X.value
     Y = X | (__ < a)
     Z = X | (__ <= a)
 
-    assert dim(Y) == 0
+    assert Y.value < a
     assert Z.value == X.value
+
+    U = frp(uniform(1, 2, ..., 10))
+    with pytest.raises(FrpError):
+        U | (__ == 11)
 
 def test_frp_transform():
     X = frp(uniform(0, 1, ..., 7))

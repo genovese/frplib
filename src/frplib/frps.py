@@ -472,25 +472,47 @@ class ConditionalExpression(FrpExpression):
         if self._target._cached_kind is not None:
             self._cached_kind = self._target._cached_kind | condition
 
+            # Check for inconsistent condition to save effort later
+            # We raise an error because an empty FRP is almost
+            # certainly not what the user wants here. Alternatively,
+            # we can just set _cachedc_value to the empty tuple.
+            if Kind.equal(self._cached_kind, Kind.empty):
+                raise FrpError('Constrained an FRP by a condition that cannot be true. '
+                               'This would give the empty FRP, but that is probably not what you wanted.')
+                # Alternatively: return its value. Logically consistent but not likely what is needed
+                # self._cached_value = vec_tuple()
+
     def sample1(self) -> ValueType:
-        while True:  # If condition is always false, this will not terminate
-            val = self._target.sample1()
-            if bool(as_scalar(self._condition(val))):
-                return val
+        # If condition is always false, this will not terminate.
+        # We catch keyboard interrupts and raise an error rather than returning empty FRP.
+        # ATTN:Aug2026: Do we put a threshold here instead? Check values if cached Kind?
+        try:
+            while True:
+                val = self._target.sample1()
+                if bool(as_scalar(self._condition(val))):
+                    return val
+        except KeyboardInterrupt as e:
+            raise FrpError('Generating a value for a constrained FRP. '
+                           'Make sure the given condition is true for some possible value.') from e
 
     def value(self) -> ValueType:
-        # ATTN: Logical oddity about having value() for this type as it is counterfactual
-        # Same with computation earlier; it bears thinking about
-        # Perhaps this should just be sample1 always?  Or some sort of Bottom
         if self._cached_value is not None:
             return self._cached_value
-        val = self._target.value()
 
-        if as_scalar(self._condition(val)):
-            return val
-
-        self._cached_kind = Kind.empty
-        return vec_tuple()  # "Value" of Empty FRP
+        target = self._target
+        # If condition is always false, this will not terminate.
+        # We catch keyboard interrupts and raise an error rather than returning empty FRP.
+        # ATTN:Aug2026: Do we put a threshold here instead? Check values if cached Kind?
+        try:
+            while True:
+                val = target.value()
+                if bool(as_scalar(self._condition(val))):
+                    self._cached_value = val
+                    return val
+                target = target.clone()
+        except KeyboardInterrupt as e:
+            raise FrpError('Generating a value for a constrained FRP. '
+                           'Make sure the given condition is true for some possible value.') from e
 
     def kind(self) -> Kind:
         if self._cached_kind is None:
@@ -1923,23 +1945,36 @@ class FRP:
         return self.marginal(indices)
 
     def __or__(self, predicate):
-        "Applies a conditional filter to an FRP"
+        """Applies an observational constraint to an FRP as expressed through a condition."""
         if isinstance(predicate, Statistic):
             condition: Callable = predicate
         elif callable(predicate):
             condition = tuple_safe(predicate)   # ATTN: update?  Condition(predicate) ??
         else:
-            raise ConditionMustBeCallable('A conditional constraint requires a condition after the given bar.')
+            raise ConditionMustBeCallable('Constraining with an observation requires a condition after the given bar.')
 
-        # If this FRP is fresh, we use a conditional expression to preserve both the
+        # ^^ATTN:Aug2026 Do we force condition to be a Condition?
+        # Might want an as_condition function or Condition.from class method
+        # That creates a condition and checks that the result is a scalar, converts it properly, etc.
+        # This will handle the relevant tuple check below, for instance.
+
+        # If this FRP is fresh, we use a constraint expression to preserve both the
         # Kind and the value when it is determined. This avoids forcing an empty
         # FRP when nothing suggests it.
         #
-        # There is a question about the value and meaning of conditionally constrained FRPs.
-        # We want the constrained FRP to be consistent with the original and still reflect
-        # the correct Kind, including for cloning. Sometimes these are in conflict.
-        # When the value is inconsistent, we set value and Kind to empty; at that point,
-        # cloning and kind() will not get back to the general Kind; it will have collapsed.
+        # An FRP constrained by an observation is a distinct but related FRP to the original.
+        # It should be consistent with the value when the condition is satisfied but also
+        # have the appropriate constrained Kind.
+        #
+        # This requires that when xi(X.value) is true, (X | xi).value = X.value, but
+        # when xi(X.value) is false, we *resample* clones of X until we get a consistent value.
+        #
+        # This raises a possibility of non-termination if the condition is false for all
+        # possible values. We mitigate this in two ways. If the FRP is Kinded, we can
+        # check that the condition is true for some possible value. We can also have
+        # an iteration threshol in the environment, at which we stop and return an
+        # empty FRP. Or we could allow non-termination. ATTN:Aug2026 clarify the choice
+        #
 
         if self.is_kinded() and not self.is_fresh:
             relevant = condition(self.value)  # We evaluate the value here
@@ -1949,20 +1984,17 @@ class FRP:
                     raise FrpError(f'Condition after given | should return a scalar; got {relevant}.')
                 relevant = relevant[0]
 
-            if not relevant:
-                return FRP.empty
-            conditional = FRP(self.kind | condition)
-            conditional._value = self._value
-            return conditional
+            constrained = FRP(self.kind | condition)
+            if relevant:  # Make X | condition consistent with X
+                constrained._value = self._value
 
-        conditional = FRP(ConditionalExpression(as_expression(self), condition))
-        if self._kind:
-            conditional._kind = self._kind | condition
+            return constrained
 
-        if self._value is not None and condition(self._value):
-            conditional._value = self._value
+        constrained = FRP(ConditionalExpression(as_expression(self), condition))
+        if not self.is_fresh and condition(self._value):    # Make X | condition consistent with X
+            constrained._value = self._value
 
-        return conditional
+        return constrained
 
     def __rmatmul__(self, statistic):
         "Returns a transformed FRP with the original FRP as context for conditionals."
