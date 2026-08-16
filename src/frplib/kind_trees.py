@@ -267,6 +267,66 @@ STree: TypeAlias = 'list[Union[str, STree]]'
 
 
 def unfolded_labels(unfolded_branches, root_str, level, widths) -> STree:
+    """Converts an unfolded Kind tree of raw weights/values into a parallel tree of formatted, aligned labels.
+
+    This walks the tree produced by `unfold_tree` (a full-width tree, with one
+    level per coordinate of the Kind's values) one level at a time, replacing
+    each raw numeric weight and value with a display string, and records, as
+    it goes, the maximum string width needed for weights and for values at
+    each level of the *whole* tree, so that later rendering can align every
+    node at a given depth in the same columns, even though this function only
+    ever looks at one node's worth of siblings at a time.
+
+    At a given call, `unfolded_branches` is the list of sibling branches at
+    one node of the tree; each branch has the form `[weight, more]`, where
+    `more` is either a leaf value (a tuple) or an internal node
+    `[prefix, *subbranches]`, exactly as produced by `unfold_tree`. All
+    branches in this list share a common parent, already labelled `root_str`,
+    which sits at tree depth `level - 1`.
+
+    The weight and value labels for the branches at this level are formatted
+    together (via `show_quantities` and `show_qtuples`, so that e.g. numeric
+    precision is shared across siblings); weight labels are right-padded with
+    `-` (they are drawn as horizontal connectors), and value labels are
+    left-justified and padded with spaces. The `(weight_width, value_width)`
+    needed for this level is then merged, by componentwise max, into
+    `widths[level]` (or appended, if `level` has not yet been reached
+    elsewhere in the traversal). `widths` is a single list, shared and
+    mutated across the *whole* recursive traversal of the tree, so it ends up
+    holding, per level, the widest weight/value labels needed anywhere in the
+    tree -- not just among the current siblings.
+
+    Recursion into a branch's own children happens depth-first, branch by
+    branch, after the sibling labels at this level have already been
+    computed; a branch's freshly-formatted value string becomes `root_str`
+    for its own recursive call, one level deeper.
+
+    Params:
+      `unfolded_branches`: the siblings `[weight, more]` at one node of the
+          tree produced by `unfold_tree` (or of a subtree thereof); `more` is
+          a leaf value tuple, or an internal node `[prefix, *subbranches]`.
+      `root_str`: the already-formatted display label of the parent of
+          `unfolded_branches`, carried through unchanged so it can be
+          re-emitted as the root of the returned subtree.
+      `level`: the depth (1 = top level, just below the tree's root) of
+          `unfolded_branches` in the full tree; used to index into `widths`.
+      `widths`: a list, indexed by level, of `(weight_width, value_width)`
+          pairs, mutated in place to accumulate the maximum label widths
+          needed at each level across the whole tree. The caller should seed
+          this with an entry for level 0 (the root), e.g., `[(0, 3)]` for an
+          empty root weight and a 3-character `<>` root value.
+
+    Returns an STree, a nested list mirroring the shape of the input:
+    `[root_str, *branches]`, where each branch is `[weight_str, value_str]`
+    for a leaf, or `[weight_str, STree]` for an internal node.
+
+    This is the first of three functions used together, after `unfold_tree`,
+    to render an unfolded Kind for display: `unfolded_labels` produces the
+    labels and level widths, `unfold_scan` lays them out into (x, y)
+    positioned pieces, and `unfolded_str` stitches those pieces into the
+    final display string.
+
+    """
     w_strs = show_quantities(subtree[0] for subtree in unfolded_branches)
     v_strs = show_qtuples([subtree[1] if isinstance(subtree[1], tuple) else subtree[1][0]
                            for subtree in unfolded_branches], scalarize=False)
@@ -298,7 +358,64 @@ def after_dashes(weight_width: int) -> int:
         return 8
 
 def unfold_scan(unfolded, widths_by_level: list[tuple[int, int]], sep: list[int]) -> tuple[Items, list[int]]:
-    "Converts an unfolded tree into scan ordered branches for display."
+    """Lays out a labelled, unfolded Kind tree into positioned pieces for horizontal ASCII-tree rendering.
+
+    Takes the STree of formatted labels produced by `unfolded_labels` and
+    computes a screen position for every node and connecting line needed to
+    draw the tree horizontally -- root at the left, leaves at the right,
+    siblings fanning out vertically -- in the style of a directory-tree
+    diagram rotated 90 degrees.
+
+    Each tree level is assigned a fixed horizontal extent (`level_width`),
+    derived from that level's label widths (`widths_by_level`) and the number
+    of connecting dashes used (see `after_dashes`); `x_by_level` accumulates
+    these to give the starting x-coordinate (column) for each depth.
+
+    The recursive inner function `scan` walks the tree depth-first, node by
+    node. At an internal node, it first lays out roughly the first half of
+    its children (`range(half_height)`), inserting vertical connector
+    `Segment`s between them for spacing (per `sep[level + 1]`, halved around
+    the gap left for the node's own row if the number of children is even).
+    It then places the node's own row: aligned with the middle child, if
+    there is an odd number of children, or centered in the gap between the
+    two halves, if there is an even number (the `no_middle` case). It then
+    lays out the second half of the children, inserting further `Segment`s to
+    draw the vertical spine connecting the node's own row down to those of
+    its later siblings. A node's rendered "edge" glyph (which corner or
+    junction character connects it to its siblings' shared spine) is
+    determined purely by its position among its siblings:
+    `Edge.FIRST`/`Edge.MIDDLE`/`Edge.LAST`/`Edge.OTHER` (or `Edge.ROOT` for
+    the tree's root, which is handled as if it were a single node with one
+    "sibling"). Leaves are simply stacked one to a row, immediately below the
+    previously laid-out item.
+
+    Params:
+      `unfolded`: the STree returned by `unfolded_labels` for the top level
+          of the tree (i.e., not including the extra wrapper `scan` uses
+          internally to treat the whole tree uniformly as one node's child).
+      `widths_by_level`: the `(weight_width, value_width)` pairs per level,
+          as accumulated by `unfolded_labels`.
+      `sep`: the number of blank rows of vertical separation to leave between
+          sibling subtrees at each level (indexed by depth, root-relative);
+          should generally be even, since it is split evenly around a node
+          with an even number of children.
+
+    Returns a pair `(items, level_widths)`:
+      `items` -- a flat list of `Branch` and `Segment` pieces (see their
+          definitions above), each carrying the (x, y) position at which it
+          should be drawn, sorted in row-major order (top to bottom, then
+          left to right within a row) ready for `unfolded_str` to stitch into
+          a single string. (The `z` field on a `Segment` records which code
+          path produced it -- purely a diagnostic aid; `unfolded_str` renders
+          every `Segment` identically.)
+      `level_widths` -- the per-level horizontal extent computed above, also
+          needed by `unfolded_str` to position each level's tokens.
+
+    If the tree has no branches at all (a Kind that unfolds to a single,
+    deterministic value), a single root `Branch` is returned directly,
+    bypassing `scan` entirely.
+
+    """
 
     def level_width(level, leaf=False):
         if level == 0:
@@ -460,6 +577,33 @@ def unfold_scan(unfolded, widths_by_level: list[tuple[int, int]], sep: list[int]
     return (items, level_widths)
 
 def unfolded_str(scanned: Items, widths_by_level: list[tuple[int, int]]) -> str:
+    """Stitches the positioned tree pieces from `unfold_scan` into the final horizontal ASCII-tree display string.
+
+    Walks `scanned` (already sorted in row-major order by `unfold_scan`) and,
+    for each item, advances a text cursor to its (x, y) position -- emitting
+    spaces to move right within the current row, or newlines followed by
+    spaces to drop down to a later row -- then renders the item's token:
+
+      - A `Segment` renders as a single vertical bar `|`, regardless of which
+        code path in `unfold_scan` produced it.
+      - A `Branch` renders as a join glyph appropriate to its `Edge`
+        (`,`/`+`/`` ` ``/`|` for FIRST/MIDDLE/LAST/OTHER, or `<>` for ROOT),
+        followed by its dash-padded weight label and its value label
+        (sized using `widths_by_level` for the branch's tree level), with a
+        trailing `-` to visually continue the connecting line into the next
+        level -- omitted at the last (leaf) level, where there is nothing
+        further to connect to.
+
+    Params:
+      `scanned`: the sorted `items` list returned by `unfold_scan`.
+      `widths_by_level`: the same `(weight_width, value_width)` pairs per
+          level used by `unfolded_labels`/`unfold_scan`, needed here to size
+          each `Branch` token's weight/value fields exactly.
+
+    Returns the complete rendered tree as a single (generally multi-line)
+    string, suitable for direct display, e.g., as `UnfoldedKind.upicture`.
+
+    """
     # Temporarily interpret items here; move to another function
     y_last = 0
     x_last = 0

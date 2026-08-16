@@ -1,3 +1,7 @@
+"""Custom exceptions in frplib and the playground."""
+
+# pylint: disable=unnecessary-pass
+
 from __future__ import annotations
 
 class FrplibException(Exception):

@@ -973,7 +973,7 @@ class Kind:                 # pylint: disable=too-many-public-methods
 
 class TaggedKind(Kind):
     def __init__(self, createFrom, stat: Statistic):
-        original = Kind(createFrom)
+        original = Kind(createFrom)  # ATTN:Aug2026 Why wrap with Kind here? We want to keep it generic
         super().__init__(original.transform(stat))
         self._original = original
         self._stat = stat
@@ -1188,7 +1188,7 @@ class Flatten(Enum):
     NON_VECTORS = auto()
     EVERYTHING = auto()
 
-def _is_sequence(x):
+def _is_sequence(x) -> TypeGuard[Iterable]:
     return isinstance(x, Iterable) and not isinstance(x, str)
 
 flatteners: dict[Flatten, Callable] = {
