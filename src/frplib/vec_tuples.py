@@ -1,3 +1,14 @@
+"""VecTuples extend tuples with the vector operations of addition and scaling.
+
+Other operations with specialized handling include comparison, dot product (@),
+and various arithmetic operations.
+
+ATTN:EXTENSION and other details
+
+They are used in frplib for all values.
+
+"""
+
 from __future__ import annotations
 
 #
@@ -40,7 +51,7 @@ from collections.abc   import Iterable
 from decimal           import Decimal
 from fractions         import Fraction
 from functools         import reduce
-from operator          import (add, mul, sub, truediv, floordiv, mod, pow,
+from operator          import (add, mul, sub, truediv, floordiv, mod, pow,   # pylint: disable=redefined-builtin
                                lt, gt, eq, le, ge)
 from typing            import cast, Callable, Type, TypeVar, Union
 from typing_extensions import Self, TypeGuard
@@ -103,8 +114,8 @@ def cyclic_extend(
     # We'll likely need a list for other but also handles iterators
     try:
         y = list(other)
-    except Exception:
-        raise OperationError('Object cannot be converted to a VecTuple.')
+    except Exception as e:
+        raise OperationError('Object cannot be converted to a VecTuple.') from e
     m = len(y)
 
     if m == n:
@@ -147,8 +158,8 @@ def zero_extend(
     # We'll likely need a list for other but also handles iterators
     try:
         y = list(other)
-    except Exception:
-        raise OperationError('Object cannot be converted to a VecTuple.')
+    except Exception as e:
+        raise OperationError('Object cannot be converted to a VecTuple.') from e
     m = len(y)
 
     if m == n:
@@ -191,8 +202,8 @@ def scalar_extend(
     # We'll likely need a list for other but also handles iterators
     try:
         y = list(other)
-    except Exception:
-        raise OperationError('Object cannot be converted to a VecTuple.')
+    except Exception as e:
+        raise OperationError('Object cannot be converted to a VecTuple.') from e
 
     m = len(y)
     if m == n:
@@ -244,28 +255,36 @@ def extended_some_cmp(cmp, left, right):
 #
 
 def dot_product(a: VecTuple[T], b_star: Iterable[T]) -> T:
+    "Computes the vector dot product of a VecTuple and iterable, which must have the same length."
     b = list(b_star)
     if len(b) != len(a):
         raise OperationError('VecTuple dot product requires tuples of equal dimension')
     return reduce(add, map(mul, a, b), cast(T, 0))
 
 def from_scalar(x):
+    "Creates a scalar VecTuple from a quantity, else returns its argument as is."
     # Want T here but allow Quantity here when available
     if isinstance(x, (int, float, Fraction, Decimal, Symbolic)):
         return VecTuple([x])
     return x
 
 def as_scalar(x) -> T | None:
+    """Returns a scalar if given a quantity or a 1-dim VecTuple, else None.
+
+    In the case of a 1-dimensional VecTuple, the scalar is extracted and returned.
+
+    """
     if isinstance(x, (int, float, Fraction, Decimal, Symbolic, bool)):
         return cast(T, x)
-    elif isinstance(x, tuple) and len(x) == 1:
+    if isinstance(x, tuple) and len(x) == 1:
         return cast(T, x[0])
     return None
 
 def as_scalar_strict(x) -> T:
+    "Returns a scalar if convertible, otherwise raises an exception."
     if isinstance(x, (int, float, Fraction, Decimal, Symbolic, str, bool)):
         return cast(T, x)
-    elif isinstance(x, tuple) and len(x) == 1:
+    if isinstance(x, tuple) and len(x) == 1:
         return cast(T, x[0])
     raise NumericConversionError(f'The quantity {x} could not be converted to a numeric/symbolic scalar.')
 
@@ -273,7 +292,7 @@ def as_scalar_weak(x):
     "Returns a scalar if convertible, otherwise bail and return the argument."
     if isinstance(x, (int, float, Fraction, Decimal, Symbolic, bool)):
         return x
-    elif isinstance(x, tuple) and len(x) == 1:
+    if isinstance(x, tuple) and len(x) == 1:
         return x[0]
     return x
 
@@ -308,14 +327,23 @@ class VecTuple(tuple[T, ...]):
         return self.__str__()
 
     def map(self, fn) -> 'VecTuple[T]':
+        """Maps the given function over the components of this VecTuple."""
         return self.__class__(map(fn, self))
 
     @property
     def dim(self):
+        """Returns the dimension of this VecTuple."""
         return len(self)
 
     @classmethod
     def show(cls, vtuple: 'VecTuple[T]', scalarize=True) -> str:
+        """Returns the string form of this VecTuple.
+
+        If `scalarize` is True and this has dimension 1,
+        the string only represents the scalar with no
+        wrapping VecTuple shown.
+
+        """
         if scalarize and len(vtuple) == 1:
             return str(vtuple[0])
         return str(vtuple)
@@ -374,9 +402,9 @@ class VecTuple(tuple[T, ...]):
         dot_prod = dot_product(self, self)
         if isinstance(dot_prod, (int, Decimal)):
             return vec_tuple(numeric_sqrt(dot_prod))
-        elif isinstance(dot_prod, Symbolic):
+        if isinstance(dot_prod, Symbolic):
             return vec_tuple(symbolic_sqrt(dot_prod))
-        elif isinstance(dot_prod, Nothing):
+        if isinstance(dot_prod, Nothing):
             return vec_tuple(nothing)
 
         return vec_tuple(math.sqrt(dot_prod))
@@ -473,16 +501,49 @@ class VecTuple(tuple[T, ...]):
 
         return NotImplemented
 
+    # @classmethod
+    # def join(cls: Type[Self], values: Iterable[Self]) -> Self:
+    #     "Concatenates a list of VecTuples in order into a single VecTuple."
+    #     combined = []
+    #     for value in values:
+    #         combined.extend(list(value))
+    #     return cls(combined)
     @classmethod
-    def join(cls: Type[Self], values: Iterable[Self]) -> Self:
-        "Concatenates a list of VecTuples in order into a single VecTuple."
-        combined = []
-        for value in values:
-            combined.extend(list(value))
-        return cls(combined)
+    def join(cls: Type[Self], *x: T | VecTuple[T] | Iterable[T | tuple[T, ...]]) -> Self:  # VecTuple[T]:
+        """Concatenates one or more values in order into a single VecTuple.
+
+        Values can be given as a single iterable argument (not a string)
+        containing tuples or scalars, or as multiple tuple or scalar arguments.
+
+        Returns a VecTuple joining all values in order.
+
+        Examples:
+        + join(1, 2, 3) => <1, 2, 3>
+        + join((1, 2), 3, (4, 5, 6)) => <1, 2, 3, 4, 5, 6>
+        + join([(1, 2), (3, 4), (5, 6)]) => <1, 2, 3, 4, 5, 6>
+
+        """
+        if len(x) == 0:
+            return cls(())
+
+        if len(x) == 1 and _is_sequence(x[0]) and not isinstance(x[0], tuple):
+            vtups: Iterable = x[0]
+        else:
+            vtups = x
+
+        joined = []
+        for vt in map(as_vec_tuple, vtups):
+            joined.extend(list(vt))
+        return cls(joined)    # type: ignore
 
     @classmethod
     def concat(cls: Type[Self], *values: Self) -> Self:
+        """Concatenates zero or more VecTuples in order.
+
+        DEPRECATED as this functionality is now subsumed by
+        the join method.
+
+        """
         return cls.join(values)
 
     @classmethod
@@ -600,7 +661,7 @@ def value_set_from(vals: Iterable) -> set[VecTuple]:
     Returns a set of values.
 
     """
-    vs = set([as_vec_tuple(v) for v in vals])
+    vs = {as_vec_tuple(v) for v in vals}
     dims = set(map(len, vs))
     if len(dims) > 1:  # Was != 1 but want to allow empty Kinds where appropriate
         raise MismatchedDomain(f'Value set elements have different dimensions, {dims}.')
