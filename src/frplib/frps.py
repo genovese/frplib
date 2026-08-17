@@ -2059,6 +2059,28 @@ def is_conditional_frp(x) -> TypeGuard[Union[FRP, ConditionalFRP]]:
 # FRP Factories
 #
 
+@overload
+def frp_factory(
+        f: Callable,
+        *,
+        summary: str = '',
+        doc: str = '',
+        name: str | None = None,
+        allow_markup: bool = False,
+) -> FrpFactory:
+    ...
+
+@overload
+def frp_factory(
+        f: None = None,
+        *,
+        summary: str = '',
+        doc: str = '',
+        name: str | None = None,
+        allow_markup: bool = False,
+) -> Callable[[Callable], FrpFactory]:
+    ...
+
 def frp_factory(
         f=None,
         *,

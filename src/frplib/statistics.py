@@ -1474,6 +1474,34 @@ def condition(
 
 _STAT_KEYS = ['name', 'codim', 'dim', 'description', 'monoidal', 'strict', 'arg_convert']
 
+@overload
+def statistic_factory(
+        f: Callable,
+        *,
+        doc: str = '',
+        summary: str = '',
+        factory_name: str = '',
+        auto_doc: str | bool = False,
+        auto_name: str | bool = True,
+        allow_markup: bool = False,
+        **stat_kwds
+) -> StatisticFactory:
+    ...
+
+@overload
+def statistic_factory(
+        f: None = None,
+        *,
+        doc: str = '',
+        summary: str = '',
+        factory_name: str = '',
+        auto_doc: str | bool = False,
+        auto_name: str | bool = True,
+        allow_markup: bool = False,
+        **stat_kwds
+) -> Callable[[Callable], StatisticFactory]:
+    ...
+
 def statistic_factory(
         f=None,
         *,
@@ -1497,6 +1525,34 @@ def statistic_factory(
                             f, doc=doc, summary=summary, factory_name=factory_name,
                             auto_doc=auto_doc, auto_name=auto_name,
                             allow_markup=allow_markup, **stat_kwds)
+
+@overload
+def condition_factory(
+        f: Callable,
+        *,
+        doc: str = '',
+        summary: str = '',
+        factory_name: str = '',
+        auto_doc: str | bool = False,
+        auto_name: str | bool = True,
+        allow_markup: bool = False,
+        **stat_kwds
+) -> ConditionFactory:
+    ...
+
+@overload
+def condition_factory(
+        f: None = None,
+        *,
+        doc: str = '',
+        summary: str = '',
+        factory_name: str = '',
+        auto_doc: str | bool = False,
+        auto_name: str | bool = True,
+        allow_markup: bool = False,
+        **stat_kwds
+) -> Callable[[Callable], ConditionFactory]:
+    ...
 
 def condition_factory(
         f=None,

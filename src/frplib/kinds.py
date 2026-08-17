@@ -1221,6 +1221,30 @@ def is_kind(x) -> TypeGuard[Kind]:
 # Kind Factories
 #
 
+@overload
+def kind_factory(
+        f: Callable,
+        *,
+        summary: str = '',
+        doc: str = '',
+        display=None,
+        name: str | None = None,
+        allow_markup: bool = False,
+) -> KindFactory:
+    ...
+
+@overload
+def kind_factory(
+        f: None = None,
+        *,
+        summary: str = '',
+        doc: str = '',
+        display=None,
+        name: str | None = None,
+        allow_markup: bool = False,
+) -> Callable[[Callable], KindFactory]:
+    ...
+
 def kind_factory(
         f=None,
         *,
