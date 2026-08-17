@@ -94,12 +94,23 @@ def vector_safe(f):
 FrpDemo: TypeAlias = list[ValueType]
 
 class FrpDemoSummary:
+    """A table summarizing an FRP demo with all values seen and their counts.
+
+    An FRP demo involves generating a large number of clones of a specified
+    FRP (or its Kind) and recording the values seen. This maintains the
+    frequency table and provides display formats to give helpful tables
+    to communicate this summary in the frplib playground.
+
+    It also provides tools (.summary, .values_seen(), .transform())
+    for viewing and managing the frequency data underlying the
+    displayed tables.
+
+    """
     # At most one of these should be non-None
     def __init__(
             self,
             *,
             summary: Self | dict[ValueType, int] | None = None,
-            sample_size: int | None = None,
             samples: FrpDemo | None = None
     ) -> None:
         self._summary: dict[ValueType, int] = defaultdict(int)
@@ -172,9 +183,22 @@ class FrpDemoSummary:
         return "\n".join(out)
 
     def table(self, ascii=False, title: str | None = None) -> str:   # pylint: disable=redefined-builtin
+        """Returns a tabular form of this summary in the specified format.
+
+        Parameters
+        ----------
+        ascii: If true, the table is pure ascii; otherwise it is rich text.
+        title: A string for the table title. None (the default) means exclude.
+
+        """
         if ascii:
             return self.ascii_table(title)
         return self.rich_table(title)
+
+    @property
+    def sample_size(self) -> int:
+        """Returns the total number of samples in this demo."""
+        return self._size
 
     def values_seen(self) -> set:
         """Returns the set of unique values in the sample."""
@@ -182,7 +206,31 @@ class FrpDemoSummary:
 
     @property
     def summary(self) -> MappingProxyType:
+        """Returns a read-only (dict) view of the underlying demo summary data."""
         return MappingProxyType(self._summary)
+
+    def transform(self, stat: Statistic) -> FrpDemoSummary:
+        """Transforms all values in the summary with a statistic and recomputes counts.
+
+        Parameters
+        ----------
+        stat: The statistic with which to transform the values.
+
+        Returns the new demo summary based on the transformed values.
+
+        Example:
+            from frplib.examples.roulette import roulette
+
+            R = roulette()
+            u0 = FRP.sample(10_000, R)
+            u1 = u0.transform(roulette.red)
+
+        """
+        counts: dict[VecTuple, int] = defaultdict(int)
+        for val, freq in self.summary.items():
+            counts[stat(val)] += freq
+
+        return FrpDemoSummary(summary=counts)
 
     def __len__(self) -> int:
         return self._size
@@ -196,7 +244,7 @@ class FrpDemoSummary:
     def __repr__(self) -> str:
         if environment.is_interactive:
             return str(self)
-        return f'{self.__class__.__name__}(summary={repr(self._summary)}, sample_size={self._size})'
+        return f'{self.__class__.__name__}(summary={repr(self._summary)})'
 
 
 #
