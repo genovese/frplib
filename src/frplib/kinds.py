@@ -996,15 +996,15 @@ def kind_proc(make_generator: Callable[[], Generator[Kind, VecTuple, VecTuple]])
 
     """
     is_generator = inspect.isgeneratorfunction(make_generator)
-    required, accepted = analyze_domain(make_generator)
+    required, _accepted = analyze_domain(make_generator)
 
-    if required > 0 or accepted > 0:
+    if required > 0:  # Accept args with defaults for consistency with @frp; use accepted > 0 to forbid all
         mod = make_generator.__module__
         if not mod:
             mod = 'the playground'
         raise ConstructionError('The function decorated by @kind '
                                 f'({make_generator.__name__} in {mod}) '
-                                'should take no positional arguments.')
+                                'should take no required positional arguments.')
 
     return _kind_proc_(make_generator, is_generator)
 
@@ -1197,7 +1197,7 @@ def kind(spec):
     if isinstance(spec, SupportsConditionalKindOf):  # ConditionalFRPs use this to produce their conditional Kind
         return spec.conditional_kind_of()
 
-    if callable(spec):
+    if callable(spec):         # @kind decorating a (generator) function, a Kind procedure
         return kind_proc(spec)
 
     if hasattr(spec, 'kind'):  # Kinded case but more general

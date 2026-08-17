@@ -25,13 +25,13 @@ from frplib.env        import environment
 from frplib.exceptions import (ConditionMustBeCallable, ComplexExpectationWarning, ContractError,
                                ConstructionError, FrpError, KindError, MismatchedDomain,)
 from frplib.factories  import objlike_factory, FrpFactory
-from frplib.kinds      import Kind, kind, ConditionalKind, permutations_of
+from frplib.kinds      import Kind, is_kind, kind, ConditionalKind, permutations_of, _kind_proc_
 from frplib.numeric    import Numeric, Nothing, show_tuple, as_real
 from frplib.protocols  import Projection, SupportsExpectation, SupportsKindOf
 from frplib.quantity   import as_quant_vec, show_qtuple
-from frplib.statistics import Statistic, statistic, compose2, infinity, tuple_safe, Proj, Prepend
+from frplib.statistics import Statistic, statistic, analyze_domain, compose2, infinity, tuple_safe, Proj, Prepend
 from frplib.symbolic   import Symbolic, is_symbolic
-from frplib.utils      import const, is_tuple, scalarize, some
+from frplib.utils      import const, identity, is_tuple, scalarize, some
 from frplib.vec_tuples import (VecTuple, as_scalar, as_scalar_weak, as_vec_tuple, vec_tuple, value_set_from)
 
 
@@ -257,7 +257,7 @@ class TransformExpression(FrpExpression):
                 self._cached_value = self._transform(self._target.value())
             except Exception as exc:  # ATTN: might be easiest to just evaluate the value at transform time
                 if isinstance(self._transform, Statistic):
-                    label = self._transform.name   # type: ignore
+                    label = self._transform.name
                 else:
                     label = str(self._transform)
                 raise MismatchedDomain(f'Statistic {label} is incompatible with this FRP,'
@@ -391,7 +391,7 @@ class IMixtureExpression(FrpExpression):
         return IMixtureExpression([*mixture1._operands, *mixture2._operands])
 
 class IMixPowerExpression(FrpExpression):
-    def __init__(self, term: 'FrpExpression', pow: int) -> None:
+    def __init__(self, term: 'FrpExpression', pow: int) -> None:    # pylint: disable=redefined-builtin
         super().__init__()
         self._term = term
         self._pow = pow
@@ -602,6 +602,104 @@ class PureExpression(FrpExpression):
         return self._cached_value
 
 
+def _as_frp(x: Kind | FRP) -> FRP:
+    if is_kind(x):
+        return frp(x)
+
+    if is_frp(x):
+        return x
+
+    raise FrpError('The right side of a yield in an @frp-decorated function '
+                   'should be an FRP, a Kind, or a given() expression.')
+
+def _as_frp_clone(x: Kind | FRP) -> FRP:
+    if is_kind(x):
+        return frp(x)
+
+    if is_frp(x):
+        return x.clone()
+
+    raise FrpError('The right side of a yield in an @frp-decorated function '
+                   'should be an FRP, a Kind, or a given() expression.')
+
+class GeneratedFrpExpression(FrpExpression):
+    """An expression representing an FRP produced by a decorated generator.
+
+    Like PureExpression, this can act as a leaf in the expression tree,
+    though typically FRPs generated this way will be produced entirely
+    within a generator.
+
+    """
+    def __init__(self, make_gen, guard=_as_frp):
+        super().__init__()
+        self._make_generator = self._map_gen(make_gen, guard)
+        self._raw_generator = make_gen
+
+    @staticmethod
+    def _map_gen(gen, value_fn=identity, return_fn=identity):
+        if value_fn is identity and return_fn is identity:
+            return gen
+
+        def gen_prime():
+            g = gen()
+            v = None
+            try:
+                while True:
+                    v = yield value_fn(g.send(v))
+            except StopIteration as finished:
+                return return_fn(finished.value)
+
+        return gen_prime
+
+    @staticmethod
+    def _frp_do_(make_generator):
+        # Run the generator through to completion and the resulting FRP value
+        gen = make_generator()
+        val = None
+        try:
+            while True:
+                x = gen.send(val)
+                val = x.value
+                if len(val) == 0:  # Empty value means given failed
+                    return as_vec_tuple()
+        except StopIteration as finished:
+            return VecTuple.join(finished.value)
+
+    def kind(self) -> Kind:
+        if self._cached_kind is None:
+            # ATTN: change from _kind_proc_ to the proper name
+            # ATTN: instead of kind, can use a function that checks if an FRP is kindable,
+            #       but for now, we accept that risk.
+            k = _kind_proc_(self._map_gen(self._raw_generator, kind), True)
+            self._cached_kind = k
+        return self._cached_kind
+
+    def clone(self) -> GeneratedFrpExpression:
+        return GeneratedFrpExpression(self._raw_generator, _as_frp_clone)
+
+    def sample1(self):
+        cl = self.clone()
+        return cl.value()  # An FrpDemo with one value
+
+    def value(self):
+        if self._cached_value is None:
+            source = self
+            value = source._frp_do_(self._make_generator)   # pylint: disable=protected-access
+            try:
+                while len(value) == 0:
+                    source = source.clone()
+                    value = source._frp_do_(self._make_generator)   # pylint: disable=protected-access
+            except KeyboardInterrupt as e:
+                raise FrpError('Generating a value for a constrained FRP. '
+                               'Make sure the given condition is true for some possible value.') from e
+
+            self._cached_value = value
+        return self._cached_value
+
+    def _refresh_cached_value(self):
+        return self.value()
+
+
 def as_expression(frp: FRP) -> FrpExpression:
     """Returns an FRP expression that is equivalent to this FRP.
 
@@ -614,6 +712,64 @@ def as_expression(frp: FRP) -> FrpExpression:
         return PureExpression(frp)
     assert frp._expr is not None
     return frp._expr
+
+
+#
+# FRP Procedures
+#
+
+def frp_proc(fn: Callable[[], Generator[Kind | FRP, VecTuple, VecTuple]]) -> FRP:
+    """A procedural specification of an FRP as a decorator on a generator function.
+
+    This can either be used directly as a decorator or used within a decorator.
+    The decorated function should be a generator function that yields Kinds or FRPs
+    and returns values. The name of the function is bound to the
+    **FRP**; the result is *not* a function.
+
+    Within the decorated function, `yield` keywords correspond
+    to left arrows (<-) in classical do notation. They take
+    either an FRP or a Kind on the right and give the "unwrapped" value
+    of the FRP on the left.
+
+    The given() function works for FRPs and Kinds on the right-hand-side
+    of a yield. When extracting a value, a false in the given causes
+    clone values to be generated until the condition is satisfied.
+    This can fail to terminate if the condition is impossible, though
+    keyboard interrupt will identify the problem.
+
+    This supports conversion to Kinds using the procedural specification
+    from the underlying generator. This assumes that the FRPs on the
+    right-hand side of the yields are kindable, but at the moment,
+    no checks are made for the difficulty of computing the Kind.
+    So taking the Kind could be expensive if the constituent FRPs
+    are not kindable.
+
+    (ATTN: Replacing kind as the guard with a more nuanced function
+    to detect this is being considered for a future version.)
+
+    This also supports cloning by a similar mechanism.
+
+    This raises an error if the decorated function has any
+    positional arguments or if it is not a generator function.
+
+    """
+    is_generator = inspect.isgeneratorfunction(fn)
+    required, _accepted = analyze_domain(fn)
+
+    if required > 0:  # Accept defaults for loop binding, change to accepted > 0 to forbid all
+        raise ConstructionError(f'The function decorated by @frp ({fn.__name__} in {fn.__module__}) '
+                                'should take no required positional arguments.')
+
+    # Unlike @kind case, we do not allow a naked function for fn because
+    # there is ambiguity as to what the value should be.
+    # For instance, if the function returns an FRP's value, it is not sufficient
+    # to make it a constant FRP as one might expect it to be clonable.
+    # If this decision is reversed, can mimic the behavior of @kind-do cae.
+    if not is_generator:
+        raise ConstructionError('A function decorated by @frp ({fn.__name__} in {fn.__module__}) '
+                                'should be a generator function -- by using yield -- but it is not.')
+
+    return frp(GeneratedFrpExpression(fn))
 
 
 #
@@ -1946,7 +2102,7 @@ class FRP:
             return FRP.empty
 
         # Check dimensions (allow negative indices python style)
-        if any([index == 0 or index < -dim or index > dim for index in indices]):
+        if any(index == 0 or index < -dim or index > dim for index in indices):
             raise FrpError( f'All marginalization indices in {indices} should be between 1..{dim} or -{dim}..-1')
 
         # Marginalize
@@ -2040,6 +2196,10 @@ def frp(spec: ConditionalFRP | ConditionalKind) -> ConditionalFRP:
 def frp(spec: FRP | FrpExpression | Kind | str ) -> FRP:
     ...
 
+@overload
+def frp(spec: Callable[[], Generator[Kind | FRP, VecTuple, VecTuple]]) -> FRP:
+    ...
+
 def frp(spec):
     """A generic constructor for FRPs from a variety of objects.
 
@@ -2065,6 +2225,9 @@ def frp(spec):
         if spec._codim == 0:
             return frp(spec.target())
         return conditional_frp(spec)
+
+    if callable(spec):         # @frp decorating a generator function, an FRP procedure
+        return frp_proc(spec)
 
     if not isinstance(spec, (FRP, FrpExpression, Kind)):
         raise FrpError(f'Cannot construct an FRP from object of type {type(spec).__name__}.')
