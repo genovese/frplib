@@ -6,8 +6,8 @@ This is a separate module to avoid circular imports.
 
 
 from __future__        import annotations
-from typing            import NotRequired, TypedDict
-from typing_extensions import TypeAlias
+from typing            import TypedDict
+from typing_extensions import NotRequired, TypeAlias
 
 
 class InfoNode(TypedDict):
