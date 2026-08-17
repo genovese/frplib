@@ -4,15 +4,17 @@
 
 from __future__ import annotations
 
+import inspect
 import math
 import random
 
 from abc               import ABC, abstractmethod
 from collections       import defaultdict
-from collections.abc   import Iterable
+from collections.abc   import Generator, Iterable
 from decimal           import Decimal
 from functools         import reduce
-from typing            import Callable, cast, overload, Union
+from types             import MappingProxyType
+from typing            import Callable, cast, Literal, overload, Union
 from typing_extensions import Self, Any, TypeAlias, TypeGuard
 
 from rich.table        import Table
@@ -169,10 +171,18 @@ class FrpDemoSummary:
                        "    {prop:>{w[2]}s}".format(**row, w=list(widths.values())))
         return "\n".join(out)
 
-    def table(self, ascii=False, title: str | None = None) -> str:
+    def table(self, ascii=False, title: str | None = None) -> str:   # pylint: disable=redefined-builtin
         if ascii:
             return self.ascii_table(title)
         return self.rich_table(title)
+
+    def values_seen(self) -> set:
+        """Returns the set of unique values in the sample."""
+        return set(self._summary.keys())
+
+    @property
+    def summary(self) -> MappingProxyType:
+        return MappingProxyType(self._summary)
 
     def __len__(self) -> int:
         return self._size
@@ -1500,12 +1510,28 @@ class FRP:
             self._value = None
 
     @classmethod
-    def activate(cls, frp: FRP) -> FRP:
-        frp.value  # Force the value
-        return frp
+    def activate(cls, an_frp: FRP) -> FRP:
+        """Activates a fresh FRP without its value being observed."""
+        an_frp.value  # Force the value   # pylint: disable=pointless-statement
+        return an_frp
 
     @classmethod
-    def sample(cls, n: int, frp: FRP | Kind | SupportsKindOf | str, summary=True) -> FrpDemoSummary | FrpDemo:
+    @overload
+    def sample(cls, n: int, frp: FRP | Kind | SupportsKindOf | str, summary: Literal[True] = True) -> FrpDemoSummary:
+        ...
+
+    @classmethod
+    @overload
+    def sample(cls, n: int, frp: FRP | Kind | SupportsKindOf | str, summary: Literal[False]) -> FrpDemo:
+        ...
+
+    @classmethod
+    @overload
+    def sample(cls, n: int, frp: FRP | Kind | SupportsKindOf | str, summary: bool) -> FrpDemoSummary | FrpDemo:
+        ...
+
+    @classmethod
+    def sample(cls, n, frp, summary=True):
         """Run a demo of `n` FRPs and tabulate the results.
 
         If an FRP is given, the FRPs in the demo are clones of the given FRP.
@@ -1540,7 +1566,7 @@ class FRP:
 
     @classmethod
     def sample1(cls, frp: FRP) -> ValueType:
-        one_sample = cast(FrpDemo, cls.sample(1, frp, summary=False))
+        one_sample = cls.sample(1, frp, summary=False)
         return as_vec_tuple(one_sample[0])  # ATTN: Wrapping not needed after Quantity conversion
 
     @property
@@ -1625,7 +1651,7 @@ class FRP:
     def approximate_expectation(self, tolerance=0.01) -> ValueType:
         "Computes an approximation to this FRP's expectation to the specified tolerance."
         n = int(math.ceil(tolerance ** -2))
-        return scalarize(sum(FRP.sample(n, self, summary=False)) / as_real(n))  # type: ignore
+        return scalarize(sum(FRP.sample(n, self, summary=False)) / as_real(n))
 
     @property
     def entropy(self) -> QuantityType:
