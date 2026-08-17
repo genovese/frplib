@@ -24,7 +24,7 @@ from decimal import Decimal
 from frplib.kinds import (                                # pylint: disable=redefined-builtin
     Kind, ConditionalKind,
     kind, conditional_kind,
-    is_kind, kind_factory,
+    is_kind, kind_factory, given,
     unfold, clean, fast_mixture_pow, bayes,
     constant, uniform, choice, binary, either,   # DEPRECATED: either
     symmetric, linear, geometric,
@@ -72,7 +72,7 @@ from frplib.numeric import (
     nothing,
 )
 
-from frplib.quantity import as_quantity, qvec, tup
+from frplib.quantity import as_quantity, is_quantity, is_quantifiable, qvec, tup
 
 from frplib.symbolic import gen_symbol, is_symbolic, is_zero, symbol, symbols
 
@@ -99,7 +99,7 @@ __all__ = [
     'Decimal',
     # frplib.kinds
     'Kind', 'ConditionalKind',
-    'kind', 'conditional_kind',
+    'kind', 'conditional_kind', 'given',
     'is_kind', 'unfold', 'clean', 'fast_mixture_pow', 'bayes',
     'constant', 'uniform', 'choice', 'binary', 'either',   # DEPRECATED: either
     'symmetric', 'linear', 'geometric',
@@ -142,7 +142,7 @@ __all__ = [
     'numeric_abs', 'numeric_sqrt', 'numeric_floor', 'numeric_ceil',
     'nothing',
     # frplib.quantity
-    'as_quantity', 'qvec', 'tup',
+    'as_quantity', 'is_quantity', 'is_quantifiable', 'qvec', 'tup',
     # frplib.symbolic
     'gen_symbol', 'is_symbolic', 'is_zero', 'symbol', 'symbols',
     # frplib.utils

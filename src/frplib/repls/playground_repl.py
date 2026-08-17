@@ -32,7 +32,7 @@ playground_imports: dict[str, list[str]] = {
     'kinds': [
         'Kind', 'ConditionalKind',
         'kind', 'conditional_kind',
-        'is_kind', 'kind_factory',
+        'is_kind', 'kind_factory', 'given',
         'unfold', 'clean', 'fast_mixture_pow', 'bayes',
         'constant', 'uniform', 'choice', 'binary', 'either',  # DEPRECATED: either
         'symmetric', 'linear', 'geometric',
@@ -72,7 +72,7 @@ playground_imports: dict[str, list[str]] = {
     'numeric': ['numeric_exp', 'numeric_ln', 'numeric_log10', 'numeric_log2',
                 'numeric_abs', 'numeric_sqrt', 'numeric_floor', 'numeric_ceil',
                 'nothing'],
-    'quantity': ['as_quantity', 'qvec', 'tup'],
+    'quantity': ['as_quantity', 'is_quantity', 'is_quantifiable', 'qvec', 'tup'],
     'symbolic': ['gen_symbol', 'is_symbolic', 'is_zero', 'symbol', 'symbols'],
     'utils': [
         'clone', 'compose', 'const', 'every', 'frequencies',

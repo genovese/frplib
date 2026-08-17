@@ -5,12 +5,13 @@
 
 from __future__ import annotations
 
+import inspect
 import pickle
 import math
 import random
 import re
 
-from collections.abc   import Collection, Iterable, Sequence
+from collections.abc   import Collection, Generator, Iterable, Sequence
 from dataclasses       import dataclass
 from decimal           import Decimal
 from enum              import Enum, auto
@@ -35,8 +36,10 @@ from frplib.numeric    import (Numeric, ScalarQ, Nothing, is_nothing, as_nice_nu
                                is_numeric, numeric_abs, numeric_floor, numeric_log2, numeric_ln)
 from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection, SupportsKindOf, SupportsConditionalKindOf, Kinded
-from frplib.quantity   import as_quantity, as_nice_quantity, as_quant_vec, show_quantities, show_qtuples
-from frplib.statistics import Condition, MonoidalStatistic, Statistic, compose2, Proj, statistic, tuple_safe
+from frplib.quantity   import (as_quantity, as_nice_quantity, as_quant_vec, is_quantifiable,
+                               show_quantities, show_qtuples)
+from frplib.statistics import (Condition, MonoidalStatistic, Statistic,
+                               analyze_domain, compose2, Proj, statistic, tuple_safe)
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol, is_zero
 from frplib.utils      import compose, const, dim, identity, is_interactive, is_tuple, lmap
 from frplib.vec_tuples import (VecTuple, as_numeric_vec, as_scalar_strict, as_vec_tuple, vec_tuple,
@@ -962,18 +965,187 @@ class Kind:                 # pylint: disable=too-many-public-methods
         except IOError as e:
             raise OperationError(f'Could not load Kind from file {path}:\n  {e}') from e
 
-# Tagged kinds for context in conditionals
+
 #
-# phi@k acts exactly like phi(k) except in a conditional, where
-#    phi@k | (s(k) == v)
-# is like
-#    (k * phi(k) | (s(Proj[:(d+1)](__)) == v))[(d+1):]
-# but simpler
+# Kind Procedures
+#
+
+def kind_proc(make_generator: Callable[[], Generator[Kind, VecTuple, VecTuple]]) -> Kind:
+    """Interface for a Kind procedure.
+
+    This can be used directly as a decroator on a (generator) function or
+    can be invoked from within such a decorator (e.g., the function kind).
+
+    It creates a Kind with a version of classical 'do'-notation. The
+    name of the function is bound to the **Kind** itself; it is not
+    a function.
+
+    Within the decorated function, `yield` keywords correspond
+    to left arrows (<-) in classical do notation. They take
+    a Kind on the right and yield all Kind's values
+    (in parallel) within the context of the calculations.
+    Weights are automatically managed in canonical form.
+
+    This raises an error if the function has any positional arguments
+    or if the value on the right side of a yield is not a Kind.
+
+    See also `given` which can be passed to yield to impose
+    constraints based on observations.
+
+    See `_kind_proc_` for the implementation,
+
+    """
+    is_generator = inspect.isgeneratorfunction(make_generator)
+    required, accepted = analyze_domain(make_generator)
+
+    if required > 0 or accepted > 0:
+        mod = make_generator.__module__
+        if not mod:
+            mod = 'the playground'
+        raise ConstructionError('The function decorated by @kind '
+                                f'({make_generator.__name__} in {mod}) '
+                                'should take no positional arguments.')
+
+    return _kind_proc_(make_generator, is_generator)
+
+def _kind_proc_(make_generator, is_generator) -> Kind:   # pylint: disable=too-many-branches
+    """Implements a Kind procedure from the interface in kind_proc.
+
+    Parameters:
+
+    make_generator: (generation) function for the Kind procedure
+
+    is_generator: Boolean that is true if `make_generator` is a
+        generator. This allows a regular function which just
+        returns a Kind (or a constant Kind if the returned value
+        is a quantity vector). This latter behavior may be
+        upgraded to an Error in future versions as it is unclear how
+        useful it is, and it is hard to distinguish this case
+        in the generator from other callables used with kind,
+        e.g., conditional FRPs.
+
+    Returns a Kind corresponding to the procedure.
+
+    """
+    if not is_generator:
+        ma = make_generator()
+        if is_kind(ma):
+            return ma
+        if isinstance(ma, tuple) and all(map(is_quantifiable, ma)):
+            return constant(as_quant_vec(ma))
+        if is_quantifiable(ma):
+            return constant(as_quantity(ma))
+        return kind(ma)
+
+    def increment(pos: list[tuple[int, int]]) -> int:
+        i, m = pos[-1]   # i is the index of values out of m total values in this slot
+        if i + 1 >= m:
+            # No more values in this slot, so we drop slots until we either
+            # find one with more values or we are done (pos empty at that point)
+            while i + 1 >= m:
+                pos.pop()
+                if len(pos) == 0:
+                    break
+                i, m = pos[-1]
+            else:
+                pos[-1] = (i + 1, m)
+
+            return -1         # ATTN:Aug2026 return value unused, note reason for these values if that changes
+
+        pos[-1] = (i + 1, m)
+        return i + 1
+
+    joined = []
+    positions: list[tuple[int, int]] = []
+
+    while True:
+        index = 0
+        bound = None
+        weight = Decimal('1.0')
+        generator = make_generator()
+        try:
+            while True:
+                k = generator.send(bound)
+                if not is_kind(k):
+                    raise KindError('The right side of a yield in a @kind-decorated function '
+                                    'should be a Kind or a given() expression.')
+                m = k.size
+                if m == 0 and len(positions) == 0:
+                    return Kind.empty
+                if m == 0:
+                    increment(positions)
+                    break
+
+                vs, w = zip(*k)  # Like k._canonical but gives the values and weights directly
+                if index >= len(positions):
+                    positions.append((0, m))
+                    i = 0
+                else:
+                    i = positions[index][0]
+                bound = as_scalar_weak(vs[i])   # convert 1-d tuples to scalars
+                weight *= w[i]
+                index += 1
+        except StopIteration as finished:
+            # Auto join here when value is a tuple (e.g., tuple of tuples) for ergonomics
+            # generally wrap in tuples in as general a way as possible
+            # this allows scalars to be returned
+            joined.append(KindBranch.make(vs=VecTuple.join(finished.value), p=weight))
+            increment(positions)
+        if len(positions) == 0:
+            return kind(joined)
+
+falsy_tuple = as_vec_tuple(0)  # Allow for <0> and <1> as bools, so we can use statistics/conditions
+
+def given(cond: bool | VecTuple ) -> Kind:
+    """Checks a condition in a Kind or FRP procedure, short-circuiting if false.
+
+    This should always be used with yield and no assignment on the left side.
+
+      yield given(some_condition)
+
+    It accepts true Booleans or VecTuple booleans <0> and <1> as
+    returned by conditions and statistics.
+
+    If the condition is true, this has no effect. If it is false,
+    the procedure short-circuits, skipping to the next values for
+    Kinds and regenerating a value via the constraint processor for
+    FRPs.
+
+    """
+    if cond is False or cond == falsy_tuple:
+        return Kind.empty
+    return constant(1)
+
+#
+# Tagged kinds for context in observational constraints
 #
 
 class TaggedKind(Kind):
-    def __init__(self, createFrom, stat: Statistic):
-        original = Kind(createFrom)  # ATTN:Aug2026 Why wrap with Kind here? We want to keep it generic
+    """A transformed Kind that remembers its origin for use with observational constraints.
+
+    If phi is a statistic and k a Kind, then phi @ k produces a TaggedKind.
+    This behaves exactly like phi(k) (i.e., k ^ phi) except when used with the
+    given operator in observational constraints. This remembers the original
+    on which the condition in that constraint can be evaluated, making for
+    a much more convenient expression.
+
+    So, if cond is a condition and k has dimension d,
+
+      phi@k | (cond == v)
+
+    is equivalent to
+
+      (k * phi(k) | (cond(Proj[:(d+1)](__)) == v))[(d+1):]
+
+    but **much** simpler and more readable.
+
+    This is guaranteed to be generic in Kind, not using any
+    particular capabilities. So subclasses of Kind that differ only
+    in class data (specifically, display type) are perfectly valid
+    to use.
+
+    """
+    def __init__(self, original: Kind, stat: Statistic):
         super().__init__(original.transform(stat))
         self._original = original
         self._stat = stat
@@ -1010,6 +1182,10 @@ def kind(spec: SupportsConditionalKindOf) -> ConditionalKind:
 def kind(spec: Kind | Kinded | SupportsKindOf | str | Sequence | list | None | Literal[False]) -> Kind:
     ...
 
+@overload
+def kind(spec: Callable[[], Generator[Kind, VecTuple, VecTuple]]) -> Kind:
+    ...
+
 def kind(spec):
     """A generic constructor for Kinds, accepting Kinds, FRPs, sexp strings, and more."""
     if isinstance(spec, Kind):
@@ -1020,6 +1196,9 @@ def kind(spec):
 
     if isinstance(spec, SupportsConditionalKindOf):  # ConditionalFRPs use this to produce their conditional Kind
         return spec.conditional_kind_of()
+
+    if callable(spec):
+        return kind_proc(spec)
 
     if hasattr(spec, 'kind'):  # Kinded case but more general
         return spec.kind
@@ -1913,7 +2092,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
                                             f' but {v} is not a Kind')
 
                 kin = as_quant_vec(k)
-                vout = v.map(partial(VecTuple.concat, kin))  # Input pass through
+                vout = v.map(partial(VecTuple.join, kin))  # Input pass through
                 self._mapping[kin] = vout
                 self._targets[kin] = v
             self._original_fn: Callable[[ValueType], Kind] | None = None
@@ -1988,7 +2167,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
                     mapping_domain = set(k for k in self._mapping if len(k) == _codim)
                 else:
                     mapping_domain = set(self._mapping.keys())
-                if not (self._domain_set <= mapping_domain):
+                if not self._domain_set <= mapping_domain:
                     raise ConstructionError('The supplied domain for a conditional Kind is not a subset of '
                                             'with the keys of the given dictionary.')
 
@@ -2125,7 +2304,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
                         f'encountered a problem passing {value} to a conditional Kind:\n  {str(e)}'
                     ) from e
 
-                extended = result.map(lambda u: VecTuple.concat(value, u))  # Input pass through
+                extended = result.map(lambda u: VecTuple.join(value, u))  # Input pass through
                 self._mapping[value] = extended   # Cache, fn should be pure
                 self._targets[value] = result     # Store unextended to ease some operations
                 return extended
@@ -2152,7 +2331,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
                         f'encountered a problem passing {value} to a conditional Kind:\n  {str(e)}'
                     ) from e
 
-                extended = result.map(lambda u: VecTuple.concat(value, u))  # Input pass through
+                extended = result.map(lambda u: VecTuple.join(value, u))  # Input pass through
                 self._mapping[value] = extended   # Cache, fn should be pure
                 self._targets[value] = result     # Store unextended to ease some operations
                 return result
