@@ -18,8 +18,18 @@ class InfoTreeBuildHook(BuildHookInterface):
     PLUGIN_NAME = 'info-tree'
 
     def initialize(self, version, build_data):
+        # Forward this process's own site-packages dirs (not just PYTHONPATH)
+        # to the subprocess: pip's build isolation makes declared build
+        # dependencies importable here via an in-memory sys.path overlay,
+        # which a freshly spawned subprocess would not otherwise inherit.
+        # Only the site-packages entries are forwarded, not all of sys.path:
+        # pip's isolation also adds its own bootstrap "site" dir carrying a
+        # sitecustomize.py that asserts an invocation context that doesn't
+        # hold for a plain subprocess, raising AssertionError if imported here.
         src = os.path.join(self.root, 'src')
-        env = dict(os.environ, PYTHONPATH=src)
+        site_packages_dirs = [p for p in sys.path if 'site-packages' in p]
+        env = dict(os.environ)
+        env['PYTHONPATH'] = os.pathsep.join([src, *site_packages_dirs])
         subprocess.run(
             [sys.executable, '-m', 'frplib.repls.info'],
             check=True, cwd=self.root, env=env,

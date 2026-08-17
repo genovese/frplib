@@ -79,7 +79,11 @@ path = "src/frplib/__about__.py"
 artifacts = ["src/frplib/data/info_tree.py"]
 
 [tool.hatch.build.hooks.custom]
-require-runtime-dependencies = true
+# The exact set of third-party packages frplib.repls.info needs importable to
+# run (see hatch_build.py) -- listed explicitly, rather than pulling in all of
+# frplib's runtime dependencies via require-runtime-dependencies, since e.g.
+# numpy/scipy/pillow aren't needed just to regenerate this one data file.
+dependencies = ["prompt-toolkit>=3.0.43", "rich>=13.3.2", "platformdirs>=4.0.0", "typing_extensions>=4.5.0"]
 
 [tool.hatch.envs.default]
 dependencies = [
