@@ -17,10 +17,12 @@ from frplib.vec_tuples   import as_vec_tuple, join
 def test_observations_nonfresh_or_empty():
     X = frp(uniform(1, 2, ..., 8))
     a = X.value
-    Y = X | (__ < a)
+    if a > 1:  # If a == 1, __ < a is impossible
+        Y = X | (__ < a)
     Z = X | (__ <= a)
 
-    assert Y.value < a
+    if a > 1:  # If a == 1, Y will be the empty FRP
+        assert Y.value < a
     assert Z.value == X.value
 
     U = frp(uniform(1, 2, ..., 10))
