@@ -544,7 +544,7 @@ class VecTuple(tuple[T, ...]):
         the join method.
 
         """
-        return cls.join(values)
+        return cls.join(list(values))
 
     @classmethod
     def pad_to(cls: Type[Self], items: Iterable, to_len: int, pad=nothing) -> Self:
