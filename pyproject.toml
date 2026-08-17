@@ -86,6 +86,7 @@ artifacts = ["src/frplib/data/info_tree.py"]
 dependencies = ["prompt-toolkit>=3.0.43", "rich>=13.3.2", "platformdirs>=4.0.0", "typing_extensions>=4.5.0"]
 
 [tool.hatch.envs.default]
+installer = "uv"
 dependencies = [
   "coverage[toml]>=6.5",
   "pytest",
@@ -103,11 +104,14 @@ cov = [
   "cov-report",
 ]
 
+[tool.hatch.envs.all]
+installer = "uv"
 [[tool.hatch.envs.all.matrix]]
 python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 [tool.hatch.envs.lint]
 detached = true
+installer = "uv"
 dependencies = [
   "black>=23.1.0",
   "mypy>=1.0.0",
