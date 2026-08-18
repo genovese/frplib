@@ -144,25 +144,25 @@ def test_joins():
     mec1 = conditional_kind(me1)
     mec2 = conditional_kind(me2, codim=2)
 
-    mix = (k0 >> m1).weights
-    assert weights_of(mix) == pytest.approx([as_quantity('0.495'),
+    jnd = (k0 >> m1).weights
+    assert weights_of(jnd) == pytest.approx([as_quantity('0.495'),
                                              as_quantity('0.005'),
                                              as_quantity('0.005'),
                                              as_quantity('0.495')])
 
-    assert values_of(mix) == {vec_tuple(10, 4),
+    assert values_of(jnd) == {vec_tuple(10, 4),
                               vec_tuple(10, 8),
                               vec_tuple(20, 4),
                               vec_tuple(20, 8),
                               }
 
-    mix = (k0 >> m0).weights
-    assert weights_of(mix) == pytest.approx([as_quantity('0.495'),
+    jnd = (k0 >> m0).weights
+    assert weights_of(jnd) == pytest.approx([as_quantity('0.495'),
                                              as_quantity('0.005'),
                                              as_quantity('0.005'),
                                              as_quantity('0.495')])
 
-    assert values_of(mix) == {vec_tuple(10, 4),
+    assert values_of(jnd) == {vec_tuple(10, 4),
                               vec_tuple(10, 8),
                               vec_tuple(20, 4),
                               vec_tuple(20, 8),

@@ -1481,9 +1481,9 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
             return ConditionalFRP(mapping, codim=self._codim, dim=cfrp._dim, domain=domain,
                                   auto_clone=self._auto_clone)
 
-        def mixed(*given):
+        def joined(*given):
             return (self(*given) >> cfrp).transform(drop_input(len(given)))
-        return ConditionalFRP(mixed, codim=self._codim, dim=cfrp._dim, domain=domain,
+        return ConditionalFRP(joined, codim=self._codim, dim=cfrp._dim, domain=domain,
                               auto_clone=self._auto_clone)
 
     def __mul__(self, cfrp):
@@ -2038,7 +2038,7 @@ class FRP:
                 raise FrpError(f'In a join with an FRP, there was a problem '
                                f'obtaining a conditional FRP:\n  {str(e)}') from e
 
-        mix_kind: Kind | None = None
+        join_kind: Kind | None = None
         source_val = self._get_cached_value()
         if source_val is not None:
             try:
@@ -2071,18 +2071,18 @@ class FRP:
 
             if make_kinded:   # Return a Kinded FRP
                 c_kind = ConditionalKind({val: frp.kind for val, frp in targets.items()}, codim=dim)
-                mix_kind = my_kind >> c_kind
+                join_kind = my_kind >> c_kind
 
-        if mix_kind is not None and target_val is not None:
-            result = FRP(mix_kind)
+        if join_kind is not None and target_val is not None:
+            result = FRP(join_kind)
             result._value = VecTuple.concat(source_val, target_val)
         else:
             expr = JoinExpression(as_expression(self), c_frp)
             result = FRP(expr)
             if target_val is not None:
                 result._value = VecTuple.concat(source_val, target_val)
-            if mix_kind is not None:
-                result._kind = mix_kind
+            if join_kind is not None:
+                result._kind = join_kind
         return result
 
     def transform(self, f_mapping):

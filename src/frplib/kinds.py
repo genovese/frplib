@@ -2695,10 +2695,10 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
 
             return ConditionalKind(mapping, codim=self._codim, target_dim=tdim, domain=domain or self._domain)
 
-        def mixed(*given):
+        def ijoin_powed(*given):
             return self._target_fn(*given) ** n
 
-        return ConditionalKind(mixed, codim=self._codim, target_dim=tdim, domain=domain or self._domain)
+        return ConditionalKind(ijoin_powed, codim=self._codim, target_dim=tdim, domain=domain or self._domain)
 
 # # Original
 # def conditional_kind(
