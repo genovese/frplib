@@ -70,30 +70,40 @@ def test_conditional_frps():
     assert typeof(f1) == typeof(clone(f1))
     for j in range(3):
         assert Kind.equal(kind(f1(j)), kind(clone(f1)(j)))
+        assert Kind.equal(kind(f1.joined(j)), kind(clone(f1).joined(j)))
 
     z = frp(uniform(0, 1, 2))
     zf = z >> f1
-    assert zf.value == f1(z.value).value
+    assert zf.value == f1.joined(z.value).value
     for _ in range(5):
         z2 = clone(z)
         f2 = clone(f1)
         z2f = z2 >> f2
-        assert z2f.value == f2(z2.value).value
+        assert z2f.value == f2.joined(z2.value).value
 
     assert dim(f1 // z) == 1
-    print(zf, dim(zf))
+    # print(zf, dim(zf))
     assert (f1 // z).value == zf[2].value
 
     f2 = conditional_frp(k1)
     f12 = f1 * f2
-    assert f12(0).value == VecTuple.join(f1(0).value, f2.target(0).value)  # type: ignore[type-var]
-    assert f12(1).value == VecTuple.join(f1(1).value, f2.target(1).value)  # type: ignore[type-var]
-    assert f12(2).value == VecTuple.join(f1(2).value, f2.target(2).value)  # type: ignore[type-var]
+    assert f12.target(0).value == VecTuple.join(f1.target(0).value, f2.target(0).value)  # type: ignore[type-var]
+    assert f12.target(1).value == VecTuple.join(f1.target(1).value, f2.target(1).value)  # type: ignore[type-var]
+    assert f12.target(2).value == VecTuple.join(f1.target(2).value, f2.target(2).value)  # type: ignore[type-var]
+    assert f12.joined(0).value == VecTuple.join(f1.joined(0).value, f2.target(0).value)  # type: ignore[type-var]
+    assert f12.joined(1).value == VecTuple.join(f1.joined(1).value, f2.target(1).value)  # type: ignore[type-var]
+    assert f12.joined(2).value == VecTuple.join(f1.joined(2).value, f2.target(2).value)  # type: ignore[type-var]
 
     f1_3 = f1 ** 3
-    assert f1_3(0).dim == 4
-    assert f1_3(1).dim == 4
-    assert f1_3(2).dim == 4
+    assert f1_3(0).dim == 3
+    assert f1_3(1).dim == 3
+    assert f1_3(2).dim == 3
+    assert f1_3.target(0).dim == 3
+    assert f1_3.target(1).dim == 3
+    assert f1_3.target(2).dim == 3
+    assert f1_3.joined(0).dim == 4
+    assert f1_3.joined(1).dim == 4
+    assert f1_3.joined(2).dim == 4
 
     k2 = conditional_kind({(0, 0): choice(10, 20),
                            (0, 1): choice(30, 40),
@@ -112,7 +122,7 @@ def test_conditional_frps():
 
     zz = z >> f1 >> f2
     assert dim(zz) == 3
-    assert zz.value == f2(zf.value).value
+    assert zz.value == f2.joined(zf.value).value
 
     assert Kind.equal(kind(zz), uniform(0, 1, 2) >> k1 >> k2)
 
@@ -131,14 +141,14 @@ def test_auto_clone():
     fu = conditional_frp({0: frp(choice(0, 1)), 1: frp(uniform(3, 4, 5))})
     fc = conditional_frp({0: frp(choice(0, 1)), 1: frp(uniform(3, 4, 5))}, auto_clone=True)
 
-    v0 = fu(0).value
-    assert all(fu(0).value == v0 for _ in range(32))
+    v0 = fu.joined(0).value
+    assert all(fu.joined(0).value == v0 for _ in range(32))
 
-    fc0 = fc(0)
+    fc0 = fc.joined(0)
     vc0 = fc0.value
     vck = kind(fc0)
-    assert not all(fc(0).value == vc0 for _ in range(128))
-    assert all(Kind.equal(vck, kind(fc(0))) for _ in range(16))
+    assert not all(fc.joined(0).value == vc0 for _ in range(128))
+    assert all(Kind.equal(vck, kind(fc.joined(0))) for _ in range(16))
 
 def test_ops():
     k = uniform(1, 2, ..., 6) ** 2
@@ -183,10 +193,10 @@ def test_freshness():
     cf = conditional_frp(ck)
     R = frp(uniform(0, 1, 2))
     assert R.is_fresh
-    assert cf(0).is_fresh and cf(1).is_fresh and cf(2).is_fresh
+    assert cf.joined(0).is_fresh and cf.joined(1).is_fresh and cf.joined(2).is_fresh
     RC = R >> cf
     assert RC.is_fresh
-    rc_val = cf(R.value).value
+    rc_val = cf.joined(R.value).value
     assert not RC.is_fresh
     assert RC.value == rc_val
 

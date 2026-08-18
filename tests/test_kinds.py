@@ -281,9 +281,9 @@ def test_conditional_kinds():
 
     k = conditional_kind({0: choice(0, 1), 1: uniform(1, 2, 3), 2: uniform(1, 2, ..., 8)})
 
-    assert Kind.equal(k(0), choice((0, 0), (0, 1)))
-    assert Kind.equal(k(1), uniform((1, 1), (1, 2), (1, 3)))
-    assert Kind.equal(k(2), uniform((2, j) for j in irange(1, 8)))
+    assert Kind.equal(k.joined(0), choice((0, 0), (0, 1)))
+    assert Kind.equal(k.joined(1), uniform((1, 1), (1, 2), (1, 3)))
+    assert Kind.equal(k.joined(2), uniform((2, j) for j in irange(1, 8)))
 
     with pytest.raises(MismatchedDomain):
         k(10)
@@ -307,24 +307,25 @@ def test_conditional_kinds():
         k4(999999999999997)
 
     for j in range(3):
-        assert Kind.equal(k1(j), choice((j, 0), (j, j + 1)))
-        assert Kind.equal(k2(j), choice((j, 0), (j, j + 1)))
-        assert Kind.equal(k3(j), choice((j, 0), (j, j + 1)))
+        assert Kind.equal(k1.joined(j), choice((j, 0), (j, j + 1)))
+        assert Kind.equal(k2.joined(j), choice((j, 0), (j, j + 1)))
+        assert Kind.equal(k3.joined(j), choice((j, 0), (j, j + 1)))
         assert Kind.equal(k1.target(j), choice(0, j + 1))
         assert Kind.equal(k2.target(j), choice(0, j + 1))
         assert Kind.equal(k3.target(j), choice(0, j + 1))
 
-    assert Kind.equal(k4(100), choice((100, 0), (100, 101)))
+    assert Kind.equal(k4.joined(100), choice((100, 0), (100, 101)))
     for j in range(0, 101, 2):
-        assert Kind.equal(k2(j), k4(j))
+        assert Kind.equal(k2.joined(j), k4.joined(j))
+        assert Kind.equal(k2.target(j), k4.target(j))
 
     k1sq = k1.transform_targets(__ ** 2)
     k1sum = k1 ^ Sum
     assert isinstance(k1sq, ConditionalKind)
     assert isinstance(k1sum, ConditionalKind)
     for j in range(3):
-        assert Kind.equal(k1sq(j), choice((j, 0), (j, (j + 1) * (j + 1))))
-        assert Kind.equal(k1sum(j), choice((j, j), (j, 2 * j + 1)))
+        assert Kind.equal(k1sq.joined(j), choice((j, 0), (j, (j + 1) * (j + 1))))
+        assert Kind.equal(k1sum.joined(j), choice((j, j), (j, 2 * j + 1)))
         assert Kind.equal(k1sq.target(j), choice(0, (j + 1) * (j + 1)))
         assert Kind.equal(k1sum.target(j), choice(j, 2 * j + 1))
 
@@ -342,8 +343,8 @@ def test_conditional_kinds():
     k8 = k7 * k7
     assert Kind.equal(k8.target(0), choice(0, 1) * choice(0, 1))
     assert Kind.equal(k8.target(1), choice(2, 3) * choice(2, 3))
-    assert Kind.equal(k8(0), uniform((0, 0, 0), (0, 0, 1), (0, 1, 0), (0, 1, 1)))
-    assert Kind.equal(k8(1), uniform((1, 2, 2), (1, 2, 3), (1, 3, 2), (1, 3, 3)))
+    assert Kind.equal(k8.joined(0), uniform((0, 0, 0), (0, 0, 1), (0, 1, 0), (0, 1, 1)))
+    assert Kind.equal(k8.joined(1), uniform((1, 2, 2), (1, 2, 3), (1, 3, 2), (1, 3, 3)))
 
     assert k7 == conditional_kind(k7)
     assert k8 == conditional_kind(k8)
@@ -359,7 +360,16 @@ def test_conditional_kinds():
     with pytest.raises(MismatchedDomain):
         k9d(100)
     with pytest.raises(MismatchedDomain):
+        k9d.target(100)
+    with pytest.raises(MismatchedDomain):
+        k9d.joined(100)
+
+    with pytest.raises(MismatchedDomain):
         k9e(3)
+    with pytest.raises(MismatchedDomain):
+        k9e.target(3)
+    with pytest.raises(MismatchedDomain):
+        k9e.joined(3)
 
     with pytest.raises(ConstructionError):
         conditional_kind(__)
@@ -398,6 +408,8 @@ def test_conditional_kinds():
     assert codim(foo1) == 3
     assert Kind.equal(foo1.target(1, 2, 3), choice(1, 2))
     assert Kind.equal(foo1.target(-9, 2, 3), choice(-9, 3))
+    assert Kind.equal(foo1.joined(1, 2, 3), choice((1, 2, 3, 1), (1, 2, 3, 2)))
+    assert Kind.equal(foo1.joined(-9, 2, 3), choice((-9, 2, 3, -9), (-9, 2, 3, 3)))
 
     with pytest.raises(MismatchedDomain):
         foo1(1, 2, 3, 4)
@@ -410,6 +422,7 @@ def test_conditional_kinds():
 
     assert codim(foo2) == 1
     assert Kind.equal(foo2.target(10), constant(10))
+    assert Kind.equal(foo2.joined(10), constant((10, 10)))
 
     @conditional_kind            # type: ignore
     def foo3(a, b, *c):
@@ -423,18 +436,20 @@ def test_conditional_kinds():
     assert Kind.equal(foo3.target(1, 2, 3, 4, 5), uniform(1, 3, 4, 5))
     assert Kind.equal(foo3.target(1, 2, 3, 4, 5, 6, 7, 8), uniform(1, 3, 4, 5, 6, 7, 8))
 
-    @conditional_kind
+    @conditional_kind            # type: ignore
     def foo4():
         return uniform(1, 2, 3)
 
     assert codim(foo4) == 0
     assert Kind.equal(foo4(), uniform(1, 2, 3))
+    assert Kind.equal(foo4.joined(), uniform(1, 2, 3))
     assert Kind.equal(foo4.target(), uniform(1, 2, 3))
     assert Kind.equal(Kind.empty >> foo4, uniform(1, 2, 3))
 
     foo5 = conditional_kind(uniform(1, 2, 3))
     assert codim(foo5) is None
     assert Kind.equal(foo5(), uniform(1, 2, 3))
+    assert Kind.equal(foo5.joined(), uniform(1, 2, 3))
     assert Kind.equal(foo5.target(), uniform(1, 2, 3))
     assert Kind.equal(uniform(4, 5, 6) >> foo5, uniform(4, 5, 6) * uniform(1, 2, 3))
 

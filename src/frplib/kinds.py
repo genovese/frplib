@@ -340,13 +340,13 @@ class Kind:                 # pylint: disable=too-many-public-methods
 
     def bind(self, f):   # self -> (a -> Kind[b, ProbType]) -> Kind[b, ProbType]
         "Monadic bind for this Kind. (For internal use)"
-        def mix(branch):  # KindBranch[a, ProbType] -> list[KindBranch[b, ProbType]]
+        def join(branch):  # KindBranch[a, ProbType] -> list[KindBranch[b, ProbType]]
             subtree = f(branch.vs)._canonical
             return map(lambda sub_branch: KindBranch.make(vs=sub_branch.vs, p=branch.p * sub_branch.p), subtree)
 
         new_kind = []
         for branch in self._canonical:
-            new_kind.extend(mix(branch))
+            new_kind.extend(join(branch))
         return Kind(new_kind)
 
     def bimap(self, value_fn, weight_fn=identity):
@@ -521,7 +521,7 @@ class Kind:                 # pylint: disable=too-many-public-methods
                 raise KindError(well_defined)
             if self.dim == 0:
                 return cond_kind.target()
-            return self.bind(cond_kind)
+            return self.bind(cond_kind.joined)
 
         # This use case is discouraged for users but useful internally
         f = value_map(cond_kind, self)
@@ -2108,8 +2108,8 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
 
         if isinstance(mapping, dict):
             self._is_dict = True
-            self._mapping: dict[ValueType, Kind] = {}
-            self._targets: dict[ValueType, Kind] = {}  # NB: Trading space for time by keeping these
+            self._joined_map: dict[ValueType, Kind] = {}  # The Kinds here are joined
+            self._target_map: dict[ValueType, Kind] = {}  # NB: Trading space for time by keeping these
             for k, v in mapping.items():
                 if not isinstance(v, Kind):
                     raise ConstructionError(f'Dictionary for a conditional Kind should map to Kinds,'
@@ -2117,8 +2117,8 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
 
                 kin = as_quant_vec(k)
                 vout = v.map(partial(VecTuple.join, kin))  # Input pass through
-                self._mapping[kin] = vout
-                self._targets[kin] = v
+                self._joined_map[kin] = vout
+                self._target_map[kin] = v
             self._original_fn: Callable[[ValueType], Kind] | None = None
 
             # Attempt to infer codimension and domain if needed and possible.
@@ -2127,7 +2127,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
             # subset of mapping's keys, d) the keys to have different dimensions
             # if codim is supplied.
             maybe_codims: set[int] = set()
-            for k, v in self._mapping.items():
+            for k, v in self._joined_map.items():
                 maybe_codims.add(k.dim)
 
             if codim is None:
@@ -2148,7 +2148,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
                 _codim = codim
 
             maybe_dims: set[int] = set()
-            for k, v in self._mapping.items():
+            for k, v in self._joined_map.items():
                 if _codim is None or k.dim == _codim:
                     maybe_dims.add(v.dim)
 
@@ -2179,18 +2179,18 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
 
             if domain is None:  # Infer domain set from keys
                 if _codim is not None:
-                    _domain_set = set(k for k in self._mapping if len(k) == _codim)
+                    _domain_set = set(k for k in self._joined_map if len(k) == _codim)
                 else:
-                    _domain_set = set(self._mapping.keys())
+                    _domain_set = set(self._joined_map.keys())
                 self._domain_set = _domain_set
                 self._domain = lambda v: v in _domain_set
                 has_domain_set = True
                 self._trivial_domain = False  # non-trivial domain specified implicitly
             elif has_domain_set:  # check that domains are consistent
                 if _codim is not None:
-                    mapping_domain = set(k for k in self._mapping if len(k) == _codim)
+                    mapping_domain = set(k for k in self._joined_map if len(k) == _codim)
                 else:
-                    mapping_domain = set(self._mapping.keys())
+                    mapping_domain = set(self._joined_map.keys())
                 if not self._domain_set <= mapping_domain:
                     raise ConstructionError('The supplied domain for a conditional Kind is not a subset of '
                                             'with the keys of the given dictionary.')
@@ -2205,7 +2205,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
             else:
                 self._target_dim = None
 
-            def fn(*args) -> Kind:
+            def jfn(*args) -> Kind:
                 n = len(args)
                 if n == 1 and is_tuple(args[0]):
                     args = args[0]
@@ -2215,10 +2215,10 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
                 if self._codim is not None and n != self._codim:
                     raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
                                            f' conditional Kind of codimension {self._codim}.')
-                if (not self._trivial_domain and not self._domain(value)) or value not in self._mapping:
+                if (not self._trivial_domain and not self._domain(value)) or value not in self._joined_map:
                     raise MismatchedDomain(f'Supplied value {value} not in domain of conditional Kind.')
 
-                return self._mapping[value]
+                return self._joined_map[value]
 
             def tfn(*args) -> Kind:
                 n = len(args)
@@ -2230,17 +2230,18 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
                 if self._codim is not None and n != self._codim:
                     raise MismatchedDomain(f'A value of invalid dimension {n} was passed to a'
                                            f' conditional Kind of codimension {self._codim}.')
-                if (not self._trivial_domain and not self._domain(value)) or value not in self._targets:
+                if (not self._trivial_domain and not self._domain(value)) or value not in self._target_map:
                     raise MismatchedDomain(f'Supplied value {value} not in domain of conditional Kind.')
 
-                return self._targets[value]
+                return self._target_map[value]
 
-            self._fn: Callable[..., Kind] = fn
+            # self._fn: Callable[..., Kind] = tfn
             self._target_fn: Callable[..., Kind] = tfn
+            self._joined_fn: Callable[..., Kind] = jfn
         elif callable(mapping):         # Check to please mypy
             self._is_dict = False
-            self._mapping = {}
-            self._targets = {}  # NB: Trading space for time by keeping these
+            self._joined_map = {}
+            self._target_map = {}  # NB: Trading space for time by keeping these
             self._original_fn = mapping
 
             if codim is None:
@@ -2306,7 +2307,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
 
             assert callable(mapping)  # For mypy
 
-            def fn(*args) -> Kind:
+            def jfn(*args) -> Kind:
                 n = len(args)
                 if n == 1 and is_tuple(args[0]):
                     args = args[0]
@@ -2319,8 +2320,8 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
                 if not self._trivial_domain and not self._domain(value):
                     raise MismatchedDomain(f'Supplied value {value} not in domain of conditional Kind.')
 
-                if value in self._mapping:
-                    return self._mapping[value]
+                if value in self._joined_map:
+                    return self._joined_map[value]
                 try:
                     result = mapping_t(value)
                 except Exception as e:
@@ -2329,8 +2330,8 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
                     ) from e
 
                 extended = result.map(lambda u: VecTuple.join(value, u))  # Input pass through
-                self._mapping[value] = extended   # Cache, fn should be pure
-                self._targets[value] = result     # Store unextended to ease some operations
+                self._joined_map[value] = extended   # Cache, fn should be pure
+                self._target_map[value] = result     # Store unextended to ease some operations
                 return extended
 
             def tfn(*args) -> Kind:
@@ -2346,8 +2347,8 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
                 if not self._trivial_domain and not self._domain(value):
                     raise MismatchedDomain(f'Supplied value {value} not in domain of conditional Kind.')
 
-                if value in self._targets:
-                    return self._targets[value]
+                if value in self._target_map:
+                    return self._target_map[value]
                 try:
                     result = mapping_t(value)
                 except Exception as e:
@@ -2356,15 +2357,16 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
                     ) from e
 
                 extended = result.map(lambda u: VecTuple.join(value, u))  # Input pass through
-                self._mapping[value] = extended   # Cache, fn should be pure
-                self._targets[value] = result     # Store unextended to ease some operations
+                self._joined_map[value] = extended   # Cache, fn should be pure
+                self._target_map[value] = result     # Store unextended to ease some operations
                 return result
 
-            self._fn = fn
+            # self._fn = tfn
             self._target_fn = tfn
+            self._joined_fn = jfn
 
     def __call__(self, *value) -> Kind:
-        return self._fn(*value)
+        return self._target_fn(*value)
 
     def __getitem__(self, *value) -> Kind:
         "Returns this conditional Kind's target associated with the key."
@@ -2372,6 +2374,9 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
 
     def target(self, *value) -> Kind:
         return self._target_fn(*value)
+
+    def joined(self, *value) -> Kind:
+        return self._joined_fn(*value)
 
     @property
     def dim(self):
@@ -2419,7 +2424,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
 
         """
         if self._is_dict:
-            return {k: transform(v) for k, v in self._targets.items()}
+            return {k: transform(v) for k, v in self._target_map.items()}
 
         fn = self._target_fn
 
@@ -2500,11 +2505,11 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
     def __str__(self) -> str:
         pad = ': '
         tbl = '\n\n'.join([show_labeled(self.target(k), str(k) + pad)
-                           for k in sorted(self._mapping.keys(), key=tuple) if self._domain(k)])
+                           for k in sorted(self._joined_map.keys(), key=tuple) if self._domain(k)])
         dlabel = f' with domain={str(set(map(str, self._domain_set)))}.' if self._has_domain_set else ''
         tlabel = f' of type {self.type}'
 
-        if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
+        if self._is_dict or (self._has_domain_set and self._domain_set == set(self._joined_map.keys())):
             title = f'A conditional Kind{tlabel} with wiring:\n'
             return title + tbl
         elif tbl:
@@ -2531,14 +2536,14 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
             label = label + f', domain={repr(self._domain_set)}'
         else:
             label = label + f', domain={repr(self._domain)}'
-        if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
-            return f'ConditionalKind({repr(self._targets)}{label})'
+        if self._is_dict or (self._has_domain_set and self._domain_set == set(self._joined_map.keys())):
+            return f'ConditionalKind({repr(self._target_map)}{label})'
         else:
             return f'ConditionalKind({repr(self._target_fn)}{label})'
 
     # Kind operations lifted to Conditional Kinds
 
-    def transform(self, statistic) -> ConditionalKind:
+    def transform_joined(self, statistic) -> ConditionalKind:
         if not isinstance(statistic, Statistic):
             raise KindError('A conditional Kind can be transformed only by a Statistic.'
                             ' Consider passing this tranform to `conditional_kind` first.')
@@ -2557,23 +2562,25 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
         s_dim = statistic.dim
 
         if self._is_dict:
-            f_mapping = {k: statistic(v) for k, v in self._mapping.items()}
+            f_mapping = {k: statistic(v) for k, v in self._joined_map.items()}
             return ConditionalKind(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain)
 
         if self._dim is not None:
             def transformed(*value):
-                return statistic(self._fn(*value))
+                return statistic(self._joined_fn(*value))
         else:
             def transformed(*value):
                 try:
-                    return statistic(self._fn(*value))
+                    return statistic(self._joined_fn(*value))
                 except Exception as e:
                     raise KindError(f'Statistic {statistic.name} appears incompatible with this conditional Kind. '
                                     f'({e.__class__.__name__}:\n  {str(e)})') from e
         return ConditionalKind(transformed, codim=self._codim, target_dim=s_dim, domain=domain)
 
     def __xor__(self, statistic):
-        return self.transform(statistic)
+        return self.transform_joined(statistic)
+
+    transform = transform_joined   # Most common transform choice as an alias
 
     def transform_targets(self, statistic) -> ConditionalKind:
         if not isinstance(statistic, Statistic):
@@ -2597,7 +2604,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
         s_dim = statistic.dim
 
         if self._is_dict:
-            f_mapping = {k: statistic(v) for k, v in self._targets.items()}
+            f_mapping = {k: statistic(v) for k, v in self._target_map.items()}
             return ConditionalKind(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain)
 
         def transformed(*value):
@@ -2605,6 +2612,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
         return ConditionalKind(transformed, codim=self._codim, target_dim=s_dim, domain=domain)
 
     def __rshift__(self, ckind):
+        """Returns the join of two compatible conditional Kinds."""
         if not isinstance(ckind, ConditionalKind):
             return NotImplemented
 
@@ -2623,13 +2631,13 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
         # proj = drop_input(self._codim)
 
         # For dict or function with whole domain seen, use a dict; otherwise wrap the function
-        if self._is_dict or (self._has_domain_set and self._domain_set == set(self._mapping.keys())):
-            mapping = {given: (kind >> ckind).map(drop_input(len(given))) for given, kind in self._mapping.items()}
+        if self._is_dict or (self._has_domain_set and self._domain_set == set(self._joined_map.keys())):
+            mapping = {given: (kind >> ckind).map(drop_input(len(given))) for given, kind in self._joined_map.items()}
             return ConditionalKind(mapping, codim=self._codim, dim=ckind._dim, domain=domain)
 
-        def mixed(*given):
-            return (self(*given) >> ckind).map(drop_input(len(given)))
-        return ConditionalKind(mixed, codim=self._codim, dim=ckind._dim, domain=domain)
+        def joined(*given):
+            return (self.joined(*given) >> ckind).map(drop_input(len(given)))
+        return ConditionalKind(joined, codim=self._codim, dim=ckind._dim, domain=domain)
 
     def __mul__(self, ckind):
         "A conditional Kind from the independent join of targets for conditional Kinds of equal codim."
@@ -2652,21 +2660,22 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
 
         if self._is_dict and ckind._is_dict:
             # TODO: ATTN check if this is the intended meaning vs.
-            #       self._domain_set if self._has_domain_set else self._mapping.keys()
+            #       self._domain_set if self._has_domain_set else self._joined_map.keys()
             #       These differ if has_domain_set is true but domain_set is empty
-            s_domain = (self._has_domain_set and self._domain_set) or self._mapping.keys()
-            c_domain = (ckind._has_domain_set and ckind._domain_set) or ckind._mapping.keys()
+            s_domain = (self._has_domain_set and self._domain_set) or self._joined_map.keys()
+            c_domain = (ckind._has_domain_set and ckind._domain_set) or ckind._joined_map.keys()
             intersecting = s_domain & c_domain
-            mapping = {given: self._targets[given] * ckind._targets[given] for given in intersecting}
+            mapping = {given: self._target_map[given] * ckind._target_map[given] for given in intersecting}
 
             return ConditionalKind(mapping, codim=self._codim, dim=mdim, domain=domain)
 
-        def mixed(*given):
+        def joined(*given):
             return self._target_fn(*given) * ckind._target_fn(*given)
 
-        return ConditionalKind(mixed, codim=self._codim, dim=mdim, domain=domain)
+        return ConditionalKind(joined, codim=self._codim, dim=mdim, domain=domain)
 
     def __pow__(self, n, modulo=None):
+        """Returns a conditional Kind obtained as from the independent join power of these targets."""
         if not isinstance(n, int):
             return NotImplemented
 
@@ -2681,8 +2690,8 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
             domain = None
 
         if self._is_dict:
-            s_domain = domain or self._mapping.keys()
-            mapping = {given: self._targets[given] ** n for given in s_domain}
+            s_domain = domain or self._joined_map.keys()
+            mapping = {given: self._target_map[given] ** n for given in s_domain}
 
             return ConditionalKind(mapping, codim=self._codim, target_dim=tdim, domain=domain or self._domain)
 
@@ -2778,7 +2787,7 @@ def conditional_kind(
             if domain is None and not mapping._trivial_domain:
                 domain = mapping._domain_set if mapping._has_domain_set else mapping._domain
             if mapping._is_dict:
-                mapping = mapping._targets
+                mapping = mapping._target_map
             else:
                 mapping = mapping.target
 

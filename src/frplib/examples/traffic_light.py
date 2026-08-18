@@ -33,7 +33,7 @@ change_on = {
     TrafficLight.RED:    1 / 30,
 }
 
-@conditional_frp(codim=2) #, target_dim=2)
+@conditional_frp(codim=2)  #, target_dim=2)
 def tick_light(state):
     color, ticks = state
     change_probability = change_on[color]

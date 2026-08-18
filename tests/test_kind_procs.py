@@ -55,13 +55,13 @@ def test_kind_proc_gjoin():
     @kind
     def join1():
         x = yield k1
-        y = yield ck.target(x)   # ATTN: change to ck(x) when target/joined are swapped
+        y = yield ck(x)   # Could use .target but testing common user case
         return (x, y)
 
     @kind
     def join2():
         x = yield k1
-        y = yield ck.target(x)   # ATTN: change to ck(x) when target/joined are swapped
+        y = yield ck(x)   # Could use .target but testing common user case
         return y
 
     assert Kind.equal(join1, k1 >> ck)

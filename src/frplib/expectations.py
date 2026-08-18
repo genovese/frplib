@@ -9,7 +9,7 @@ from frplib.kinds      import Kind, ConditionalKind
 from frplib.output     import in_panel
 from frplib.protocols  import SupportsExpectation, SupportsApproxExpectation, SupportsForcedExpectation
 from frplib.quantity   import show_qtuple
-from frplib.statistics import Statistic, statistic, _codim_str, __, Proj
+from frplib.statistics import Statistic, _codim_str, __, Proj
 from frplib.utils      import codim, dim
 from frplib.vec_tuples import VecTuple, as_vec_tuple
 
@@ -32,7 +32,7 @@ class Expectation(VecTuple):
             return self[0]
         return VecTuple(self)
 
-def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
+def E(x, force_kind=False, allow_approx=True, tolerance=0.01):    # pylint: disable=invalid-name
     """Computes and returns the expectation of a given object.
 
     If `x` is an FRP or Kind, its expectation is computed directly,
@@ -129,7 +129,7 @@ def Var(x, force_kind=False, allow_approx=True, tolerance=0.01):
             raise ComplexExpectationWarning('Var currently only supports scalar targets in conditional Kinds/FRPs.')
 
         e = x.expectation
-        y = x.transform((Proj[-1] - e(Proj[:-1])) ** 2)
+        y = x.transform_joined((Proj[-1] - e(Proj[:-1])) ** 2)
         f = E(y)
         setattr(f, '__frplib_repr__',
                 lambda: f'A conditional variance as a function of type {str(c) if c else "*"} -> 1.')
