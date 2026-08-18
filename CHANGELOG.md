@@ -1,5 +1,110 @@
 # Changelog
 
+## 0.2.13 - 2026-08-17
+
+This is a transitional release that introduces some significant
+new features but also prepares the ground for a several
+new features, a significant internal architecture change,
+and a terminology change in keeping with the latest version
+of the text.
+
+### Changed
+
+- Support for Python 3.9 has been dropped and support for 3.14 added.
+
+- weighted_as Kind factory now repeats the last weight
+  given if too few weights are supplied, or uses
+  all 1s if no weights are supplied.
+
+- arbitrary Kind factory defaults to None for the names
+
+- Started transition of language (mixture -> join, conditional
+  constraint -> observation, ...) but this is an ongoing effort.
+
+- as_quantity now raises an exception if given an object
+  that cannot be converted
+
+### Added
+
+- Kind procedures with the @kind decorator on a generator
+  This provides a procedural way to define Kinds.
+  See the built-in documentation.
+
+- FRP procedures with the @frp decorator on a generator
+  This provides a procedural way to define FRPs.
+  See the built-in documentation.
+
+- The summaries returned by FRP.sample now have a transform method
+  for transforming the values by a statistic. Also added property
+  .summary for a read-only view of the underlying frequency data and
+  .values_seen() to get a set of all the values in the table.
+
+- New interactive info system with hierarchical, fuzzy search.
+  (NOTE: The info database has not yet been fully updated.)
+
+- Custom help function for the playground REPL
+
+  Objects with a __frplib_help__ attribute use that attribute to
+  generate the help text. If it is a method of the object, it is
+  called with no arguments and should return a renderable object
+  (rich.console.RenderableType -- which includes Panel, Table,
+  Markdown, Group -- or a string). If it is a string, it is assumed
+  to be a markdown formatted string and is output to the console
+  accordingly. If it is another renderable type, it is printed
+  directly. Other objects with a __doc__ attribute have a cleaned
+  version
+
+- Support for config file .frplib.toml which allows
+  persistent setting of preferences for the environment,
+  especially for the playground.
+
+- Added choice Kind factory as a replacement for either,
+  which is deprecated
+
+- frplib.playground module makes it easy to load the full
+  playground imports within a script
+  
+- Command number is now visible in the mode line, with an
+  environment option to put it in the prompt instead
+  
+- Intelligent handling of IndexErrors and KeyErrors with
+  better messages and explain_error() function for more
+  details.
+
+- Numeric display parameters and FRP threshhold parameters
+  are now in the environment and can be set in the config file.
+
+- Factory decorators for Kinds, FRPs, Statistics, and Conditions
+  These wrap functions in a factory object that provide nicer
+  self documentation at the repl, provide some robustness
+  in return values (e.g., Kind returned from FRP factory is
+  automatically converted), and the decorators also
+  clearly signal intention for the function which increases
+  clarity.
+
+- new exception type FactoryError for users in factory functions
+
+
+### Fixed
+
+- Resampling with given operator is more proper and non-fresh FRP
+  and better checking of inconsistent conditions when possible. In
+  the rare case in which a pre-check is not possible,
+  non-termination will happen with an inconsistent condition, but
+  user interrupt will be caught with a suitable message.
+
+- Error in loading symbols into the playground. This bug was latent
+  and first had an impact in this version, but the problem is
+  fixed.
+  
+- FRP.sample can now handle symbolic values
+
+- Handles new ptpython version for PlaygroundRepl error handling
+
+- Updates and fixes in roulette example code
+
+- Many docstring and minor fixes
+
 ## 0.2.12 - 2025-10-08
 
 ### Changed
