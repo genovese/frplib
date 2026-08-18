@@ -37,7 +37,7 @@ from frplib.statistics import (
     Statistic, Condition, MonoidalStatistic,
     is_statistic, statistic, condition, scalar_statistic,
     statistic_factory, condition_factory,
-    tuple_safe, infinity, is_true, is_false,
+    tuple_safe, flexible_inputs, infinity, is_true, is_false,
     Chain, Compose, scalar_fn,
     Id, Scalar, __, Proj, _x_,
     Sum, Product, Count, Max, Min, Abs, SumSq,
@@ -54,7 +54,7 @@ from frplib.statistics import (
     And, Or, Not, Xor, top, bottom,
     All, Any, Cases, Bag, Append, Prepend,
     Get, Keep, MaybeMap,
-    Freqs, IndexOf, Contains,
+    Freqs, IndexOf, Contains, ChiSquare,
 )
 
 from frplib.expectations import E, Var, D_
@@ -109,7 +109,7 @@ __all__ = [
     # frplib.statistics
     'Statistic', 'Condition', 'MonoidalStatistic',
     'is_statistic', 'statistic', 'condition', 'scalar_statistic',
-    'tuple_safe', 'infinity', 'is_true', 'is_false',
+    'tuple_safe', 'flexible_inputs', 'infinity', 'is_true', 'is_false',
     'Chain', 'Compose', 'scalar_fn',
     'Id', 'Scalar', '__', 'Proj', '_x_',
     'Sum', 'Product', 'Count', 'Max', 'Min', 'Abs', 'SumSq',
@@ -126,7 +126,7 @@ __all__ = [
     'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
     'All', 'Any', 'Cases', 'Bag', 'Append', 'Prepend',
     'Get', 'Keep', 'MaybeMap',
-    'Freqs', 'IndexOf', 'Contains',
+    'Freqs', 'IndexOf', 'Contains', 'ChiSquare',
     # frplib.expectations
     'E', 'Var', 'D_',
     # frplib.factories

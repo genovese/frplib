@@ -196,7 +196,8 @@ def tuple_safe(
         *,
         arities: Optional[int | ArityType] = None,
         strict=True,
-        convert=as_quant_vec
+        convert=as_quant_vec,
+        prepare=as_quant_vec   # ATTN:Aug2026 Should this be VecTuple? Using identity restores old behavior.
 ) -> Callable:
     """Returns a function that can accept a single tuple or multiple individual arguments.
 
@@ -219,12 +220,12 @@ def tuple_safe(
     # Should we wrap args into a single tuple or pass multiple args?
     # We cannot distinguish the (1, k) case for 1 < k < infinity
     # as the argument could be a tuple or a scalar. Here, we impute it
-    # it as tuple case both because that is more common and because
+    # it as the tuple case both because that is more common and because
     # we can easily specify a scalar explicitly if desired.
     single_arg = fn_accepts == (1, 1) or (fn_accepts[0] == 1 and 1 < fn_accepts[1] < infinity)
     if arities is None:
-        if single_arg:  # Inferred scalar
-            # Cannot distinguish these two cases, prefer the more expansive version
+        if single_arg:
+            # Cannot distinguish scalar and tuple, prefer tuple for reasons stated above
             arities = ANY_TUPLE
         else:
             arities = fn_accepts
@@ -234,19 +235,36 @@ def tuple_safe(
     if arities == ANY_TUPLE and not (single_arg or fn_accepts == ANY_TUPLE):
         raise InputError(f'The function being wrapped should be able to accept '
                          f'any dimension tuple, instead accepts dimensions {fn_accepts[0]} to {fn_accepts[1]}.')
-    elif not single_arg and arities[0] < fn_accepts[0]:
+    if not single_arg and arities[0] < fn_accepts[0]:
         raise InputError(f'The function being wrapped requires at least {fn_accepts[0]} arguments'
                          f' but should accept {arities[0]} < {fn_accepts[0]} arguments.')
-    elif not single_arg and arities[1] > fn_accepts[1]:
+    if not single_arg and arities[1] > fn_accepts[1]:
         raise InputError(f'The function being wrapped allows at most {fn_accepts[1]} arguments'
                          f' but should accept up to {arities[1]} > {fn_accepts[1]} arguments.')
+
+    def fn_tilde(x):
+        """Ensures that the inputs and outputs of the target function are in the right format.
+
+        This only applies when the target function is being passed a single argument
+        and when arities is not (1, 1).
+
+        When it has multiple arguments (typically components of the tuple),
+        then there is no prepare step that we can do, and we fall back
+        to just converting the output without this function.
+
+        When arites is (1, 1), we want a scalar, so no preparing is needed.
+
+        """
+        return convert(fn(prepare(x)))
 
     # ATTN: We sacrifice DRYness here to avoid doing the single_arg test
     # at each call of the function, of which there can be millions
     # and to avoid facially invalid code in branches within the function.
     # This may be silly, and probably is. If determined to be,
-    # just replace e.g., as_quant_vec(fn(x)) with
-    #   as_quant_vec(fn(x)) if single_arg else as_quant_vec(fn(*x))
+    # just replace e.g., convert(fn(x)) with
+    #
+    #     convert(fn(x)) if single_arg else convert(fn(*x))
+    #
     # in the copies below in the single_arg branchings.
     # Simplfying this is likely a good idea as we already do several
     # tests and conversions in these functions anyway. For now,
@@ -258,8 +276,8 @@ def tuple_safe(
             @wraps(fn)
             def f(*x):
                 if len(x) == 1 and is_tuple(x[0]):
-                    return convert(fn(x[0]))
-                return convert(fn(x))
+                    return fn_tilde(x[0])
+                return fn_tilde(x)
         else:
             @wraps(fn)
             def f(*x):
@@ -269,7 +287,8 @@ def tuple_safe(
         setattr(f, 'arity', arities)
         setattr(f, 'strict_arity', strict)
         return f
-    elif arities == (1, 1):
+
+    if arities == (1, 1):
         # In this case, we accept multiple arguments so that
         # any error (when strict is True, say) can be given
         # nicely in the playground and so that it works when
@@ -292,7 +311,8 @@ def tuple_safe(
         setattr(g, 'arity', arities)
         setattr(g, 'strict_arity', strict)
         return g
-    elif arities[1] == infinity:
+
+    if arities[1] == infinity:
         if single_arg:
             @wraps(fn)
             def h(*x):
@@ -304,7 +324,7 @@ def tuple_safe(
                     raise DomainDimensionError(f'A function (probably a Statistic or conditional Kind/FRP)'
                                                f' expects input of dimension at least {arities[0]}'
                                                f' dimension {len(args)} was given.')
-                return convert(fn(args))
+                return fn_tilde(args)
         else:
             @wraps(fn)
             def h(*x):
@@ -340,7 +360,7 @@ def tuple_safe(
 
             take = cast(int, min(arities[1], nargs))  # Implicit project if not strict
 
-            return convert(fn(tuple(args[:take])))
+            return fn_tilde(tuple(args[:take]))   # tuple is conservative here
     else:
         @wraps(fn)
         def ff(*x):
@@ -365,40 +385,12 @@ def tuple_safe(
     setattr(ff, 'strict_arity', strict)
     return ff
 
-def old_tuple_safe(fn: Callable, arity: Optional[int] = None) -> Callable:
-    """Returns a function that can accept a single tuple or multiple individual arguments.
+def flexible_inputs(fn):
+    """A decorator that allows a tuple-accepting function to instead take multiple arguments.
 
-    Ensures that the returned function has an `arity` attribute set
-    to the supplied or computed arity.
+    ATTN:Aug2026
     """
-    if arity is None:
-        arity = len([param for param in inspect.signature(fn).parameters.values()
-                     if param.kind <= inspect.Parameter.POSITIONAL_OR_KEYWORD])
-    if arity == 0:
-        @wraps(fn)
-        def f(*x):
-            if len(x) == 1 and is_tuple(x[0]):
-                return as_vec_tuple(fn(x[0]))
-            return as_vec_tuple(fn(x))
-        setattr(f, 'arity', arity)
-        return f
-    elif arity == 1:
-        @wraps(fn)
-        def g(x):
-            if is_tuple(x) and len(x) == 1:
-                return as_vec_tuple(fn(x[0]))
-            return as_vec_tuple(fn(x))
-        setattr(g, 'arity', arity)
-        return g
-
-    @wraps(fn)
-    def h(*x):
-        select = itemgetter(*range(arity))
-        if len(x) == 1 and is_tuple(x[0]):
-            return as_vec_tuple(fn(*select(x[0])))
-        return as_vec_tuple(fn(*select(x)))
-    setattr(h, 'arity', arity)
-    return h
+    return tuple_safe(fn, convert=identity)
 
 
 #
@@ -441,7 +433,8 @@ class Statistic:
                 self.strict_arity: bool = strict
             elif hasattr(fn.fn, '__wrapped__'):  # from @wraps
                 # Rewrap the original function with new dim and/or strictness
-                fn_prime = tuple_safe(getattr(fn.fn, '__wrapped__'), arities=dim, strict=strict)
+                # ATTN:Aug2026  dim here looks like a bug, should be codim. Was dim here for arities!?!
+                fn_prime = tuple_safe(getattr(fn.fn, '__wrapped__'), arities=codim, strict=strict)
                 self.fn = fn_prime
                 self.arity = getattr(fn_prime, 'arity')
                 self.strict_arity = getattr(fn_prime, 'strict_arity')
@@ -2814,10 +2807,10 @@ def IndexOf(*items):
     See Contains() for an analogous condition.
 
     Examples:
-    + qvec(0, 1, 2, 3, 4, 5, 6) ^ IndexOf(4, 5)  #=> 4
-    + qvec(0, 1, 2, 3, 4, 5, 6) ^ IndexOf(4, 7)  #=> -1
-    + qvec(0, 1, 2, 3, 4, 5, 6) ^ IndexOf(2)     #=> 2
-    + qvec(0, 1, 2, 3, 4, 5, 6) ^ IndexOf(9)     #=> -1
+    + tup(0, 1, 2, 3, 4, 5, 6) ^ IndexOf(4, 5)  #=> 4
+    + tup(0, 1, 2, 3, 4, 5, 6) ^ IndexOf(4, 7)  #=> -1
+    + tup(0, 1, 2, 3, 4, 5, 6) ^ IndexOf(2)     #=> 2
+    + tup(0, 1, 2, 3, 4, 5, 6) ^ IndexOf(9)     #=> -1
 
     """
     def kmp_tbl(w):
@@ -2867,7 +2860,7 @@ def IndexOf(*items):
     return contains_comp
 
 def Contains(*items):
-    """Statistic factory that tests ifa specified tuple is within its input tuple, or -1 if none.
+    """Statistic factory that tests if a specified tuple is within its input tuple, or -1 if none.
 
     Accepts a single sequence or multiple arguments that are combined into a sequence.
 
@@ -2878,13 +2871,22 @@ def Contains(*items):
     See IndexOf() for an analogous statistic that finds the first index.
 
     Examples:
-    + qvec(0, 1, 2, 3, 4, 5, 6) ^ Contains(4, 5)  #=> 1
-    + qvec(0, 1, 2, 3, 4, 5, 6) ^ Contains(4, 7)  #=> 0
-    + qvec(0, 1, 2, 3, 4, 5, 6) ^ Contains(2)     #=> 1
-    + qvec(0, 1, 2, 3, 4, 5, 6) ^ Contains(9)     #=> 0
+    + tup(0, 1, 2, 3, 4, 5, 6) ^ Contains(4, 5)  #=> 1
+    + tup(0, 1, 2, 3, 4, 5, 6) ^ Contains(4, 7)  #=> 0
+    + tup(0, 1, 2, 3, 4, 5, 6) ^ Contains(2)     #=> 1
+    + tup(0, 1, 2, 3, 4, 5, 6) ^ Contains(9)     #=> 0
 
     """
     return IndexOf(*items) >= 0     # pylint: disable=comparison-with-callable
+
+@statistic_factory
+@flexible_inputs
+def ChiSquare(expected):
+    """computes the Chi-square statistic on the input against the specified expected components"""
+    @statistic(codim=(1, infinity))
+    def chi_square_stat(observed):
+        return sum( (observed - expected) * (observed - expected) / expected )
+    return chi_square_stat
 
 
 #
@@ -2903,6 +2905,7 @@ setattr(ElementOf, '__info__', 'statistic-factories')
 setattr(Get, '__info__', 'statistic-factories')
 setattr(IndexOf, '__info__', 'statistic-factories')
 setattr(Contains, '__info__', 'statistic-factories')
+setattr(ChiSquare, '__info__', 'statistic-factories')
 
 setattr(__, '__info__', 'statistic-builtins')
 setattr(Id, '__info__', 'statistic-builtins')

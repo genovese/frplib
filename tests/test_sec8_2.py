@@ -1,3 +1,5 @@
+# pylint: disable=too-many-function-args, missing-function-docstring
+
 from __future__ import annotations
 
 import pytest
@@ -9,7 +11,7 @@ from frplib.vec_tuples  import vec_tuple
 from frplib.utils       import dim, size
 
 from frplib.examples.six_of_one import (vertices, is_equilateral, equilateral,
-                                        heron, side_lengths)  
+                                        heron, side_lengths)
 
 def test_six_of_one():
     assert is_equilateral(1, 3, 5) == vec_tuple(1)
