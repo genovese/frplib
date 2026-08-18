@@ -23,7 +23,7 @@ from typing            import cast, Union
 
 from frplib.exceptions import StatisticError
 from frplib.frps       import FRP, frp, is_frp
-from frplib.kinds      import Kind, fast_mixture_pow, weighted_as
+from frplib.kinds      import Kind, fast_join_pow, weighted_as
 from frplib.statistics import (Condition, Constantly, Id, Sum,
                                condition, is_true, scalar_statistic, statistic)
 from frplib.quantity   import as_quantity
@@ -56,7 +56,7 @@ def random_graph(n, p='1/2') -> FRP:
     An edge between any two nodes is included in the graph
     with Kind specified by `edge_kind(p)`. All edges
     are independent, i.e., the Kind of the included
-    edge is an independent mixture.
+    edge is an independent join.
 
     Parameters
     ----------
@@ -384,7 +384,7 @@ def is_forest(graph):
 def fast_edge_count(n, p):
     "Fast computation of the edge_count-transformed kind of random_graph(n,p)."
     m = (n * (n - 1)) // 2
-    return fast_mixture_pow(Sum, edge_kind(p), m)
+    return fast_join_pow(Sum, edge_kind(p), m)
 
 def exact_edge_count(n, p):
     "Exact edge_count-transformed kind of random_graph(n,p)."

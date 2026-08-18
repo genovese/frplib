@@ -3,7 +3,7 @@
 from random              import random
 
 from frplib.calculate    import substitute_with
-from frplib.frps         import independent_mixture
+from frplib.frps         import independent_join
 from frplib.kinds        import weighted_as
 from frplib.statistics   import Sum
 from frplib.symbolic     import symbol, symbols
@@ -27,5 +27,5 @@ p = symbol('p')
 all_equal = substitute_with(dict(h_0=p, h_1=p, h_2=p, h_3=p,
                                  h_4=p, h_5=p, h_6=p, h_7=p))
 
-all_hits = independent_mixture(hits)
+all_hits = independent_join(hits)
 number_of_hits = Sum(all_hits)

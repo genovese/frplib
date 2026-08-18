@@ -66,14 +66,14 @@ steps = conditional_kind({
 
 assert isinstance(steps, ConditionalKind)
 
-def from_latest(steps: ConditionalKind):
-    def mixture(path):
+def from_latest(the_steps: ConditionalKind):
+    def next_stage(path):
         latest = path[-1]
-        return steps[latest]
-    return conditional_kind(mixture, target_dim=1)
+        return the_steps[latest]
+    return conditional_kind(next_stage, target_dim=1)
 
 
-# Initial state mixer and state update targets
+# Initial state source and state update targets
 
 start = constant(0)
 moves = from_latest(steps)
@@ -81,21 +81,21 @@ moves = from_latest(steps)
 
 # Multiple Moves
 
-def n_moves(start, moves, n):
-    """Makes n moves from start and returns the kind up to that point.
+def n_moves(initial, next_moves, n):
+    """Makes n moves from initial and returns the Kind up to that point.
 
-    Warning: This kind grows large with n, so keep n to small values.
+    Warning: This Kind grows large with n, so keep n to small values.
 
     See after_move_n and theseus_latest for a more efficient way to
     look at later moves.
 
     """
-    current = start
+    current = initial
     for _ in range(n):
-        current = current >> moves
+        current = current >> next_moves
     return current
 
-def theseus_latest(initial: Kind, moves: ConditionalKind) -> Generator:
+def theseus_latest(initial: Kind, next_moves: ConditionalKind) -> Generator:
     """Returns a generator of Theseus's latest move.
 
     Try, for instance:
@@ -108,7 +108,7 @@ def theseus_latest(initial: Kind, moves: ConditionalKind) -> Generator:
     current = initial
     while True:
         yield current
-        current = (current >> moves)[2]   # same as moves // current
+        current = (current >> next_moves)[2]   # same as moves // current
 
 T = TypeVar('T')
 
@@ -116,9 +116,9 @@ def nth(seq: Iterator[T], n: int) -> T:
     "Extracts the nth item from an iterator."
     return next(islice(seq, n, n + 1))
 
-def after_move_n(n: int, start: Kind, moves: ConditionalKind) -> Kind:
+def after_move_n(n: int, initial: Kind, next_moves: ConditionalKind) -> Kind:
     "The kind of Theseus's state after n moves from start."
-    return nth(theseus_latest(start, moves), n)
+    return nth(theseus_latest(initial, next_moves), n)
 
 def ever_visited(n: int):
     """Returns a statistic that extracts the current room and visit counts from Theseus's path.

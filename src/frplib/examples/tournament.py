@@ -1,7 +1,7 @@
 # Tournament Example from Chapter 0 Section 8
 
 from frplib.expectations import E
-from frplib.frps         import independent_mixture
+from frplib.frps         import independent_join
 from frplib.kinds        import Kind, conditional_kind, constant, either
 from frplib.quantity     import as_quantity
 from frplib.statistics   import __
@@ -45,14 +45,14 @@ def next_round_alt1(players):
         r1, r2 = players[i], players[i + 1]
         odds = b ** (r2 - r1)
         matches.append( either(r1, r2, odds) )
-    return independent_mixture(matches)
+    return independent_join(matches)
 
 @conditional_kind
 def next_round_alt2(players):
     n = len(players)  # Always a power of 2 here
     b = as_quantity('1.15')
 
-    return independent_mixture(
+    return independent_join(
         either(players[i], players[i + 1], b ** (players[i + 1] - players[i]))
         for i in range(0, n, 2)
     )

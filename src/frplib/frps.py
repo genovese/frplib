@@ -1,6 +1,6 @@
 """FRPs ATTN
 """
-# pylint: disable=redefined-outer-name, protected-access    # TEMP
+# pylint: disable=redefined-outer-name, protected-access, too-many-lines    # TEMP
 
 from __future__ import annotations
 
@@ -329,7 +329,7 @@ class TransformExpression(FrpExpression):
                 self._cached_value = self._transform(val)
         return self._cached_value
 
-class IMixtureExpression(FrpExpression):
+class IJoinExpression(FrpExpression):
     def __init__(self, terms: Iterable['FrpExpression']) -> None:    # pylint: disable=too-many-branches
         super().__init__()
         self._operands = list(terms)
@@ -393,8 +393,8 @@ class IMixtureExpression(FrpExpression):
             self._cached_kind = combined_kind
         return self._cached_kind
 
-    def clone(self) -> 'IMixtureExpression':
-        new_expr = IMixtureExpression([term.clone() for term in self._operands])
+    def clone(self) -> 'IJoinExpression':
+        new_expr = IJoinExpression([term.clone() for term in self._operands])
         new_expr._cached_kind = self._cached_kind
         return new_expr
 
@@ -424,19 +424,19 @@ class IMixtureExpression(FrpExpression):
         return self._cached_value
 
     @classmethod
-    def append(cls, mixture: 'IMixtureExpression', other: 'FrpExpression') -> 'IMixtureExpression':
-        "Returns a new IMixture with target as the last term."
-        return IMixtureExpression([*mixture._operands, other])
+    def append(cls, join: 'IJoinExpression', other: 'FrpExpression') -> 'IJoinExpression':
+        "Returns a new IJoin with target as the last term."
+        return IJoinExpression([*join._operands, other])
 
     @classmethod
-    def prepend(cls, mixture: 'IMixtureExpression', other: 'FrpExpression') -> 'IMixtureExpression':
-        "Returns a new IMixture with target as the last term."
-        return IMixtureExpression([other, *mixture._operands])
+    def prepend(cls, join: 'IJoinExpression', other: 'FrpExpression') -> 'IJoinExpression':
+        "Returns a new IJoin with target as the last term."
+        return IJoinExpression([other, *join._operands])
 
     @classmethod
-    def join(cls, mixture1: 'IMixtureExpression', mixture2: 'IMixtureExpression') -> 'IMixtureExpression':
-        "Returns a new IMixture with target as the last term."
-        return IMixtureExpression([*mixture1._operands, *mixture2._operands])
+    def combine(cls, join1: 'IJoinExpression', join2: 'IJoinExpression') -> 'IJoinExpression':
+        "Returns a new IJoin with target as the last term."
+        return IJoinExpression([*join1._operands, *join2._operands])
 
 class IMixPowerExpression(FrpExpression):
     def __init__(self, term: 'FrpExpression', pow: int) -> None:    # pylint: disable=redefined-builtin
@@ -483,38 +483,38 @@ class IMixPowerExpression(FrpExpression):
         # Because these are cloned, there's nothing to probe here
         return self._cached_value
 
-class MixtureExpression(FrpExpression):
+class JoinExpression(FrpExpression):
     # ATTN: the target should be passed to conditional_frp before this
-    def __init__(self, mixer: FrpExpression, target: 'ConditionalFRP') -> None:
+    def __init__(self, source: FrpExpression, target: 'ConditionalFRP') -> None:
         super().__init__()
-        self._mixer = mixer
+        self._source = source
         self._target = target
 
     def sample1(self, want_value=False) -> ValueType:
-        mixer_value = self._mixer.sample1()
-        target_frp = self._target(mixer_value)
-        return FRP.sample1(target_frp)  # Input pass through includes mixer_value
+        source_value = self._source.sample1()
+        target_frp = self._target(source_value)
+        return FRP.sample1(target_frp)  # Input pass through includes source_value
 
     def value(self) -> ValueType:
         if self._cached_value is None:
-            mixer_value = self._mixer.value()
-            target_frp = self._target(mixer_value)
-            self._cached_value = target_frp.value  # Input pass through includes mixer_value
+            source_value = self._source.value()
+            target_frp = self._target(source_value)
+            self._cached_value = target_frp.value  # Input pass through includes source_value
         return self._cached_value
 
     def kind(self) -> Kind:
         if self._cached_kind is None:
-            self._cached_kind = self._mixer.kind() >> kind(self._target)  # Fixes Bug 41
+            self._cached_kind = self._source.kind() >> kind(self._target)  # Fixes Bug 41
         return self._cached_kind
 
-    def clone(self) -> 'MixtureExpression':
-        new_expr = MixtureExpression(self._mixer.clone(), self._target.clone())
+    def clone(self) -> 'JoinExpression':
+        new_expr = JoinExpression(self._source.clone(), self._target.clone())
         new_expr._cached_kind = self._cached_kind
         return new_expr
 
     def _refresh_cached_value(self) -> ValueType | None:
         if self._cached_value is None:
-            mix_val = self._mixer._refresh_cached_value()
+            mix_val = self._source._refresh_cached_value()
             if mix_val is not None:
                 target_val = self._target(mix_val)._get_cached_value()
                 if target_val is not None:
@@ -1199,7 +1199,7 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
 
         return ConditionalKind(c_kind_fn, codim=self._codim, dim=self._dim, domain=domain)
 
-    def clone(self) -> 'ConditionalFRP':
+    def clone(self) -> ConditionalFRP:
         if self._is_dict:
             cloned = {k: v.clone() for k, v in self._targets.items()}
             return ConditionalFRP(cloned, codim=self._codim, dim=self._dim, domain=self._domain,
@@ -1455,7 +1455,7 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
             return NotImplemented
 
         if self._dim != cfrp._codim:
-            raise FrpError('Incompatible mixture of conditional FRPs, '
+            raise FrpError('Incompatible join of conditional FRPs, '
                            f'{self.type} does not match {cfrp.type}')
 
         if self._has_domain_set:
@@ -1612,7 +1612,7 @@ def conditional_frp(
         is accepted. If set explicitly to 1, then a wrapped function should accept
         a scalar argument.  (Default: None)
 
-    dim: int | None -- the final dimension of the mixture FRP. If None, the dimension
+    dim: int | None -- the final dimension of the join FRP. If None, the dimension
         is unknown and unconstrained.
 
     target_dim: int | None -- the dimension of the target FRPs. This can be supplied
@@ -1955,7 +1955,7 @@ class FRP:
     # ATTN: when a Kind is useful but not demand, we will compute
     # the kind if the complexity is below a threshold.
 
-    def independent_mixture(self, frp: FRP) -> FRP:
+    def independent_join(self, frp: FRP) -> FRP:
         if self.is_fresh or frp.is_fresh:
             value = None
         else:
@@ -1974,16 +1974,16 @@ class FRP:
         # generate the values in the first case.
 
         if our_kind is not None and value is not None:
-            spec: Union[Kind, IMixtureExpression] = our_kind
+            spec: Union[Kind, IJoinExpression] = our_kind
         else:
-            if isinstance(self._expr, IMixtureExpression) and isinstance(frp._expr, IMixtureExpression):
-                spec = IMixtureExpression.join(self._expr, frp._expr)
-            elif isinstance(self._expr, IMixtureExpression):
-                spec = IMixtureExpression.append(self._expr, as_expression(frp))
-            elif isinstance(frp._expr, IMixtureExpression):
-                spec = IMixtureExpression.prepend(frp._expr, as_expression(self))
+            if isinstance(self._expr, IJoinExpression) and isinstance(frp._expr, IJoinExpression):
+                spec = IJoinExpression.combine(self._expr, frp._expr)
+            elif isinstance(self._expr, IJoinExpression):
+                spec = IJoinExpression.append(self._expr, as_expression(frp))
+            elif isinstance(frp._expr, IJoinExpression):
+                spec = IJoinExpression.prepend(frp._expr, as_expression(self))
             else:
-                spec = IMixtureExpression([as_expression(self), as_expression(frp)])
+                spec = IJoinExpression([as_expression(self), as_expression(frp)])
 
             spec._cached_kind = our_kind
             spec._cached_value = value
@@ -1999,7 +1999,7 @@ class FRP:
         "Mixes FRP with another independently"
         if not isinstance(other, FRP):
             return NotImplemented
-        return self.independent_mixture(other)
+        return self.independent_join(other)
 
     def __pow__(self, n, modulo=None):  # Self -> int -> FRP
         is_kinded = self.is_kinded()
@@ -2016,7 +2016,7 @@ class FRP:
     def __rshift__(self, c_frp):    # pylint: disable=too-many-branches
         "Mixes this FRP with a Conditional FRP (or a function/dict giving an FRP for each value)"
         if isinstance(c_frp, ConditionalKind):
-            raise FrpError('A mixture with an FRP requires a conditional FRP on the right of >> '
+            raise FrpError('A join with an FRP requires a conditional FRP on the right of >> '
                            'but a conditional Kind was given. Try kind(f) >> c or f >> conditional_frp(c).')
 
         if not callable(c_frp) and not isinstance(c_frp, dict):
@@ -2028,17 +2028,17 @@ class FRP:
             except ConstructionError:
                 return NotImplemented
             except Exception as e:
-                raise FrpError(f'In an mixture with an FRP, there was a problem '
+                raise FrpError(f'In a join with an FRP, there was a problem '
                                f'obtaining a conditional FRP:\n  {str(e)}') from e
 
         mix_kind: Kind | None = None
-        mixer_val = self._get_cached_value()
-        if mixer_val is not None:
+        source_val = self._get_cached_value()
+        if source_val is not None:
             try:
-                target_val = c_frp.target(mixer_val)._get_cached_value()
+                target_val = c_frp.target(source_val)._get_cached_value()
             except Exception as e:
-                raise FrpError(f'In a mixture, conditional FRP appears incompatible with mixer '
-                               f'at value {mixer_val}:\n  {str(e)}') from e
+                raise FrpError(f'In a join, conditional FRP appears incompatible with source '
+                               f'at value {source_val}:\n  {str(e)}') from e
         else:
             target_val = None
 
@@ -2046,7 +2046,7 @@ class FRP:
             my_kind = self.kind
             dim = my_kind.dim
             if c_frp._codim is not None and c_frp._codim != dim:
-                FrpError(f'Incompatible mixture of dim {dim} FRP with codim {c_frp._codim} conditional FRP')
+                FrpError(f'Incompatible join of dim {dim} FRP with codim {c_frp._codim} conditional FRP')
 
             make_kinded = True
             targets = {}
@@ -2054,7 +2054,7 @@ class FRP:
                 try:
                     target = c_frp.target(branch.vs)
                 except Exception as e:
-                    raise FrpError(f'In a mixture, conditional FRP appears incompatible with mixer '
+                    raise FrpError(f'In a join, conditional FRP appears incompatible with source '
                                    f'at value {branch.vs}:\n  {str(e)}') from e
 
                 if not target.is_kinded() or (dim * target.kind.dim > environment.frp_params['complexity_threshold']):
@@ -2068,12 +2068,12 @@ class FRP:
 
         if mix_kind is not None and target_val is not None:
             result = FRP(mix_kind)
-            result._value = VecTuple.concat(mixer_val, target_val)
+            result._value = VecTuple.concat(source_val, target_val)
         else:
-            expr = MixtureExpression(as_expression(self), c_frp)
+            expr = JoinExpression(as_expression(self), c_frp)
             result = FRP(expr)
             if target_val is not None:
-                result._value = VecTuple.concat(mixer_val, target_val)
+                result._value = VecTuple.concat(source_val, target_val)
             if mix_kind is not None:
                 result._kind = mix_kind
         return result
@@ -2227,7 +2227,7 @@ class FRP:
         return constrained
 
     def __rmatmul__(self, statistic):
-        "Returns a transformed FRP with the original FRP as context for conditionals."
+        "Returns a transformed FRP with the original FRP as context for constraining with observations."
         if isinstance(statistic, Statistic):
             return TaggedFRP(self, statistic)
         return NotImplemented
@@ -2338,9 +2338,9 @@ def frp_factory(
 
 
 #
-# Tagged FRPs for context in conditionals
+# Tagged FRPs for context when constraining with observations
 #
-# phi@X acts exactly like phi(X) except in a conditional, where
+# phi@X acts exactly like phi(X) except after the given bar of an observation, where
 #    phi@X | (s(X) == v)
 # is like
 #    (X * phi(X) | (s(Proj[:(d+1)](__)) == v))[(d+1):]
@@ -2348,6 +2348,26 @@ def frp_factory(
 #
 
 class TaggedFRP(FRP):
+    """A transformed FRP that remembers its origin for use with observational constraints.
+
+    If phi is a statistic and X an FRP, then phi @ X produces a TaggedFRP.
+    This behaves exactly like phi(X) (i.e., X ^ phi) except when used with the
+    given operator in observational constraints. This remembers the original
+    FRP and passes that to the condition in the constraint, making for
+    a much more convenient expression.
+
+    So, if cond is a condition and X has dimension d,
+
+      phi@X | (cond == v)
+
+    is equivalent to
+
+      (X * phi(X) | (cond(Proj[:(d+1)](__)) == v))[(d+1):]
+
+    but **much** simpler and more readable. (And does not trigger dependence
+    warnings.)
+
+    """
     def __init__(self, createFrom: FRP | FrpExpression | Kind, stat: Statistic):
         if is_frp(createFrom):
             original = createFrom
@@ -2383,15 +2403,15 @@ class TaggedFRP(FRP):
 #
 
 @overload
-def independent_mixture(ks: Iterable[Kind]) -> Kind:
+def independent_join(ks: Iterable[Kind]) -> Kind:
     ...
 
 @overload
-def independent_mixture(ks: Iterable[FRP]) -> FRP:
+def independent_join(ks: Iterable[FRP]) -> FRP:
     ...
 
-def independent_mixture(ks):
-    "Returns the independent mixture of the Kinds or FRPs in the given sequence."
+def independent_join(ks):
+    "Returns the independent join of the Kinds or FRPs in the given sequence."
     return reduce(lambda k1, k2: k1 * k2, ks)
 
 @overload
@@ -2462,7 +2482,7 @@ def evolve(start, next_state, n_steps=1, transform=None):
 
       gives the FRP representing the state after 1000 moves. Because
       1000 is large, the returned FRP will be fresh, but the intermediate
-      mixture FRPs (which are not seen) will not be.
+      join FRPs (which are not seen) will not be.
 
     + As in the last item, evolve(start, moves, 1000, transform=FRP.activate)
       will activate all of the produced FRPs, including the last but
@@ -2504,7 +2524,7 @@ def average_conditional_entropy(kX: Kind, cZ: ConditionalKind) -> Numeric:
     ...
 
 def average_conditional_entropy(kX, cZ):
-    """Returns the average (predicted) conditional entropy of the mixture kX >> cZ.
+    """Returns the average (predicted) conditional entropy of the join kX >> cZ.
 
     This can operate either on a Kind and Conditional Kind or on an FRP and a
     conditional FRP.
@@ -2527,7 +2547,7 @@ def mutual_information(kX: Kind, cZ: ConditionalKind) -> Numeric:
     ...
 
 def mutual_information(kX, cZ):
-    """Returns the mutual information I(Y; X) where Y and X are derived from a mixture.
+    """Returns the mutual information I(Y; X) where Y and X are derived from a join.
 
     We get a Kind/FRP kX and a conditional Kind/FRP cZ where kY is defined
     by
@@ -2602,7 +2622,7 @@ def _sample_from_expr(n: int, expr: FrpExpression, summary: bool) -> FrpDemoSumm
 
 def _expectation_from_expr(expr: FrpExpression):
     # ATTN: Expand the range of things that this works for
-    # For instance, mixture powers or PureExpressions where the kind is available
+    # For instance, join powers or PureExpressions where the kind is available
     # should be automatic
     if expr._cached_kind is not None:
         return expr._cached_kind.expectation
@@ -2616,5 +2636,5 @@ def _expectation_from_expr(expr: FrpExpression):
 setattr(frp, '__info__', 'frp-factories')
 setattr(conditional_frp, '__info__', 'frp-factories')
 setattr(shuffle, '__info__', 'frp-factories')
-setattr(independent_mixture, '__info__', 'frp-combinators')
+setattr(independent_join, '__info__', 'frp-combinators')
 setattr(evolve, '__info__', 'actions')

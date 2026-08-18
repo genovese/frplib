@@ -1,6 +1,6 @@
-# fast_mixture_pow
+# fast_join_pow
 
-`fast_mixture_pow(mstat, kind, n)` efficiently computes and returns the kind of `mstat(kind ** n)`.
+`fast_join_pow(mstat, kind, n)` efficiently computes and returns the kind of `mstat(kind ** n)`.
 
 It does not compute `kind ** n` directly but relies on the parallelizability
 of `mstat`, which must be a monoidal statistic (in fact if not in type).

@@ -4,7 +4,7 @@
 with weights `weight_ratio` on `a` and 1 on `b`.
 If `weight_ratio` is not supplied, it defaults to 1.
 
-The values `a` and `b` can be numeric or symbolic (or a mixture),
+The values `a` and `b` can be numeric or symbolic (or a combination),
 but must have the same dimension.
 
 Examples:

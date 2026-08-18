@@ -1,7 +1,7 @@
 # Rig at Risk Example in Chapter 0 Section 8
 
 from frplib.expectations import E
-from frplib.kinds        import conditional_kind, fast_mixture_pow
+from frplib.kinds        import conditional_kind, fast_join_pow
 from frplib.statistics   import Sum
 
 def rig_at_risk(kind_N, kind_D):
@@ -12,6 +12,6 @@ def rig_at_risk(kind_N, kind_D):
     """
     @conditional_kind(codim=1)
     def damage_given_n(n):
-        return fast_mixture_pow(Sum, kind_D, n)
+        return fast_join_pow(Sum, kind_D, n)
 
     return E(damage_given_n // kind_N)

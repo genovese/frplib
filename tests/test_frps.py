@@ -1,18 +1,23 @@
+"""Tests of basic FRP infrastructure."""
+
+# pylint: disable=invalid-name, missing-function-docstring, disallowed-name, pointless-statement
+
 from __future__ import annotations
 
 import pytest
 
 from hypothesis             import given
-from hypothesis.strategies  import integers, decimals, tuples, lists, one_of, dictionaries
+from hypothesis.strategies  import decimals, lists, dictionaries
 
 from frplib.exceptions   import ConstructionError, FrpError
 from frplib.expectations import E
-from frplib.frps         import FRP, frp, conditional_frp, PureExpression, MixtureExpression, evolve
-from frplib.kinds        import Kind, kind, conditional_kind, constant, either, uniform, weighted_as
+from frplib.frps         import FRP, frp, conditional_frp, PureExpression, JoinExpression, evolve
+from frplib.kinds        import Kind, kind, conditional_kind, choice, constant, uniform, weighted_as
 from frplib.quantity     import as_quantity
 from frplib.statistics   import __, Proj
 from frplib.utils        import dim, codim, typeof, clone, const
 from frplib.vec_tuples   import VecTuple, as_vec_tuple
+
 
 def test_observations_nonfresh_or_empty():
     X = frp(uniform(1, 2, ..., 8))
@@ -53,12 +58,12 @@ def test_frp_transform():
 #
 
 def test_conditional_frps():
-    u = conditional_frp({0: frp(either(0, 1)), 1: frp(uniform(1, 2, 3)), 2: frp(uniform(4, 5))})
+    u = conditional_frp({0: frp(choice(0, 1)), 1: frp(uniform(1, 2, 3)), 2: frp(uniform(4, 5))})
     v = frp(uniform(0, 1, 2))
 
     assert Kind.equal(kind(v >> u ^ Proj[2]), kind(u // v))  # tests fix of Bug 10
 
-    k1 = conditional_kind({0: either(0, 1), 1: either(0, 2), 2: either(0, 3)})
+    k1 = conditional_kind({0: choice(0, 1), 1: choice(0, 2), 2: choice(0, 3)})
     f1 = conditional_frp(k1)
 
     assert typeof(f1) == '1 -> 2'
@@ -81,21 +86,21 @@ def test_conditional_frps():
 
     f2 = conditional_frp(k1)
     f12 = f1 * f2
-    assert f12(0).value == VecTuple.join(f1(0).value, f2.target(0).value)
-    assert f12(1).value == VecTuple.join(f1(1).value, f2.target(1).value)
-    assert f12(2).value == VecTuple.join(f1(2).value, f2.target(2).value)
+    assert f12(0).value == VecTuple.join(f1(0).value, f2.target(0).value)  # type: ignore[type-var]
+    assert f12(1).value == VecTuple.join(f1(1).value, f2.target(1).value)  # type: ignore[type-var]
+    assert f12(2).value == VecTuple.join(f1(2).value, f2.target(2).value)  # type: ignore[type-var]
 
     f1_3 = f1 ** 3
     assert f1_3(0).dim == 4
     assert f1_3(1).dim == 4
     assert f1_3(2).dim == 4
 
-    k2 = conditional_kind({(0, 0): either(10, 20),
-                           (0, 1): either(30, 40),
-                           (1, 0): either(50, 60),
-                           (1, 2): either(70, 80),
-                           (2, 0): either(90, 95),
-                           (2, 3): either(96, 99)})
+    k2 = conditional_kind({(0, 0): choice(10, 20),
+                           (0, 1): choice(30, 40),
+                           (1, 0): choice(50, 60),
+                           (1, 2): choice(70, 80),
+                           (2, 0): choice(90, 95),
+                           (2, 3): choice(96, 99)})
     f2 = conditional_frp(k2)
 
     assert codim(f2) == 2
@@ -123,8 +128,8 @@ def test_conditional_frps():
 
 def test_auto_clone():
     "Testing caching and auto cloning in conditional FRPs"
-    fu = conditional_frp({0: frp(either(0, 1)), 1: frp(uniform(3, 4, 5))})
-    fc = conditional_frp({0: frp(either(0, 1)), 1: frp(uniform(3, 4, 5))}, auto_clone=True)
+    fu = conditional_frp({0: frp(choice(0, 1)), 1: frp(uniform(3, 4, 5))})
+    fc = conditional_frp({0: frp(choice(0, 1)), 1: frp(uniform(3, 4, 5))}, auto_clone=True)
 
     v0 = fu(0).value
     assert all(fu(0).value == v0 for _ in range(32))
@@ -162,19 +167,19 @@ def test_freshness():
     assert U1.is_fresh
     u1_v = U1.value
     assert not U1.is_fresh and not U.is_fresh
-    assert u1_v[0] == U.value[0] ** 2 + 10
+    assert u1_v[0] == U.value[0] ** 2 + 10     # type: ignore  # U1's freshness state changed
 
     X = frp(uniform(1, 2, 3))
     Y = frp(uniform(1, 2, 3))
     assert X.is_fresh and Y.is_fresh
     XY = X * Y
     assert XY.is_fresh
-    
+
     xy_val = VecTuple.join(X.value, Y.value)
     assert not XY.is_fresh
     assert XY.value == xy_val
 
-    ck = conditional_kind({0: uniform(1, 2, 3), 1: either(4, 5), 2: constant(10)})
+    ck = conditional_kind({0: uniform(1, 2, 3), 1: choice(4, 5), 2: constant(10)})
     cf = conditional_frp(ck)
     R = frp(uniform(0, 1, 2))
     assert R.is_fresh
@@ -187,16 +192,16 @@ def test_freshness():
 
 def test_expressions():
     u = PureExpression(frp(uniform(1, 2, 3)))
-    cf = conditional_frp({1: frp(either(2,3)), 2: frp(either(4, 5)), 3: frp(either(5, 6))})
-    v = MixtureExpression(u, cf)
+    cf = conditional_frp({1: frp(choice(2, 3)), 2: frp(choice(4, 5)), 3: frp(choice(5, 6))})
+    v = JoinExpression(u, cf)
     r = uniform( (1, 2), (1, 3), (2, 4), (2, 5), (3, 5), (3, 6) )
 
     assert Kind.equal(kind(u), uniform(1, 2, 3))
     assert Kind.equal(kind(frp(v)), r)
 
 def test_evolve():
-    small = as_quantity(1e-18)
-    half = as_quantity(1/2)
+    # small = as_quantity(1e-18)
+    # half = as_quantity(1 / 2)
 
     @conditional_kind(codim=1)
     def stepk(current):
@@ -219,7 +224,10 @@ def test_entropy():  # Test Issue 55
 
 def kind_gen(d, s):
     weights = decimals(min_value=1, max_value=1000, allow_nan=False, allow_infinity=False)
-    values = lists(decimals(min_value=-5000, max_value=5000, allow_nan=False, allow_infinity=False), min_size=d, max_size=d).map(as_vec_tuple)   # type: ignore
+    values = lists(
+        decimals(min_value=-5000, max_value=5000, allow_nan=False, allow_infinity=False),
+        min_size=d, max_size=d
+    ).map(as_vec_tuple)   # type: ignore
     kinds = dictionaries(values, weights, min_size=s, max_size=s).map(weighted_as)
     return kinds
 
@@ -233,7 +241,7 @@ def test_transform_gen(k):
     assert (X * Y).value == VecTuple.join(X.value, Y.value)
 
     cF = conditional_frp({0: X, 1: Y})
-    U = frp(either(0, 1))
+    U = frp(choice(0, 1))
     Z = U >> cF
     if U.value == 0:
         assert Z.value == VecTuple.join(0, X.value)

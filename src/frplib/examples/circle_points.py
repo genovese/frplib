@@ -51,7 +51,7 @@ def circle_points(
     if method == "all":
         return frp(uniform(points_inside(radius)))
 
-    # Construct as a mixture
+    # Construct as a join
     r = abs(radius)
     r_lo = floor(r)
     if r == 0:

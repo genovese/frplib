@@ -55,7 +55,7 @@ result. "`stat2` after `stat1`".
 
 + `MFork` is exactly like `Fork` but is designed to accept only
    monoidal statistics. It's primary use is in the construction
-   of fast mixture powers. (See topic `kind-combinators::fast_mixture_pow`.)
+   of fast join powers. (See topic `kind-combinators::fast_join_pow`.)
    This is deprecated as `Fork` now auto-detects if it is given
    all monoidal statistics.
 

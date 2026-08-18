@@ -105,13 +105,13 @@ def dict_as_value_map(d: dict, values: set | None = None) -> Callable:
         d_keys = {as_vec_tuple(vs) for vs in d.keys()}
         if d_keys < values:   # superset of values is ok
             raise KindError('All specified values must be present to convert a dictionary to a value function.\n'
-                            'This likely occurred when creating a conditional Kind to take a mixture.')
+                            'This likely occurred when creating a conditional Kind to take a join.')
 
         value_dims = {k.dim for k in d.values()}
         if len(value_dims) != 1:
             raise KindError('When converting a dictionary to a value function, all values must '
                             'map to a quantity of the same dimension. This likely occurred when '
-                            'creating a conditional Kind to take a mixture.')
+                            'creating a conditional Kind to take a join.')
     scalar_keys = [vs for vs in d.keys() if not is_tuple(vs) and (vs,) not in d]
     if len(scalar_keys) > 0:
         d = d | {vec_tuple(vs): d[vs] for vs in scalar_keys}
@@ -133,7 +133,7 @@ def value_map(f, kind=None):  # ATTN: make in coming maps tuple safe; add dimens
         if kind is not None:
             dim_image = { f(as_vec_tuple(vs)).dim for vs in kind.value_set }
             if len(dim_image) != 1:
-                raise KindError('All values for a transform or mixture must be '
+                raise KindError('All values for a transform or join must be '
                                 'associated with a Kind of the same dimension')
         return f
     if isinstance(f, dict):
@@ -141,16 +141,16 @@ def value_map(f, kind=None):  # ATTN: make in coming maps tuple safe; add dimens
         if kind is not None:
             overlapping = {as_vec_tuple(vs) for vs in f.keys()} & kind.value_set
             if overlapping < kind.value_set:   # superset of values ok
-                raise KindError('All values for the kind must be present in a mixture')
+                raise KindError('All values for the Kind must be present in a join')
             if len({k.dim for k in f.values()}) != 1:
-                raise KindError('All values for a mixture must be associated with a Kind of the same dimension')
+                raise KindError('All values for a join must be associated with a Kind of the same dimension')
         scalars = [vs for vs in f.keys() if not is_tuple(vs) and (vs,) not in f]
         if len(scalars) > 0:  # Keep scalar keys but tuplize them as well
             f = f | {(vs,): f[vs] for vs in scalars}  # Note: not mutating on purpose
         return lambda vs: f[vs]
     # return None
     # move this error to invokation ATTN
-    raise KindError('[red]Invalid value transform or mixture provided[/]: '
+    raise KindError('[red]Invalid value transform or join provided[/]: '
                     '[italic]should be function or mapping dictionary[/]')
 
 def normalize_branches(canonical) -> list[KindBranch]:
@@ -263,7 +263,7 @@ class Kind:                 # pylint: disable=too-many-public-methods
 
     @property
     def values(self):
-        "A user-facing view of the possible values for this kind, with scalar values shown without tuples."
+        "A user-facing view of the possible values for this Kind, with scalar values shown without tuples."
         if self._value_set is None:
             self._set_value_set()   # ensures ._value_set not None
         if self.dim == 1:
@@ -272,7 +272,7 @@ class Kind:                 # pylint: disable=too-many-public-methods
 
     @property
     def value_set(self):
-        "The raw set of possible values for this kind"
+        "The raw set of possible values for this Kind"
         if self._value_set is None:
             self._set_value_set()
         return self._value_set
@@ -294,14 +294,14 @@ class Kind:                 # pylint: disable=too-many-public-methods
     # Functorial Methods
 
     # Note 0: Move to keeping everything as a tuple/VecTuple, show the <> for scalars too, reduce this complexity!
-    # Note 1: Remove empty kinds in mixtures
+    # Note 1: Remove empty kinds in joins
     # Note 2: Can we abstract this into a KindMonad superclass using returns style declaration
     #         Then specialize the types of the superclass to tuple[a,...] and something for probs
     # Note 3: Maybe (following 2) the applicative approach should have single functions at the nodes
     #         rather than tuples (which works), because we can always fork the functions to *produce*
     #         tuples, and then the applicative instance is not dependent on the tuple structure
     # Note 4: We want to allow for other types as the values, like functions or bools or whatever;
-    #         having kind monad makes that possible. All clean up to tuple-ify things can happen
+    #         having Kind monad makes that possible. All clean up to tuple-ify things can happen
     #         *here*.
     # Note 5: Need to allow for synonyms of boolean and 0-1 functions in processing maps versus filterings
     #         so events can be used for both and normal predicates can be used
@@ -312,7 +312,7 @@ class Kind:                 # pylint: disable=too-many-public-methods
     # Note 8: Have a displayContext (a default, a current global, and with handlers) that governs
     #         i. how kinds are displayed (full, compact, terse), ii. number system used,
     #         iii. rounding and other details such as whether to reduce probs to lowest form, ...
-    #         iv. whether to transform values..... The kind can take a context argument that if not None
+    #         iv. whether to transform values..... The Kind can take a context argument that if not None
     #         overrides the surrounding context in the fields supplied.
     # Note 9: Other things: Add annotations to branches to allow nice modeling. Show event {0,1}
     #         trees as their annotated 1 string if present? Formal linear combinations in expectation when not numeric.
@@ -324,12 +324,12 @@ class Kind:                 # pylint: disable=too-many-public-methods
     #         to finalize the Kind.  Just a thought, not sure how broadly useful it would be.
 
     def map(self, f):
-        "A functorial transformation of this kind. This is for internal use; use .transform() instead."
+        "A functorial transformation of this Kind. This is for internal use; use .transform() instead."
         new_kind = lmap(KindBranch.bimap(f), self._canonical)
         return Kind(new_kind)
 
     def apply(self, fn_kind):  # Kind a -> Kind[a -> b] -> Kind[b]
-        "An applicative <*> operation on this kind. (For internal use)"
+        "An applicative <*> operation on this Kind. (For internal use)"
         def app(branch, fn_branch):
             return [KindBranch.make(vs=f(b), p=branch.p * fn_branch.p) for b in branch.vs for f in fn_branch.vs]
         new_kind = []
@@ -339,7 +339,7 @@ class Kind:                 # pylint: disable=too-many-public-methods
         return Kind(new_kind)
 
     def bind(self, f):   # self -> (a -> Kind[b, ProbType]) -> Kind[b, ProbType]
-        "Monadic bind for this kind. (For internal use)"
+        "Monadic bind for this Kind. (For internal use)"
         def mix(branch):  # KindBranch[a, ProbType] -> list[KindBranch[b, ProbType]]
             subtree = f(branch.vs)._canonical
             return map(lambda sub_branch: KindBranch.make(vs=sub_branch.vs, p=branch.p * sub_branch.p), subtree)
@@ -350,13 +350,13 @@ class Kind:                 # pylint: disable=too-many-public-methods
         return Kind(new_kind)
 
     def bimap(self, value_fn, weight_fn=identity):
-        "A functorial transformation of this kind. This is for internal use; use .transform() instead."
+        "A functorial transformation of this Kind. This is for internal use; use .transform() instead."
         new_kind = lmap(KindBranch.bimap(value_fn, weight_fn), self._canonical)
         return Kind(new_kind)
 
     @classmethod
     def unit(cls, value):  # a -> Kind[a, ProbType]
-        "Returns the monadic unit for this kind. (For internal use)"
+        "Returns the monadic unit for this Kind. (For internal use)"
         return Kind([KindBranch.make(as_quant_vec(value), 1)])
 
     @classmethod
@@ -485,7 +485,7 @@ class Kind:                 # pylint: disable=too-many-public-methods
             div -= w1[v] * numeric_log2(w2[v] / w1[v])
         return RichReal(div)
 
-    # The empty kind is a class datum; use a descriptor to please Python 3.10+
+    # The empty Kind is a class datum; use a descriptor to please Python 3.10+
     empty = EmptyKindDescriptor()
 
     @staticmethod
@@ -495,10 +495,10 @@ class Kind:                 # pylint: disable=too-many-public-methods
 
     # Calculations
 
-    def mixture(self, cond_kind):
-        """Kind Combinator: Creates a mixture kind with this kind as the mixer and `f_mapping` giving the targets.
+    def join(self, cond_kind):
+        """Kind Combinator: Creates a join Kind with this Kind as the source and `f_mapping` giving the targets.
 
-        This is usually more easily handled by the >> operator, which takes the mixer on the
+        This is usually more easily handled by the >> operator, which takes the source on the
         left and the target on the right and is equivalent.
 
         It is recommended that `cond_kind` be a conditional Kind, though this function
@@ -507,12 +507,12 @@ class Kind:                 # pylint: disable=too-many-public-methods
         Parameters
         ----------
           cond_kind - either a conditional Kind, a dictionary taking values of this
-                      kind to other kinds, or a function doing the same. Every possible
-                      value of this kind must be represented in the mapping. For scalar
+                      Kind to other kinds, or a function doing the same. Every possible
+                      value of this Kind must be represented in the mapping. For scalar
                       kinds, the values in the dictionary or function can be scalars,
                       as they will be converted to the right form in this function.
 
-        Returns a new mixture kind that combines the mixer and targets.
+        Returns a new join Kind that combines the source and targets.
 
         """
         if isinstance(cond_kind, ConditionalKind):
@@ -534,16 +534,16 @@ class Kind:                 # pylint: disable=too-many-public-methods
 
         return self.bind(join_values)
 
-    def independent_mixture(self, kind_spec):
-        """Kind Combinator: An independent mixture of this kind with another kind.
+    def independent_join(self, kind_spec):
+        """Kind Combinator: An independent join of this Kind with another kind.
 
         This is usually more easily handled by the * operator, which is equivalent.
 
         Parameter `kind_spec` should be typically be a valid kind,
-        but this will accept anything that produces a valid kind via
+        but this will accept anything that produces a valid Kind via
         the `kind()` function.
 
-        Returns a new kind representing this mixture.
+        Returns a new Kind representing this join.
 
         """
         r_kind = kind(kind_spec)
@@ -559,17 +559,17 @@ class Kind:                 # pylint: disable=too-many-public-methods
         return Kind([combine_product(brA, brB) for brA, brB in product(self._canonical, r_kind._canonical)])
 
     def transform(self, statistic):
-        """Kind Combinator: Transforms this kind by a statistic, returning the transformed kind.
+        """Kind Combinator: Transforms this Kind by a statistic, returning the transformed kind.
 
         Here, `statistic` is typically a Statistic object, though it
         can be a more general mapping or dictionary. It must have
-        compatible dimension with this kind and be defined for all
-        values of this kind.
+        compatible dimension with this Kind and be defined for all
+        values of this Kind.
 
         This is often more easily handled by the ^ operator, or by
         direct composition by the statistic, which are equivalent.
         The ^ notation is intended to evoke an arrow signifying the
-        flow of data from the kind through the transform.
+        flow of data from the Kind through the transform.
 
         """
         if isinstance(statistic, Statistic):
@@ -602,15 +602,15 @@ class Kind:                 # pylint: disable=too-many-public-methods
                             f'({e.__class__.__name__}:\n  {str(e)})') from e
 
     def conditioned_on(self, cond_kind):
-        """Kind Combinator: computes the kind of the target conditioned on the mixer (this kind).
+        """Kind Combinator: computes the Kind of the target conditioned on the source (this Kind).
 
         This is usually more clearly handled with the // operator,
-        which takes mixer // target.
+        which takes source // target.
 
-        This is related to, but distinct from, a mixture in that it
-        produces the kind of the target, marginalizing out the mixer
-        (this kind). Conditioning is the operation of using
-        hypothetical information about one kind and a contingent
+        This is related to, but distinct from, a join in that it
+        produces the Kind of the target, marginalizing out the source
+        (this Kind). Conditioning is the operation of using
+        hypothetical information about one Kind and a contingent
         relationship between them to compute another kind.
 
         """
@@ -624,13 +624,13 @@ class Kind:                 # pylint: disable=too-many-public-methods
         try:
             cond_kind = value_map(cond_kind, self)
         except Exception as exc:
-            raise KindError('Conditioning on this kind requires a valid and '
+            raise KindError('Conditioning on this Kind requires a valid and '
                             'matching mapping of values to kinds of the same dimension') from exc
         return self.bind(cond_kind)
 
     @property
     def expectation(self):
-        """Computes the expectation of this kind. Scalar expectations are unwrapped. (Internal use.)
+        """Computes the expectation of this Kind. Scalar expectations are unwrapped. (Internal use.)
 
         The expectation should be computed using the E operator rather than this method.
         """
@@ -710,7 +710,7 @@ class Kind:                 # pylint: disable=too-many-public-methods
         "Mixes Kind with another independently"
         if not isinstance(other, Kind):
             return NotImplemented
-        return self.independent_mixture(other)
+        return self.independent_join(other)
 
     def __pow__(self, n, modulo=None):
         "Mixes Kind with itself n times independently"
@@ -733,34 +733,34 @@ class Kind:                 # pylint: disable=too-many-public-methods
         return Kind([combine_product(obranches) for obranches in product(self._canonical, repeat=n)])
 
     def __rfloordiv__(self, other):
-        """Kind Combinator: computes the kind of the target conditioned on the mixer.
+        """Kind Combinator: computes the Kind of the target conditioned on the source.
 
-        This as the form  ckind // mixer  where mixer is a Kind (this one) and
-        ckind is a conditional Kind mapping values of the mixer to new kinds.
+        This as the form  ckind // source  where source is a Kind (this one) and
+        ckind is a conditional Kind mapping values of the source to new kinds.
 
         This is equivalent to, but more efficient than,
 
-              Proj[(mixer.dim + 1):](mixer >> ckind)
+              Proj[(source.dim + 1):](source >> ckind)
 
-        That is, this produces the kind of the target marginalizing
-        out the mixer's value. This is the operation of
+        That is, this produces the Kind of the target marginalizing
+        out the source's value. This is the operation of
         **Conditioning**: using hypothetical information about one
-        kind and a contingent relationship between them to compute
+        Kind and a contingent relationship between them to compute
         another kind.
 
         """
-        # Conditioning on self; other is a conditional distribution.
+        # Conditioning on self; other is a conditional Kind giving the targets.
         return self.conditioned_on(other)
 
     def __rshift__(self, cond_kind):
-        """Returns a mixture kind with this kind as the mixer and `cond_kind` giving the targets.
+        """Returns a join Kind with this Kind as the source and `cond_kind` giving the targets.
 
         Here, `cond_kind` is typically a conditional Kind, though it
         can be a suitable function or dictionary. It must give a
-        kind of common dimension for every value of this kind.
+        Kind of common dimension for every value of this Kind.
 
-        The resulting kind has values concatenating the values of
-        mixer and target. See also the // (.conditioned_on)
+        The resulting Kind has values concatenating the values of
+        source and target. See also the // (.conditioned_on)
         operator, which is related. In particular, m // k is like k
         >> m without the values from k in the resulting kind.
 
@@ -769,23 +769,23 @@ class Kind:                 # pylint: disable=too-many-public-methods
         if not callable(cond_kind) and not isinstance(cond_kind, dict):
             return NotImplemented
         if hasattr(cond_kind, '_auto_clone'):  # Hack to detect conditional FRP without circularity
-            raise KindError('A mixture with a Kind requires a conditional Kind on the right of >> '
+            raise KindError('A join with a Kind requires a conditional Kind on the right of >> '
                             'but a conditional FRP was given. Try frp(k) >> c or k >> kind(c).')
         try:
-            return self.mixture(cond_kind)
+            return self.join(cond_kind)
         except Exception as e:
-            raise KindError('Problem computing mixture of a Kind and conditional Kind: '
+            raise KindError('Problem computing join of a Kind and conditional Kind: '
                             f'{str(e)}') from e
 
     def __xor__(self, statistic):
         """Applies a statistic or other function to a Kind and returns a transformed kind.
 
         The ^ notation is intended to evoke an arrow signifying the flow of data
-        from the kind through the transform.
+        from the Kind through the transform.
 
         Here, `statistic` is typically a Statistic object, though it
         can be a more general mapping or dictionary. It must have
-        compatible dimension with this kind and be defined for all
+        compatible dimension with this Kind and be defined for all
         values of this kind. When it is an actual Statistic,
         statistic(k) and k ^ statistic are equivalent.
 
@@ -793,7 +793,7 @@ class Kind:                 # pylint: disable=too-many-public-methods
         return self.transform(statistic)
 
     def __rmatmul__(self, statistic):
-        "Returns a transformed kind with the original kind as context for conditionals."
+        "Returns a transformed Kind with the original Kind as context for using observations."
         if isinstance(statistic, Statistic):
             return TaggedKind(self, statistic)
         return NotImplemented
@@ -846,7 +846,7 @@ class Kind:                 # pylint: disable=too-many-public-methods
         return self.marginal(indices)
 
     def __or__(self, predicate):  # Self -> ValueMap[ValueType, bool] -> Kind[ValueType, ProbType]
-        "Applies a conditional filter to a Kind."
+        "Applies a constraint to a Kind with an observation."
         if isinstance(predicate, Condition):
             def keep(value):
                 return predicate.bool_eval(value)
@@ -882,7 +882,7 @@ class Kind:                 # pylint: disable=too-many-public-methods
         return lmap(VecTuple, random.choices(values, weights, k=n))
 
     def show_full(self) -> str:
-        """Show a full ascii version of this kind as a tree in canonical form."""
+        """Show a full ascii version of this Kind as a tree in canonical form."""
         if len(self._canonical) == 0:
             return '<> -+'
 
@@ -1126,7 +1126,7 @@ class TaggedKind(Kind):
     If phi is a statistic and k a Kind, then phi @ k produces a TaggedKind.
     This behaves exactly like phi(k) (i.e., k ^ phi) except when used with the
     given operator in observational constraints. This remembers the original
-    on which the condition in that constraint can be evaluated, making for
+    and passes that to the condition in the constraint, making for
     a much more convenient expression.
 
     So, if cond is a condition and k has dimension d,
@@ -1312,7 +1312,7 @@ def unfold(k: Kind) -> UnfoldedKind:
     return UnfoldedKind(unfolded, unfolded_str(scan, wd))
 
 def clean(k: Kind, tolerance: ScalarQ = '1e-16') -> Kind:
-    """Returns a new kind that eliminates from `k` any branches with numerically negligible weights.
+    """Returns a new Kind that eliminates from `k` any branches with numerically negligible weights.
 
     Weights < `tolerance` are assumed to be effectively zero and eliminated
     in the returned kind.
@@ -1338,7 +1338,7 @@ def bayes(observed_y, x, y_given_x):
     """Applies Bayes's Rule to find x | y == observed_y, a Kind or FRP.
 
     Takes an observed value of y, the kind/FRP x, and the conditional Kind/FRP
-    y_given_x, reversing the conditionals.
+    y_given_x, reversing the order of arguments to the given operator.
 
     + `observed_y` is a *possible* value of a quantity y
     + `x` -- a Kind or FRP for a quantity x
@@ -1351,7 +1351,7 @@ def bayes(observed_y, x, y_given_x):
     i = dim(x) + 1
     return (x >> y_given_x | (Proj[i:] == observed_y)) ^ Proj[1:i]
 
-def fast_mixture_pow(mstat: MonoidalStatistic, k: Kind, n: int) -> Kind:
+def fast_join_pow(mstat: MonoidalStatistic, k: Kind, n: int) -> Kind:
     """Efficiently computes the Kind mstat(k ** n) for monoidal statistic `mstat`.
 
     Parameters
@@ -1364,17 +1364,17 @@ def fast_mixture_pow(mstat: MonoidalStatistic, k: Kind, n: int) -> Kind:
     Returns the Kind mstat(k ** n) without computing k ** n directly.
 
     Example:
-    + fast_mixture_pow(Sum, k, n) computes Sum(k ** n)
+    + fast_join_pow(Sum, k, n) computes Sum(k ** n)
 
     """
     if n < 0:
-        raise KindError(f'fast_mixture_pow requires a non-negative power, given {n}.')
+        raise KindError(f'fast_join_pow requires a non-negative power, given {n}.')
     if n == 0:
         return constant(mstat())
     if n == 1:
         return mstat(k)
 
-    kn2 = fast_mixture_pow(mstat, k, (n // 2))
+    kn2 = fast_join_pow(mstat, k, (n // 2))
 
     if n % 2 == 0:
         return mstat(kn2 * kn2)
@@ -1464,13 +1464,13 @@ def sequence_of_values(    # pylint: disable=too-many-branches
 void: Kind = Kind.empty
 
 def constant(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis]) -> Kind:  # type: ignore
-    """Kind Factory: returns the kind of a constant FRP with the specified value.
+    """Kind Factory: returns the Kind of a constant FRP with the specified value.
 
     Accepts any collection of symbolic or numeric values or
     iterables thereof and flattens this into a quantitative tuple
     which will be the single value `v` of the returned kind.
 
-    Returns the kind <> --- <v>.
+    Returns the Kind <> --- <v>.
 
     """
     if len(xs) == 0:
@@ -1978,8 +1978,8 @@ def without_replacement(n: int, *xs) -> Kind:
     symbols or string numbers/fractions (which are converted to
     high-precision decimals).
 
-    The values of this kind do not distinguish between different orders
-    of the sample. To get the kind of samples with order do
+    The values of this Kind do not distinguish between different orders
+    of the sample. To get the Kind of samples with order do
 
         permutations_of // without_replacement(n, xs)
 
@@ -2040,7 +2040,7 @@ def bin(scalar_kind, lower, width):      # pylint: disable=redefined-builtin
     The bins are intervals of width `width` starting at `lower`.  So, for instance,
     `lower` to `lower` + `width`, and so on.
 
-    The given kind should be a scalar kind, or an error is raised.
+    The given Kind should be a scalar Kind, or an error is raised.
 
     """
     if scalar_kind.dim > 1:
@@ -2545,7 +2545,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
         lo, hi = statistic.codim
         if self._dim is not None and (self._dim < lo or self._dim > hi):
             raise KindError(f'Statistic {statistic.name} is incompatible with this kind: '
-                            f'acceptable dimension [{lo},{hi}] but kind dimension {self._dim}.')
+                            f'acceptable dimension [{lo},{hi}] but Kind dimension {self._dim}.')
 
         if self._trivial_domain:
             domain: set[ValueType] | Callable[[ValueType], bool] | None = None
@@ -2609,7 +2609,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
             return NotImplemented
 
         if self._dim != ckind._codim:
-            raise OperationError('Incompatible mixture of conditional Kinds, '
+            raise OperationError('Incompatible join of conditional Kinds, '
                                  f'{self.type} does not match {ckind.type}')
 
         if self._has_domain_set:
@@ -2632,7 +2632,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
         return ConditionalKind(mixed, codim=self._codim, dim=ckind._dim, domain=domain)
 
     def __mul__(self, ckind):
-        "A conditional Kind from the independent mixture of targets for conditional Kinds of equal codim."
+        "A conditional Kind from the independent join of targets for conditional Kinds of equal codim."
         if not isinstance(ckind, ConditionalKind):
             return NotImplemented
 
@@ -2833,5 +2833,5 @@ setattr(permutations_of, '__info__', 'kind-factories')
 setattr(bin, '__info__', 'kind-combinators::bin')
 setattr(unfold, '__info__', 'actions')
 setattr(clean, '__info__', 'actions')
-setattr(fast_mixture_pow, '__info__', 'kind-combinators::fast_mixture_pow')
+setattr(fast_join_pow, '__info__', 'kind-combinators::fast_join_pow')
 setattr(bayes, '__info__', 'kind-combinators')

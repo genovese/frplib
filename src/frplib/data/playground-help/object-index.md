@@ -110,7 +110,7 @@ also `info("modules")`.
 | `evenly_spaced`       | `frplib.kinds`        |
 | `every`               | `frplib.utils`        |
 | `evolve`              | `frplib.frps`         |
-| `fast_mixture_pow`    | `frplib.kinds`        |
+| `fast_join_pow`       | `frplib.kinds`        |
 | `fork`                | `frplib.statistics`   |
 | `frequencies`         | `frplib.utils`        |
 | `frp`                 | `frplib.frps`         |
@@ -118,7 +118,7 @@ also `info("modules")`.
 | `identity`            | `frplib.utils`        |
 | `index_of`            | `frplib.utils`        |
 | `index_where`         | `frplib.utils`        |
-| `independent_mixture` | `frplib.frps`         |
+| `independent_join`    | `frplib.frps`         |
 | `infinity`            | `frplib.statistics`   |
 | `integers`            | `frplib.kinds`        |
 | `irange`              | `frplib.utils`        |

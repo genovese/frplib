@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from frplib.exceptions  import EvaluationError
-from frplib.kinds       import Kind, either
+from frplib.kinds       import Kind, choice
 from frplib.statistics  import Sqrt
 from frplib.vec_tuples  import vec_tuple
 from frplib.utils       import dim, size
@@ -20,7 +20,7 @@ def test_six_of_one():
     assert dim(vertices) == 3
     assert size(vertices) == 20
 
-    assert Kind.equal(equilateral, either(0, 1, 9))
+    assert Kind.equal(equilateral, choice(1, 0, 9))
 
     assert heron(3, 4, 5) == 6
     assert heron(1, 1, Sqrt(2)) == 0.5

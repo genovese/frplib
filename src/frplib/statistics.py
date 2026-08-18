@@ -1064,7 +1064,7 @@ class MonoidalStatistic(Statistic):
     where :: is tuple concatenation and unit is the "monoidal unit" for the statistic.
 
     The first equation allows m to be computed in parallel. For instance,
-    fast_mixture_pow uses this to compute m(k ** n) for a Kind k and large n.
+    fast_join_pow uses this to compute m(k ** n) for a Kind k and large n.
     When m is derived from an underlying monoid (e.g., Sum), unit is the identity
     element for the monoid (e.g., 0)
 

@@ -45,8 +45,8 @@ def E(x, force_kind=False, allow_approx=True, tolerance=0.01):
     allows convenient display at the repl; the actual value is in
     the .this property of the returned object.
 
-    If `x` is a ConditionalKind or ConditionalFRP, then returns
-    a *function* from domain values in the conditional to
+    If `x` is a ConditionalKind or ConditionalFRP, then returns a
+    *function* from domain values in the conditional Kind/FRP to
     expectations.
 
     """
@@ -117,8 +117,8 @@ def Var(x, force_kind=False, allow_approx=True, tolerance=0.01):
     allows convenient display at the repl; the actual value is in
     the .this property of the returned object.
 
-    If `x` is a ConditionalKind or ConditionalFRP, then returns
-    a *function* from domain values in the conditional to
+    If `x` is a ConditionalKind or ConditionalFRP, then returns a
+    *function* from domain values in the conditional Kind/FRP to
     variances.
 
     """
