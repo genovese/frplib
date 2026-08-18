@@ -1,7 +1,7 @@
 # frplib
 
-[![PyPI - Version](https://img.shields.io/pypi/v/frplib.svg)](https://pypi.org/project/frplib)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/frplib.svg)](https://pypi.org/project/frplib)
+[![PyPI - Version](https://img.shields.io/pypi/v/frplib.svg?cacheSeconds=300)](https://pypi.org/project/frplib)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/frplib.svg?cacheSeconds=300)](https://pypi.org/project/frplib)
 
 -----
 
