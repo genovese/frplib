@@ -49,7 +49,7 @@ from frplib.statistics import (
     Median, Quartiles, IQR,
     Norm, Dot,
     ArgMin, ArgMax, Ascending, Descending, Distinct,
-    Diff, Diffs, Permute, ElementOf,
+    Diff, Diffs, Dim, Permute, ElementOf,
     Constantly, Fork, MFork, ForEach, IfThenElse,
     And, Or, Not, Xor, top, bottom,
     All, Any, Cases, Bag, Append, Prepend,
@@ -86,7 +86,7 @@ from frplib.utils import (
 from frplib.vec_tuples import (
     VecTuple,
     as_numeric_vec, as_scalar, as_vec_tuple, as_float, as_bool,
-    map_to_vec_tuple, is_vec_tuple, vec_tuple, join,
+    map_to_vec_tuple, is_vec_tuple, vec_tuple
 )
 
 from frplib.market import Market
@@ -121,7 +121,7 @@ __all__ = [
     'Median', 'Quartiles', 'IQR',
     'Norm', 'Dot',
     'ArgMin', 'ArgMax', 'Ascending', 'Descending', 'Distinct',
-    'Diff', 'Diffs', 'Permute', 'ElementOf',
+    'Diff', 'Diffs', 'Dim', 'Permute', 'ElementOf',
     'Constantly', 'Fork', 'MFork', 'ForEach', 'IfThenElse',
     'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
     'All', 'Any', 'Cases', 'Bag', 'Append', 'Prepend',
@@ -153,7 +153,7 @@ __all__ = [
     # frplib.vec_tuples
     'VecTuple',
     'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float', 'as_bool',
-    'map_to_vec_tuple', 'is_vec_tuple', 'vec_tuple', 'join',
+    'map_to_vec_tuple', 'is_vec_tuple', 'vec_tuple',
     # frplib.market
     'Market',
     # frplib.extras

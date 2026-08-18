@@ -56,7 +56,7 @@ playground_imports: dict[str, list[str]] = {
         'Median', 'Quartiles', 'IQR',
         'SumSq', 'Norm', 'Dot',
         'ArgMin', 'ArgMax', 'Ascending', 'Descending', 'Distinct',
-        'Diff', 'Diffs', 'Permute', 'ElementOf',
+        'Diff', 'Diffs', 'Dim', 'Permute', 'ElementOf',
         'Constantly', 'Fork', 'MFork', 'ForEach', 'IfThenElse',
         'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
         'All', 'Any', 'Cases', 'Bag', 'Append', 'Prepend',
@@ -83,7 +83,7 @@ playground_imports: dict[str, list[str]] = {
     'vec_tuples': [
         'VecTuple',
         'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float', 'as_bool',
-        'map_to_vec_tuple', 'is_vec_tuple', 'vec_tuple', 'join',
+        'map_to_vec_tuple', 'is_vec_tuple', 'vec_tuple',
     ],
     'market': [
         'Market',

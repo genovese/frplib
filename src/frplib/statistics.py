@@ -34,7 +34,7 @@ from frplib.quantity   import as_quant_vec, as_quantity
 from frplib.symbolic   import Symbolic
 from frplib.utils      import dim, frequencies, identity, is_interactive, is_tuple, scalarize
 from frplib.vec_tuples import (VecTuple, as_bool, as_scalar, as_scalar_strict, as_scalar_weak,
-                               as_vec_tuple, is_vec_tuple, vec_tuple, join)
+                               as_vec_tuple, is_vec_tuple, vec_tuple)
 
 # ATTN: conversion with as_real etc in truediv, pow to prevent accidental float conversion
 # This could be mitigated by eliminating ints from as_numeric*, but we'll see how this
@@ -1756,7 +1756,7 @@ def Distinct(v):
     "tests if all components are distinct."
     return len(v) == len(frozenset(v))
 
-@statistic(dim=1)
+@statistic(codim=(1, infinity), dim=1)
 def Median(x):
     "returns the median of its inputs components."
     n = len(x)
@@ -1765,32 +1765,29 @@ def Median(x):
     sx = sorted(x)
     if n % 2 == 0:
         return (sx[(n - 1) // 2] + sx[n // 2]) / 2
-    else:
-        return sx[n // 2]
+    return sx[n // 2]
 
 @statistic(codim=(4, infinity), dim=3)
 def Quartiles(x):
     "returns the three quartiles of its inputs components."
     n = len(x)
-
     sx = sorted(x)
     med = Median(x)
     k = n // 2
-    if n % 2 == 0:
-        return join(Median(join(sx[:k], med)), med, Median(join(med, sx[k:])))
-    else:
-        return join(Median(*sx[:k]), med, Median(*sx[(k+1):]))
 
-@statistic(dim=1)
+    if n % 2 == 0:
+        return VecTuple.join(Median(VecTuple.join(sx[:k], med)), med, Median(VecTuple.join(med, sx[k:])))
+    return VecTuple.join(Median(*sx[:k]), med, Median(*sx[(k + 1):]))
+
+@statistic(codim=(2, infinity), dim=1)
 def IQR(x):
-    "returns the inter-quartile range of its inputs components."
+    "returns the interquartile range (type 6) of its inputs components"
     n = len(x)
     sx = sorted(x)
     k = n // 2
     if n % 2 == 0:
-        return x[k + k // 2 - 1] - x[k // 2]
-    else:
-        return Median(x[(k+1):]) - Median(x[:k])
+        return sx[k + k // 2 - 1] - sx[k // 2]
+    return Median(x[(k + 1):]) - Median(x[:k])
 
 @statistic(codim=2, dim=1)
 def Binomial(r, k):
@@ -1858,9 +1855,9 @@ def StdDev(value):
     mu = as_scalar(Mean(value))
     return numeric_sqrt(sum((v - mu) ** 2 for v in value) / as_real(n - 1))
 
-@scalar_statistic(name='variance', codim=(1, infinity),
-                  description='returns the sample variance of the values components')
+@scalar_statistic(name='variance', codim=(1, infinity))
 def Variance(value):
+    """returns the sample variance of its argument's components"""
     n = len(value)
     if n == 1:
         return 0
@@ -1889,7 +1886,7 @@ def ArgMin(val):
             min_val = val[i]
     return min_ind
 
-@statistic(name='diff', codim=(1, infinity))
+@statistic(name='diff', codim=(2, infinity))
 def Diff(xs):
     'returns tuple of first differences of a non-empty tuple'
     n = len(xs)
@@ -1900,8 +1897,9 @@ def Diff(xs):
         diffs.append(xs[i] - xs[i - 1])
     return as_quant_vec(diffs)
 
+@statistic_factory
 def Diffs(k: int):
-    "Statistics factory. Produces a statistic to compute `k`-th order diffs of its argument"
+    "computes `k`-th order diffs of its argument"
 
     def diffk(xs):
         n = len(xs)
@@ -1917,8 +1915,13 @@ def Diffs(k: int):
                 diffs.append(target[i] - target[i - 1])
         return as_quant_vec(diffs)
 
-    return Statistic(diffk, codim=(1, infinity), name=f'diffs[{k}]',
+    return Statistic(diffk, codim=(k + 1, infinity), name=f'diffs[{k}]',
                      description=f'returns order {k} differences of its argument')
+
+@scalar_statistic
+def Dim(x):
+    """computes the dimension of its input, i.e., the number of components in the tuple"""
+    return len(x)
 
 
 #
@@ -1929,12 +1932,10 @@ def _convert_to_statistic(const_or_func: Statistic | Callable | ScalarQ | Iterab
     if not isinstance(const_or_func, Statistic):
         if callable(const_or_func):
             return statistic(const_or_func)
-        elif isinstance(const_or_func, Iterable):
+        if isinstance(const_or_func, Iterable):
             return Constantly(*[as_quantity(c) for c in const_or_func])
-        else:
-            return Constantly(as_quantity(const_or_func))
-    else:
-        return const_or_func
+        return Constantly(as_quantity(const_or_func))
+    return const_or_func
 
 def ForEach(s: Statistic | Callable | ScalarQ | tuple ) -> Statistic:
     """Statistics combinator. Returns a statistic that applies a statistic to each component of its input.
@@ -2584,7 +2585,7 @@ def Append(*v):
 
     @statistic
     def append(input):
-        return join(input, *v)
+        return VecTuple.join(input, *v)
 
     return append
 
@@ -2606,8 +2607,8 @@ def Prepend(*v):
         return Id
 
     @statistic
-    def prepend(input):
-        return join(*v, input)
+    def prepend(inpt):
+        return VecTuple.join(*v, inpt)
 
     return prepend
 
@@ -2922,6 +2923,7 @@ setattr(IQR, '__info__', 'statistic-builtins')
 setattr(Binomial, '__info__', 'statistic-builtins')
 setattr(Diff, '__info__', 'statistic-builtins')
 setattr(Diffs, '__info__', 'statistic-builtins')
+setattr(Dim, '__info__', 'statistic-builtins')
 setattr(Abs, '__info__', 'statistic-builtins')
 setattr(Sqrt, '__info__', 'statistic-builtins')
 setattr(Floor, '__info__', 'statistic-builtins')
