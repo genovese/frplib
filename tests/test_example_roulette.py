@@ -1,3 +1,6 @@
+# pylint: disable=missing-function-docstring, no-member, invalid-name
+# mypy: disable-error-code="attr-defined"
+
 from __future__ import annotations
 
 from itertools import chain
@@ -120,3 +123,10 @@ def test_text():
     k = weighted_as(-85, -65, -40, -20, 65, 85, 110, 130, 655,
                     weights=['13/38', '10/38', '1/38', '1/38', '5/38', '5/38', '1/38', '1/38', '1/38'])
     assert Kind.equal(kind(comb(R)), k)
+
+def test_roulette_utilities():
+    k1 = roulette.biased_kind(10, pockets=[1, 2, 3, 4])
+    k2 = roulette.biased_kind(100)
+
+    assert Kind.equal(k1, weighted_as(-1, 0, ..., 36, weights=[1, 1, 10, 10, 10, 10, 1]))
+    assert Kind.equal(k2, weighted_as(-1, 0, ..., 36, weights=[1, 1, 100]))
