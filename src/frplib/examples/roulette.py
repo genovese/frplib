@@ -2,15 +2,20 @@
 
 __all__ = ['roulette']
 
-from frplib.exceptions   import IndexingError
+from collections.abc     import Iterable
+
+from frplib.exceptions   import IndexingError, KindError
 from frplib.frps         import frp
-from frplib.kinds        import uniform
+from frplib.kinds        import Kind, uniform, weighted_pairs
+from frplib.numeric      import Numeric
 from frplib.statistics   import statistic
 
 ROULETTE_SPIN = uniform(-1, 0, ..., 36)
 
 RED_SQUARES = set([1, 3, 5, 7, 9, 12, 14, 16, 18,
                    19, 21, 23, 25, 27, 30, 32, 34, 36])
+
+ALL_POCKETS = ROULETTE_SPIN.values
 
 #
 # Plays
@@ -21,42 +26,42 @@ RED_SQUARES = set([1, 3, 5, 7, 9, 12, 14, 16, 18,
 @statistic(dim=1, codim=1)
 def _roulette_even(pocket):
     "Play on all even pockets."
-    if pocket % 2 == 0 and pocket >= 1 and pocket <= 36:
+    if pocket % 2 == 0 and 1 <= pocket <= 36:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_odd(pocket):
     "Play on all odd pockets."
-    if pocket % 2 == 1 and pocket >= 1 and pocket <= 36:
+    if pocket % 2 == 1 and 1 <= pocket <= 36:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_red(pocket):
     "represents a $1 play on all red pockets"
-    if pocket in RED_SQUARES and pocket >= 1 and pocket <= 36:
+    if pocket in RED_SQUARES and 1 <= pocket <= 36:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_black(pocket):
     "Play on all black pockets."
-    if pocket not in RED_SQUARES and pocket >= 1 and pocket <= 36:
+    if pocket not in RED_SQUARES and 1 <= pocket <= 36:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_first18(pocket):
     "Play on first 18 consecutive pockets 1..18."
-    if pocket >= 1 and pocket <= 18:
+    if 1 <= pocket <= 18:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_second18(pocket):
     "Play on second 18 consecutive pockets 19..36."
-    if pocket >= 19 and pocket <= 36:
+    if 19 <= pocket <= 36:
         return 1
     return -1
 
@@ -91,7 +96,7 @@ def _roulette_column(which):
     "Column play on twelve pockets in one `column`, specified by 1, 2, or 3, first, second, third ...."
     if which == 3:
         which_column = 0
-    elif which == 1 or which == 2:
+    elif which in {1, 2}:
         which_column = which
     elif isinstance(which, str):
         col = which.lower()
@@ -202,6 +207,39 @@ def _roulette_straight(wins):
 
 
 #
+# Utilities
+#
+
+def _roulette_biased_kind(
+        weight: Numeric,
+        pockets: Iterable = frozenset(p for p in ROULETTE_SPIN.values if p > 0)  # type: ignore[name-defined]  # mypy bug: python/mypy#9346, comprehension in a default-argument value
+) -> Kind:
+    """Generates the Kind of an FRP representing a biased roulette spin.
+
+    Parameters
+    ----------
+    weight: the weight assigned to the 'biased' pockets on the wheel, with other
+        pockets assigned a weight of 1
+
+    pockets: an iterable containing a collection of pockets to 'bias' in this way.
+        Only pockets with values from -1..36 are used.
+
+    Returns a Kind with value set equal to the set of roulette pockets.
+
+    """
+    if weight <= 0:
+        raise KindError('roulette.biased_kind requires a positive weight for its first argument')
+
+    if not isinstance(pockets, Iterable):
+        raise KindError('roulette.biased_kind requires an iterable specifying pockets to bias')
+
+    if not isinstance(pockets, frozenset):
+        pockets = frozenset(pockets)
+
+    return weighted_pairs((p, weight) if p in pockets else (p, 1) for p in ROULETTE_SPIN.values)
+
+
+#
 # Entry Point
 #
 
@@ -226,6 +264,7 @@ setattr(roulette, 'plays',
         ])
 
 setattr(roulette, 'kind', ROULETTE_SPIN)
+setattr(roulette, 'biased_kind',  _roulette_biased_kind)
 
 # Even-Money Plays
 
