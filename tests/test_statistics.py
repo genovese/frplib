@@ -1,3 +1,5 @@
+# pylint: disable=too-many-statements, too-many-function-args, line-too-long, invalid-name, missing-function-docstring
+
 from __future__ import annotations
 
 import math
@@ -9,9 +11,8 @@ from hypothesis.strategies  import integers, decimals, tuples, lists, one_of, di
 from frplib.exceptions import DomainDimensionError, InputError, MismatchedDomain
 from frplib.kinds      import Kind, either
 from frplib.numeric    import nothing
-from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
-                               is_statistic, statistic, condition, scalar_statistic,
-                               tuple_safe, infinity, ANY_TUPLE,
+from frplib.statistics import (is_statistic, statistic,
+                               tuple_safe, infinity,
                                Chain, Compose, scalar_fn,
                                Id, Scalar, __, Proj, _x_,
                                Sum, Count, Product, Max, Min, Mean, Abs,
@@ -24,7 +25,7 @@ from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
                                Constantly, Fork, ForEach, IfThenElse,
                                And, Or, Not, Xor, top, bottom,
                                Cases, All, Any, ACos, ASin,
-                               Median, Quartiles, Binomial, Distinct,
+                               Median, Quartiles, IQR, Binomial, Distinct,
                                Get, ElementOf, Keep, MaybeMap,
                                Prepend, Append, Bag, ArgMax,
                                )
@@ -221,6 +222,9 @@ def test_median_distinct(v):
 
     assert Distinct(v) == vec_tuple(1 if len(set(v)) == n else 0)
 
+    assert Median((64, 77, 78, 82, 85, 92, 95)) == 82
+    assert IQR((64, 77, 78, 82, 85, 92, 95)) == 15     # type 6 IQR excludes median
+
 def test_yet_more_builtins():
     a_list = [2 * k + 100 for k in range(25)]
     a_dict = {k: 2 * k - 100 for k in range(25)}
@@ -263,14 +267,14 @@ def test_yet_more_builtins():
         assert Binomial(-1, j) == vec_tuple((-1) ** j)
     assert Binomial(2.5, 4)[0] == pytest.approx(as_quantity('-0.039062500000000014'))
 
-    assert Keep(Scalar % 2 == 0)(1, 2, 3, 4) == vec_tuple(2, 4, nothing, nothing)
+    assert Keep(Scalar % 2 == 0)(1, 2, 3, 4) == vec_tuple(2, 4, nothing, nothing)  # type: ignore
     assert Keep(Scalar % 2 == 0, pad=-1)(1, 2, 3, 4) == vec_tuple(2, 4, -1, -1)
     assert Keep(__ > 0, pad=0)(-20, 2, -2, 10, 20) == vec_tuple(2, 10, 20, 0, 0)
 
     def Nu(cond, stat=Id):  # NothingUnless
         return IfThenElse(cond, stat, nothing)
 
-    assert MaybeMap(Nu(Scalar % 2 == 0))(1, 2, 3, 4) == vec_tuple(2, 4, nothing, nothing)
+    assert MaybeMap(Nu(Scalar % 2 == 0))(1, 2, 3, 4) == vec_tuple(2, 4, nothing, nothing)    # type: ignore
     assert MaybeMap(Nu(Scalar % 2 != 0, 1), pad=-1)(1, 2, 3, 4) == vec_tuple(1, 1, -1, -1)
 
     odd_double = Nu(Scalar % 2 != 0, 2 * __)
@@ -286,7 +290,7 @@ def test_yet_more_builtins():
         return nothing
 
     assert MaybeMap(repeat3)(1, 4, 10) == vec_tuple(1, 1, 1, 4, 4, 4, 10, 10, 10)
-    assert MaybeMap(repeat3)(1, -4, 4, 0, 10) == vec_tuple(1, 1, 1, 4, 4, 4, 10, 10, 10, nothing, nothing, nothing, nothing, nothing, nothing)
+    assert MaybeMap(repeat3)(1, -4, 4, 0, 10) == vec_tuple(1, 1, 1, 4, 4, 4, 10, 10, 10, nothing, nothing, nothing, nothing, nothing, nothing)  # type: ignore
     assert MaybeMap(repeat3, pad=None)(1, -4, 4, 0, 10) == vec_tuple(1, 1, 1, 4, 4, 4, 10, 10, 10)
 
 def test_tuple_safe():

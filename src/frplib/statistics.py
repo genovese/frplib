@@ -1928,12 +1928,14 @@ def Dim(x):
 # Combinators
 #
 
-def _convert_to_statistic(const_or_func: Statistic | Callable | ScalarQ | Iterable ) -> Statistic:
+def _convert_to_statistic(const_or_func: Statistic | Callable | ScalarQ | Nothing | Iterable ) -> Statistic:
     if not isinstance(const_or_func, Statistic):
         if callable(const_or_func):
             return statistic(const_or_func)
         if isinstance(const_or_func, Iterable):
             return Constantly(*[as_quantity(c) for c in const_or_func])
+        if isinstance(const_or_func, Nothing):
+            return Constantly(nothing)
         return Constantly(as_quantity(const_or_func))
     return const_or_func
 
@@ -2165,8 +2167,8 @@ def Permute(*p: int | tuple[int, ...], cycle=True):
 
 def IfThenElse(
         cond: Statistic,
-        t: Statistic | Callable | ScalarQ | tuple,
-        f: Statistic | Callable | ScalarQ | tuple,
+        t: Statistic | Callable | ScalarQ | tuple | Nothing,
+        f: Statistic | Callable | ScalarQ | tuple | Nothing,
 ) -> Statistic:
     """Statistics combinator. Produces a statistic that uses one statistic to choose which other statistic to apply.
 
@@ -2201,8 +2203,7 @@ def IfThenElse(
     def ifelse(*x):
         if as_scalar_strict(cond(*x)):
             return t(*x)
-        else:
-            return f(*x)
+        return f(*x)
     return Statistic(ifelse, codim=cond.arity, dim=t.dim,
                      name=f'returns {t.name} if {cond.name} is true else returns {f.name}')
 
