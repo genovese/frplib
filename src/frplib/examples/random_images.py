@@ -34,7 +34,7 @@ from frplib.kinds        import weighted_as
 from frplib.quantity     import as_quantity
 from frplib.statistics   import Statistic, statistic, Fork, Id
 from frplib.utils        import irange
-from frplib.vec_tuples   import VecTuple, as_vec_tuple, vec_tuple, join
+from frplib.vec_tuples   import VecTuple, as_vec_tuple, vec_tuple
 
 ImageData: TypeAlias = tuple[Literal[0, 1], ...]
 Image: TypeAlias = tuple[int, int, Unpack[ImageData]]
@@ -79,7 +79,7 @@ def as_image(pixels: Iterable[Literal[0, 1]], width=32, height=32) -> Image:
     n = len(image)
     # If data is of insufficient length, just pad at the end with white.
     if n < 2 + width * height:
-        image = join(image, [0] * (2 + width * height - n))
+        image = VecTuple.join(image, [0] * (2 + width * height - n))
     return cast(Image, image)
 
 

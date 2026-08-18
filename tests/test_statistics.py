@@ -31,7 +31,7 @@ from frplib.statistics import (Statistic, Condition, MonoidalStatistic,
 from frplib.quantity   import as_quantity, qvec
 from frplib.symbolic   import symbol
 from frplib.utils      import codim, dim, identity, irange
-from frplib.vec_tuples import as_vec_tuple, vec_tuple, join
+from frplib.vec_tuples import VecTuple, as_vec_tuple, vec_tuple
 
 
 def test_builtin_statistics():
@@ -210,8 +210,8 @@ def test_median_distinct(v):
         assert med == vec_tuple((sv[(n - 1) // 2] + sv[n // 2]) / 2)
         if n >= 4:
             q = Quartiles(v)
-            assert q[0] == Median(join(sv[:(n // 2)], med))
-            assert q[2] == Median(join(sv[(n // 2):], med))
+            assert q[0] == Median(VecTuple.join(sv[:(n // 2)], med))
+            assert q[2] == Median(VecTuple.join(sv[(n // 2):], med))
     else:
         assert Median(v) == vec_tuple(sv[n // 2])
         if n >= 4:

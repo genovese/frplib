@@ -12,7 +12,7 @@ from frplib.kinds        import Kind, kind, conditional_kind, constant, either, 
 from frplib.quantity     import as_quantity
 from frplib.statistics   import __, Proj
 from frplib.utils        import dim, codim, typeof, clone, const
-from frplib.vec_tuples   import as_vec_tuple, join
+from frplib.vec_tuples   import VecTuple, as_vec_tuple
 
 def test_observations_nonfresh_or_empty():
     X = frp(uniform(1, 2, ..., 8))
@@ -81,9 +81,9 @@ def test_conditional_frps():
 
     f2 = conditional_frp(k1)
     f12 = f1 * f2
-    assert f12(0).value == join(f1(0).value, f2.target(0).value)
-    assert f12(1).value == join(f1(1).value, f2.target(1).value)
-    assert f12(2).value == join(f1(2).value, f2.target(2).value)
+    assert f12(0).value == VecTuple.join(f1(0).value, f2.target(0).value)
+    assert f12(1).value == VecTuple.join(f1(1).value, f2.target(1).value)
+    assert f12(2).value == VecTuple.join(f1(2).value, f2.target(2).value)
 
     f1_3 = f1 ** 3
     assert f1_3(0).dim == 4
@@ -170,7 +170,7 @@ def test_freshness():
     XY = X * Y
     assert XY.is_fresh
     
-    xy_val = join(X.value, Y.value)
+    xy_val = VecTuple.join(X.value, Y.value)
     assert not XY.is_fresh
     assert XY.value == xy_val
 
@@ -230,14 +230,14 @@ def test_transform_gen(k):
     assert (Proj[1](X)).value == X.value[:1]
 
     Y = frp(k)
-    assert (X * Y).value == join(X.value, Y.value)
+    assert (X * Y).value == VecTuple.join(X.value, Y.value)
 
     cF = conditional_frp({0: X, 1: Y})
     U = frp(either(0, 1))
     Z = U >> cF
     if U.value == 0:
-        assert Z.value == join(0, X.value)
+        assert Z.value == VecTuple.join(0, X.value)
     else:
-        assert Z.value == join(1, Y.value)
+        assert Z.value == VecTuple.join(1, Y.value)
 
     assert E(X) == E(k)
