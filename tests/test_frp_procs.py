@@ -37,7 +37,7 @@ def test_frp_procs_trans():
         return x[1]
 
     assert FRP.sample(1024, A).values_seen() == set(vec_tuple(j * j) for j in range(13))
-    assert FRP.sample(1024, B).values_seen() == FRP.sample(1024, Sum(k1 * k2 * k5)).values_seen()
+    assert FRP.sample(1280, B).values_seen() == FRP.sample(1280, Sum(k1 * k2 * k5)).values_seen()
     assert FRP.sample(1024, C).values_seen() == FRP.sample(1024, k3).values_seen()
 
     assert Kind.equal(kind(A), k4 ^ ((__ - 12) ** 2))

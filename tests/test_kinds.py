@@ -1,13 +1,14 @@
+# pylint: disable=pointless-statement, missing-function-docstring, too-many-locals, too-many-statements, invalid-name
+
 from __future__ import annotations
 
-import pathlib
-import pytest
 import tempfile
+import pytest
 
 from frplib.exceptions import (EvaluationError, ConstructionError, KindError, MismatchedDomain, OperationError)
 from frplib.frps       import ConditionalFRP, frp, conditional_frp, evolve
 from frplib.kinds      import (Kind, ConditionalKind, kind, conditional_kind, clean,
-                               constant, either, uniform, binary,
+                               constant, choice, either, uniform, binary,
                                symmetric, linear, geometric,
                                weighted_by, weighted_as, weighted_pairs, arbitrary,
                                integers, evenly_spaced, bin, without_replacement,
@@ -205,17 +206,16 @@ def test_mixtures():
     assert weights_of(w) == pytest.approx([as_quantity(v) for v in ['999/1094', '95/1094']])
 
 def test_tagged_kinds():
-    k = either(0, 1) * either(2, 3) * either(4, 5)
+    k = choice(0, 1) * choice(2, 3) * choice(4, 5)
 
     k1 = Sum @ k | (Proj[2] == 2)
 
-    list(k1.weights.values()) == [as_quantity('1/4'), as_quantity('1/2'), as_quantity('1/4')]
-    list(k1.weights.keys()) == [vec_tuple(6), vec_tuple(7), vec_tuple(8)]
+    assert list(k1.weights.values()) == [as_quantity('1/4'), as_quantity('1/2'), as_quantity('1/4')]
+    assert list(k1.weights.keys()) == [vec_tuple(6), vec_tuple(7), vec_tuple(8)]
 
     k2 = Min @ k | (Proj[2] == 2)
 
-    list(k2.weights.values()) == [as_quantity('1/4'), as_quantity('1/2'), as_quantity('1/4')]
-    list(k2.weights.keys()) == [vec_tuple(6), vec_tuple(8), vec_tuple(9)]
+    assert Kind.equal(k2, choice(0, 1))
 
 def test_comparisons():
     assert 'same' in Kind.compare(uniform(1, 2), either(1, 2))
@@ -271,9 +271,9 @@ def test_sampling():
     with pytest.raises(EvaluationError):
         either(0, 1, c).sample(10)
 
-    a, b = frequencies(either(0, 1).sample(20000), counts_only=True)
+    a, b = frequencies(choice(0, 1).sample(20000), counts_only=True)
     assert a + b == 20_000
-    assert abs(a - 10000) <= 250
+    assert abs(a - 10000) <= 283  # was 250 but that failed once, so go 4-sigma
 
 def test_conditional_kinds():
     is_integer = lambda k: isinstance(k, int)
@@ -400,7 +400,7 @@ def test_conditional_kinds():
     assert Kind.equal(foo1.target(-9, 2, 3), either(-9, 3))
 
     with pytest.raises(MismatchedDomain):
-        foo1(1, 2, 3, 4)
+        foo1(1, 2, 3, 4)    # type: ignore
 
     @conditional_kind(codim=1)
     def foo2(a):
