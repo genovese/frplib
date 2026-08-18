@@ -534,7 +534,7 @@ class VecTuple(tuple[T, ...]):
         joined = []
         for vt in map(as_vec_tuple, vtups):
             joined.extend(list(vt))
-        return cls(joined)    # type: ignore
+        return cls(joined)
 
     @classmethod
     def concat(cls: Type[Self], *values: Self) -> Self:
@@ -609,29 +609,30 @@ def is_vec_tuple(x) -> TypeGuard[VecTuple[T]]:
 def _is_sequence(x) -> TypeGuard[Iterable]:
     return isinstance(x, Iterable) and not isinstance(x, str)
 
-def join(*x: T | VecTuple[T] | Iterable[T | tuple[T, ...]]) -> VecTuple[T]:
-    """Concatenates one or more values in order into a single VecTuple.
-
-    Values can be given as a single iterable argument (not a tuple or string)  # ATTN: tuple ok and useful??
-    containing tuples or scalars, or as multiple tuple or scalar arguments.
-
-    Returns a VecTuple joining all values in order.
-
-    Examples:
-    + join(1, 2, 3) => <1, 2, 3>
-    + join((1, 2), 3, (4, 5, 6)) => <1, 2, 3, 4, 5, 6>
-    + join([(1, 2), (3, 4), (5, 6)]) => <1, 2, 3, 4, 5, 6>
-
-    """
-    if len(x) == 0:
-        return vec_tuple()
-
-    if len(x) == 1 and _is_sequence(x[0]) and not isinstance(x[0], tuple):
-        vtups: Iterable = x[0]
-    else:
-        vtups = x
-
-    return VecTuple.join(list(map(as_vec_tuple, vtups)))
+# # Obviated by the new VecTuple.join which should be used instead
+# def join(*x: T | VecTuple[T] | Iterable[T | tuple[T, ...]]) -> VecTuple[T]:
+#     """Concatenates one or more values in order into a single VecTuple.
+#
+#     Values can be given as a single iterable argument (not a tuple or string)  # ATTN: tuple ok and useful??
+#     containing tuples or scalars, or as multiple tuple or scalar arguments.
+#
+#     Returns a VecTuple joining all values in order.
+#
+#     Examples:
+#     + join(1, 2, 3) => <1, 2, 3>
+#     + join((1, 2), 3, (4, 5, 6)) => <1, 2, 3, 4, 5, 6>
+#     + join([(1, 2), (3, 4), (5, 6)]) => <1, 2, 3, 4, 5, 6>
+#
+#     """
+#     if len(x) == 0:
+#         return vec_tuple()
+#
+#     if len(x) == 1 and _is_sequence(x[0]) and not isinstance(x[0], tuple):
+#         vtups: Iterable = x[0]
+#     else:
+#         vtups = x
+#
+#     return VecTuple.join(list(map(as_vec_tuple, vtups)))
 
 def value_set(*vals) -> set[VecTuple]:
     """Create a set of VecTuples from specified values or a single iterator.
