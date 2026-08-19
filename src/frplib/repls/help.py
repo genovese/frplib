@@ -35,7 +35,8 @@ from frplib.env    import environment
 
 _builtin_help = builtins.help
 
-def help(obj=None):    # pylint: disable=redefined-builtin
+
+def help(obj=None, builtin=False):    # pylint: disable=redefined-builtin
     """Specialized version of Python built-in help for the frplib playground.
 
     This handles some types of objects specially, including those with
@@ -65,19 +66,56 @@ def help(obj=None):    # pylint: disable=redefined-builtin
     """
     if obj is None:
         _builtin_help()
-    elif (isinstance(obj, (type, property))
-          or inspect.ismodule(obj)
-          or inspect.isroutine(obj)):
+    elif builtin:
         _builtin_help(obj)
     elif hasattr(obj, '__frplib_help__'):
         fh = obj.__frplib_help__
         if callable(fh):
-            environment.console.print(fh())
+            help_doc = fh()
+            if help_doc is not None:
+                environment.console.print(fh())
+            else:
+                _builtin_help(obj)
         elif isinstance(fh, str):
             environment.console.print(Markdown(fh))
         else:
             environment.console.print(fh)
-    elif getattr(obj, '__doc__', None):
-        print(inspect.cleandoc(obj.__doc__))
+    elif (inspect.isroutine(obj)
+          or inspect.ismodule(obj)
+          or isinstance(obj, (type, property))):
+        _builtin_help(obj)
+    elif getattr(obj, '__doc__', None):  # ATTN:Aug2026 Not sure if this branch is a good idea
+        environment.console.print(inspect.cleandoc(obj.__doc__))
     else:
         _builtin_help(obj)
+
+# ATTN:Aug2026 The following are provisional and experimental
+# Considering how users can annotate objects to make notes
+# Best if this could be serialized with the objects
+# Not sure if worth it. This version just replaces the __doc__
+# for help on that object.
+
+def annotate(obj, doc: str, drop_frplib_help=False) -> None:
+    """Annotates an instance of an object with a specified docstring.
+
+    This updates the instance-specific __doc__ attribute of the object
+    with the given string. This will show up in the frp playground
+    as the help string.
+
+    If it does not, the object might have a special __frplib_help__
+    attribute set. The `drop_frplib_help` argument, if set to True,
+    will eliminate this special attribute for this instance only,
+    making the annotation show up as the help text for the object.
+
+    Alternatively, you can use the `view_annotation` function to see
+    in the playground any instance specific annotations you have
+    added to an object.
+
+    """
+    setattr(obj, '__doc__', doc)
+    if drop_frplib_help:
+        delattr(obj, '__frplib_help__')
+
+def view_annotation(obj) -> None:
+    """Displays the object's __doc__ attribute nicely in the playground."""
+    environment.console.print(inspect.cleandoc(obj.__doc__))
