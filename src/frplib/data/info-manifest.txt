@@ -26,19 +26,169 @@
 # The order of the lines here determine the order
 # in which these topics are displayed in the interactive
 # interface.
+#
+# Note: the data structure is actually a DAG which
+# allows nodes to be referred to from multiple parents.
+# But with the current processing script, we have redundancy
+# in the manifest. This is targeted for a later version
+# where nodes can be given a reference label and then
+# referred to in other parts of the structure by this label.
+# Until then, the data below is not normalized and so
+# take care.
+#
 
 Overview of frplib: overview.md
 Using the Playground: playground.md
-FRPs: frps.md
-Kinds: kinds.md
+Configuring the Playground Environment: environment.md
+FRPs:
+    Overview: frps overview.md
+    The States of an FRP: frps states.md
+    Examining Properties: frps properties.md
+    Special Methods: frps methods.md
+    The kind Function: frps kind.md
+    Builtin FRP Factories:
+        FisherYates: factories frp FisherYates.md
+    Custom FRP Factories: frps factories.md
+    FRP Procedures: frps procedures.md
+    FRP Combinators:
+        Transform (^): combinators frps transform.md
+        Independent Join (*): combinators frps ijoin.md
+        General Join (>>): combinators frps gjoin.md
+        Observations (|): combinators frps observations.md
+        Conditioning (//): combinators frps conditioning.md
+    Expectations: frps expectation.md
+Kinds:
+    Overview: kinds overview.md
+    Examining Properties: kinds properties.md
+    Displaying Kinds: kinds display.md
+    Special Methods: kinds methods.md
+    The kind Function: kinds kind.md
+    Builtin Kind Factories:
+        constant: factories kind constant.md
+    Custom Kind Factories: kinds factories.md
+    Kind Procedures: kinds procedures.md
+    Kind Combinators:
+        Transform (^): combinators kinds transform.md
+        Independent Join (*): combinators kinds ijoin.md
+        General Join (>>): combinators kinds gjoin.md
+        Observations (|): combinators kinds observations.md
+        Conditioning (//): combinators kinds conditioning.md
+    Expectations: kinds expectation.md
 Statistics: 
     Overview: statistics overview.md
-    Built-Ins: statistics built-ins.md
-    Statistic Expressions: statistics expressions.md
+    Builtin Constants: builtin-constants.md
+    Built-Ins: statistics builtins.md
+        Tuple Functions:
+            __: statistics builtins __.md
+            Id: statistics builtins __.md
+            Scalar: statistics builtins scalar.md
+            _x_: statistics builtins scalar.md
+            Count: statistics builtins count.md
+            Dim: statistics builtins count.md
+            Sum: statistics builtins sum.md
+            Product: statistics builtins product.md
+            Ascending: statistics builtins ascending.md
+            Descending: statistics builtins descending.md
+        Arithmetic Functions:
+            Sqrt: statistics builtins sqrt.md
+            Abs: statistics builtins abs.md
+            Exp: statistics builtins exp.md
+            Log: statistics builtins logs.md
+            Log2: statistics builtins logs.md
+            Log10: statistics builtins logs.md
+            Floor: statistics builtins floor-and-ceiling.md
+            Ceiling: statistics builtins floor-and-ceiling.md
+        Trigonometric Functions:
+            Sin: statistics builtins trig-fns.md
+            Cos: statistics builtins trig-fns.md
+            Tan: statistics builtins trig-fns.md
+            ASin: statistics builtins inv-trig-fns.md
+            ACos: statistics builtins inv-trig-fns.md
+            ATan2: statistics builtins inv-trig-fns.md
+            Sinh: statistics builtins hyp-trig-fns.md
+            Cosh: statistics builtins hyp-trig-fns.md
+            Tanh: statistics builtins hyp-trig-fns.md
+            FromDegrees: statistics builtins from-degrees.md
+            FromRadians: statistics builtins from-radians.md
+        Vector Operations:
+            Norm: statistics builtins norm.md
+            Dot: statistics builtins dot.md
+            Abs: statistics builtins abs.md
+            SumSq: statistics builtins sumsq.md
+        Special Functions:
+            NormalCDF: statistics builtins normal-cdf.md
+            Binomial: statistics builtins binomial-coefs.md
+        Statistical Summaries:
+            Min: statistics builtins min.md
+            Max: statistics builtins max.md
+            ArgMin: statistics builtins argmin.md
+            ArgMax: statistics builtins argmax.md
+            Diff: statistics builtins diff.md
+            Mean: statistics builtins mean.md
+            StDev: statistics builtins sd.md
+            Variance: statistics builtins var.md
+            Median: statistics builtins median.md
+            Quartiles: statistics builtins quartiles.md
+            IQR: statistics builtins iqr.md
+            Bag: statistics builtins bag.md
+            Freqs: statistics builtins freqs.md
+    Builtin Statistic Factories: factories statistic.md
+        Proj: factories statistic proj.md
+        Constantly: factories statistic constantly.md
+        Permute: factories statistic permute.md
+        Append: factories statistic append.md
+        Prepend: factories statistic prepend.md
+        Get: factories statistic get.md
+        Keep: factories statistic keep.md
+        MaybeMap: factories statistic maybe-map.md
+        IndexOf: factories statistic index-of.md
+        Cases: factories statistic cases.md
+        ChiSquare: factories statistic chisquare.md
+    Builtin Condition Factories: factories condition.md
+        Contains: factories condition contains.md
+        ElementOf: factories condition element-of.md
+    Custom Statistic and Condition Factories: statistics custom-factories.md
     Statistic Combinators: combinators statistic.md
-    Custom Statistics: statistics custom.md
-Conditional FRPs: conditional-frps.md
-Conditional Kinds: conditional-kinds.md
+        Compose: combinators statistic compose.md
+        Chain: combinators statistic chain.md
+        Fork: combinators statistic fork_.md
+        MFork_: combinators statistic fork.md
+        ForEach: combinators statistic foreach.md
+        IfThenElse: combinators statistic ifthenelse.md
+    Condition Combinators: combinators condition.md
+        And: combinators condition and.md
+        Or:  combinators condition or.md
+        Not: combinators condition not.md
+        Xor: combinators condition xor_.md
+        All: combinators condition all.md
+        Any: combinators condition any.md
+    Statistic Expressions: statistics expressions.md
+    Defining Custom Statistics: statistics custom.md
+    Utility Functions:
+        is_statistic: statistics utilities is_statistic.md
+        is_true: statistics utilities is_true.md
+        is_false: statistics utilities is_false.md
+        scalar_fn: statistics utilities scalar_fn.md
+        flexible_inputs: statistics utilities flexible_inputs.md
+        tuple_safe: statistics utilities tuple_safe.md
+Conditional FRPs:
+    Overview: conditional-frps overview.md
+    Evaluation: conditional-frps evaluations.md
+    Constructing Conditional FRPs: conditional-frps construction.md
+    The conditional_kind Function: conditional-frps conditional_kind.md
+    Tranforming Conditional FRPs: conditional-frps transforms.md
+    Joining Conditional FRPs: conditional-frps joins.md
+    Conditional Expectations: conditional-frps expectations.md
+    Conditional FRP Procedures: conditional-frps procedures.md
+Conditional Kinds:
+    Overview: conditional-kinds overview.md
+    Evaluation: conditional-kinds evaluations.md
+    Constructing Conditional Kinds: conditional-kinds construction.md
+    The conditional_kind Function: conditional-kinds conditional_kind.md
+    Tranforming Conditional Kinds: conditional-kinds transforms.md
+    Joining Conditional Kinds: conditional-kinds joins.md
+    Conditional Expectations: conditional-kinds expectations.md
+    Conditional Kind Procedures: conditional-kinds procedures.md
 The Big 3+1: big-3+1.md
     Transforming with Statistics: big-3+1 transforms.md
     Building with Joins: big-3+1 joins.md
@@ -63,7 +213,14 @@ Factories: factories.md
         Projections: factories statistic projections.md
         Get: factories statistic Get.md
         Permute: factories statistic Permute.md
-    Custom Factories: factories custom
+        Condition Factories: factories condition.md
+            And: conditions factories and.md
+            Or: conditions factories or.md
+            Not: conditions factories not.md
+            Xor: conditions factories xor_.md
+            All: conditions factories all.md
+            Any: conditions factories any.md
+    Custom Factories: factories custom.md
 Combinators: combinators.md
     FRP Combinators: combinators frp.md
     Kind Combinators: combinators kind.md
@@ -71,6 +228,7 @@ Combinators: combinators.md
 Actions: actions.md
 Numeric Calculations: numerics.md
 Symbolic Calculations: symbolic.md
+    symbols: symbolic.md
 Utilities: utilities.md
     fold: utilities fold.md
     index_of: utilities index_of.md
@@ -79,7 +237,6 @@ Utilities: utilities.md
     iterate: utilities iterate.md
     iterates: utilities iterates.md
     show: utilities show.md
-    symbols: symbolic.md
 Example Index: examples.md
 Module Index: modules.md
 Object Index: objects.md

@@ -34,27 +34,49 @@ from frplib.kinds import (                                # pylint: disable=rede
 )
 
 from frplib.statistics import (
+    # Classes
     Statistic, Condition, MonoidalStatistic,
-    is_statistic, statistic, condition, scalar_statistic,
+    # Smart constructors and factory decorators
+    statistic, condition, scalar_statistic,
     statistic_factory, condition_factory,
-    tuple_safe, flexible_inputs, infinity, is_true, is_false,
-    Chain, Compose, scalar_fn,
-    Id, Scalar, __, Proj, _x_,
-    Sum, Product, Count, Max, Min, Abs, SumSq,
-    Sqrt, Floor, Ceil, NormalCDF, Binomial,
-    Exp, Log, Log2, Log10,
+    # Utilities
+    is_statistic, is_true, is_false,
+    tuple_safe, flexible_inputs, scalar_fn,
+    # Constants
+    infinity, Pi,
+    # Builtins: Tuple Functions
+    Id, Scalar, __, _x_, Count, Dim,
+    Sum, Product,
+    Ascending, Descending,
+    # Builtins: Arithmetic
+    Sqrt, Exp, Log, Log2, Log10,
+    Floor, Ceil,
+    # Builtins: Trigonometric
     Sin, Cos, Tan, ACos, ASin, ATan2, Sinh, Cosh, Tanh,
-    Pi, FromDegrees, FromRadians,
+    FromDegrees, FromRadians,
+    # Builtins: Vector Operations
+    Norm, Dot, Abs, SumSq,
+    # Builtins: Special Functions
+    NormalCDF, Binomial,
+    # Builtins: Statistical Summaries
+    Max, Min, ArgMin, ArgMax, Diff,
     Mean, StdDev, Variance,
     Median, Quartiles, IQR,
-    Norm, Dot,
-    ArgMin, ArgMax, Ascending, Descending, Distinct,
-    Diff, Diffs, Dim, Permute, ElementOf,
-    Constantly, Fork, MFork, ForEach, IfThenElse,
-    And, Or, Not, Xor, top, bottom,
-    All, Any, Cases, Bag, Append, Prepend,
+    Bag, Freqs,
+    # Statistic Factories
+    Proj, Constantly, Append, Prepend, Permute,
     Get, Keep, MaybeMap,
-    Freqs, IndexOf, Contains, ChiSquare,
+    IndexOf, Cases, ChiSquare,
+    # Statistic Combinators
+    Chain, Compose,
+    Diffs,
+    Fork, MFork, ForEach, IfThenElse,
+    # Conditions
+    Distinct, top, bottom,
+    # Condition Factories
+    Contains, ElementOf,
+    # Condition Combinators
+    And, Or, Not, Xor, All, Any,
 )
 
 from frplib.expectations import E, Var, D_

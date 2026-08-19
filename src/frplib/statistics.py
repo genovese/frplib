@@ -1048,7 +1048,10 @@ def is_statistic(x) -> TypeGuard[Statistic]:
     return isinstance(x, Statistic)
 
 def scalar_fn(stat: Statistic) -> Callable:
-    "Converts a statistic into a regular scalar function."
+    "Converts a scalar statistic into a regular scalar function."
+    if stat.dim is not None and stat.dim > 1:
+        raise StatisticError(f'scalar_fn acts only on scalar statistics; {stat.__name__} has dimension > 1')
+
     def as_fn(*val):
         return as_scalar_strict(stat(*val))
     return as_fn
@@ -2607,7 +2610,7 @@ def Prepend(*v):
     return prepend
 
 def ElementOf(*v):
-    """Statistic factory that tests for membership in a collection of values.
+    """Condition factory that tests for membership in a collection of values.
 
     Values are specified with a single iterable argument containing
     the values, or with more than one arguments. In both cases, all
@@ -2860,7 +2863,7 @@ def IndexOf(*items):
     return contains_comp
 
 def Contains(*items):
-    """Statistic factory that tests if a specified tuple is within its input tuple, or -1 if none.
+    """Condition factory that tests if a specified tuple is within its input tuple, or -1 if none.
 
     Accepts a single sequence or multiple arguments that are combined into a sequence.
 
