@@ -10,7 +10,7 @@ import random
 
 from abc               import ABC, abstractmethod
 from collections       import defaultdict
-from collections.abc   import Generator, Iterable
+from collections.abc   import Generator, Iterable, Mapping
 from decimal           import Decimal
 from functools         import reduce
 from types             import MappingProxyType
@@ -42,12 +42,18 @@ from frplib.vec_tuples import (VecTuple, as_scalar, as_scalar_weak, as_vec_tuple
 QuantityType: TypeAlias = Union[Numeric, Symbolic, Nothing]
 ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 
-# Invariance of dict type causes incorrect type errors when constructing conditional FRPs
-# So we make the input type include the most common special cases individually
-# NOTE: This assumes NumericD for Numeric, which is why Decimal is used
-CondFrpInput: TypeAlias = Union[Callable[[ValueType], 'FRP'], dict[ValueType, 'FRP'],
-                                dict[QuantityType, 'FRP'], dict[int, 'FRP'],
-                                dict[Decimal, 'FRP'], dict[Symbolic, 'FRP'],
+# Because conditional_frp accepts quite flexible inputs, there is a trade-off between
+# matching the types precisely and ergonomics. There is good news and bad news.
+# The good news is that mypy's bidirectional inference for dict literals infers a
+# literal dict's key and value types from the expected type at the call site, not just
+# from the contents. That only works against a single dict[K, V] expected type, but it
+# allows K to be a union.  (It fails with a unio of dict types, which is what we had before.
+# In that case, mypy falls back to inferring from the contents alone.
+#
+# We also move to Mapping here becaue conditional_kinds only read the supplied dict.
+
+CondFrpInput: TypeAlias = Union[Callable[[ValueType], 'FRP'],
+                                Mapping[Union[QuantityType, ValueType, tuple[QuantityType, ...]], 'FRP'],
                                 ConditionalKind, 'FRP']
 
 #
@@ -841,7 +847,7 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
             *,
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,
-            domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
+            domain: Iterable[Union[QuantityType, ValueType, tuple[QuantityType, ...]]] | Callable[[ValueType], bool] | None = None,
             target_dim: int | None = None,
             auto_clone: bool = False
     ) -> None:
@@ -1556,7 +1562,7 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
 #         *,
 #         codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
 #         dim: int | None = None,
-#         domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
+#         domain: Iterable[Union[QuantityType, ValueType, tuple[QuantityType, ...]]] | Callable[[ValueType], bool] | None = None,
 #         target_dim: int | None = None,
 #         auto_clone: bool = False   # If True, clone on every evaluation, e.g., in simulation
 # ) -> ConditionalFRP | Callable[..., ConditionalFRP]:
@@ -1567,7 +1573,7 @@ def conditional_frp(
         *,
         codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
         dim: int | None = None,
-        domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
+        domain: Iterable[Union[QuantityType, ValueType, tuple[QuantityType, ...]]] | Callable[[ValueType], bool] | None = None,
         target_dim: int | None = None,
         auto_clone: bool = False   # If True, clone on every evaluation, e.g., in simulation
 ) -> Callable[..., ConditionalFRP]:
@@ -1579,7 +1585,7 @@ def conditional_frp(
         *,
         codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
         dim: int | None = None,
-        domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
+        domain: Iterable[Union[QuantityType, ValueType, tuple[QuantityType, ...]]] | Callable[[ValueType], bool] | None = None,
         target_dim: int | None = None,
         auto_clone: bool = False   # If True, clone on every evaluation, e.g., in simulation
 ) -> ConditionalFRP:

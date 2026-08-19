@@ -7,7 +7,7 @@ import pytest
 
 from frplib.exceptions import (EvaluationError, ConstructionError, KindError, MismatchedDomain, OperationError)
 from frplib.frps       import ConditionalFRP, frp, conditional_frp, evolve
-from frplib.kinds      import (Kind, ConditionalKind, kind, conditional_kind, clean,
+from frplib.kinds      import (Kind, ConditionalKind, QuantityType, ValueType, kind, conditional_kind, clean,
                                constant, choice, uniform, binary,
                                symmetric, linear, geometric,
                                weighted_by, weighted_as, weighted_pairs, arbitrary,
@@ -137,10 +137,10 @@ def test_kinds_factories():
 
 def test_joins():
     k0 = choice(10, 20)
-    m0 = {10: choice(8, 4, 99), 20: choice(4, 8, 99)}
+    m0: dict[QuantityType | ValueType | tuple[QuantityType, ...], Kind] = {10: choice(8, 4, 99), 20: choice(4, 8, 99)}
     m1 = conditional_kind(m0)
-    me1 = {10: choice(8, 4, 99), 30: choice(4, 8, 99)}
-    me2 = {10: choice(8, 4, 99), (20, 30): choice(4, 8, 99)}
+    me1: dict[QuantityType | ValueType | tuple[QuantityType, ...], Kind] = {10: choice(8, 4, 99), 30: choice(4, 8, 99)}
+    me2: dict[QuantityType | ValueType | tuple[QuantityType, ...], Kind] = {10: choice(8, 4, 99), (20, 30): choice(4, 8, 99)}
     mec1 = conditional_kind(me1)
     mec2 = conditional_kind(me2, codim=2)
 
@@ -533,3 +533,18 @@ def test_serialization():
 
     with pytest.raises(OperationError):
         k1.dump('/x33sksdadff/fosadf3.pkl')
+
+def test_ck_types():
+    ck1 = conditional_kind({
+        0: uniform(1, 2, 3),
+        1: constant(10),
+        2: weighted_as(1, 2, 3, weights=[10, 4, 6])
+    })
+
+    ck2 = conditional_kind({
+        (0, 10): uniform(1, 2, 3),
+        (1, 11): constant(10),
+        (2, 12): weighted_as(1, 2, 3, weights=[10, 4, 6])
+    })
+
+    assert codim(ck1) == 1

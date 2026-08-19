@@ -25,7 +25,7 @@ def wait_for_heads(remaining_flips, q=symbol('q')):
     flip = weighted_as(0, 1, weights=[q, 1 - q])
 
     # the kind of the total number of flips given the current flip
-    flips_given_current = conditional_kind({  # type: ignore
+    flips_given_current = conditional_kind({
         0: remaining_flips ^ (__ + 1),
         1: constant(1)
     })

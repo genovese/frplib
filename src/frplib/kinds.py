@@ -11,7 +11,7 @@ import math
 import random
 import re
 
-from collections.abc   import Collection, Generator, Iterable, Sequence
+from collections.abc   import Collection, Generator, Iterable, Mapping, Sequence
 from dataclasses       import dataclass
 from decimal           import Decimal
 from enum              import Enum, auto
@@ -54,23 +54,29 @@ CanonicalKind: TypeAlias = list['KindBranch']
 QuantityType: TypeAlias = Union[Numeric, Symbolic, Nothing]
 ValueType: TypeAlias = VecTuple[QuantityType]  # ATTN
 
-# Invariance of dict type causes incorrect type errors when constructing conditional Kinds
-# So we make the input type include the most common special cases individually
-# NOTE: This assumes NumericD for Numeric, which is why Decimal is used
-# ATTN: Change dict[ValueType, 'Kind'] to dict[tuple[ValueType, ...], 'Kind'] here?
-#       VecTuple is a subtype but we use tuples in practice with dicts, so this seems a win.
-# CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'], dict[ValueType, 'Kind'], dict[QuantityType, 'Kind'],
-#                                  dict[int, 'Kind'], dict[Decimal, 'Kind'], dict[Symbolic, 'Kind'], 'Kind']
-# CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'], dict[tuple[QuantityType, ...], 'Kind'],
-#                                  dict[QuantityType, 'Kind'], dict[int, 'Kind'], dict[Decimal, 'Kind'],
-#                                  dict[Symbolic, 'Kind'], 'Kind']
+# NOTE (CRG 18 Aug2026): Because conditional_kind accepts quite
+# flexible inputs, there is a trade-off between matching the types
+# precisely and ergonomics. There is good news and bad news. The
+# good news is that mypy's bidirectional inference for dict literals
+# infers a literal dict's key and value types from the expected type
+# at the call site, not just from the contents. That only works
+# against a single dict[K, V] expected type, but it allows K to be a
+# union. (It fails with a unio of dict types, which is what we had
+# before. In that case, mypy falls back to inferring from the
+# contents alone.
+#
+# An alternative is doing Mapping[Any, 'Kind'], which loses
+# specificity but won't fail for users in cases where mypy can't
+# unify the types. The most important case like this is when passing
+# a predefined dict to conditional_kind, because it assigns the type
+# at the point of creation using only the contents, not the
+# bidirectional inference.
+#
+# We also move to Mapping here becaue conditional_kinds only read
+# the supplied dict.
+
 CondKindInput: TypeAlias = Union[Callable[[ValueType], 'Kind'],
-                                 dict[ValueType, 'Kind'],
-                                 dict[tuple[QuantityType, ...], 'Kind'],
-                                 dict[QuantityType, 'Kind'],
-                                 dict[int, 'Kind'],
-                                 dict[Decimal, 'Kind'],
-                                 dict[Symbolic, 'Kind'],
+                                 Mapping[Union[QuantityType, ValueType, tuple[QuantityType, ...]], 'Kind'],
                                  'Kind']
 
 
@@ -2084,7 +2090,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
             *,
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,    # If not supplied, this inferred in dict case
-            domain: Iterable[ValueType] | Iterable[QuantityType] | Callable[[ValueType], bool] | None = None,
+            domain: Iterable[Union[QuantityType, ValueType, tuple[QuantityType, ...]]] | Callable[[ValueType], bool] | None = None,
             target_dim: int | None = None   # ATTN: domain type in scalar callable case, blech
     ) -> None:
         has_domain_set = False
@@ -2706,7 +2712,7 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
 #         *,
 #         codim: int | None = None,
 #         dim: int | None = None,
-#         domain: Iterable[ValueType] | Callable[[ValueType], bool] | None = None,
+#         domain: Iterable[Union[QuantityType, ValueType, tuple[QuantityType, ...]]] | Callable[[ValueType], bool] | None = None,
 #         target_dim: int | None = None
 # ) -> ConditionalKind | Callable[..., ConditionalKind]:
 #
@@ -2718,7 +2724,7 @@ def conditional_kind(
         *,
         codim: int | None = None,
         dim: int | None = None,
-        domain: Iterable[ValueType] | Callable[[ValueType], bool] | None = None,
+        domain: Iterable[Union[QuantityType, ValueType, tuple[QuantityType, ...]]] | Callable[[ValueType], bool] | None = None,
         target_dim: int | None = None
 ) -> Callable[..., ConditionalKind]:   # For decorator return
     ...
@@ -2729,7 +2735,7 @@ def conditional_kind(
         *,
         codim: int | None = None,
         dim: int | None = None,
-        domain: Iterable[ValueType] | Callable[[ValueType], bool] | None = None,
+        domain: Iterable[Union[QuantityType, ValueType, tuple[QuantityType, ...]]] | Callable[[ValueType], bool] | None = None,
         target_dim: int | None = None
 ) -> ConditionalKind:
     ...

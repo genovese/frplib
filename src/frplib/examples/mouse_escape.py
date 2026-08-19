@@ -13,7 +13,7 @@ from frplib.statistics   import __, Proj
 # First Approach
 
 initial_state = constant(0)
-move = conditional_kind({  # type: ignore
+move = conditional_kind({
     0: either(0, 1, 2),
     1: either(0, 2, 2),
     2: either(1, 3, 2),
@@ -54,5 +54,5 @@ def move_alt(attempts_and_step):
     # Otherwise, we move up or down
     return either((n, step - 1), (n, step + 1), 2)
 
-mouse_outcome = evolve(initial_state_alt, move_alt, 16)   # type: ignore
+mouse_outcome = evolve(initial_state_alt, move_alt, 16)
 escaped_alt = E(mouse_outcome ^ (Proj[2] == 3))
