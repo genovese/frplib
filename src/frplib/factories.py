@@ -31,8 +31,24 @@ import inspect
 
 from collections.abc   import Callable
 from functools         import update_wrapper, wraps
+from typing            import TYPE_CHECKING, Generic, TypeVar
 
 from rich.markup       import escape
+
+if TYPE_CHECKING:
+    from frplib.kinds      import Kind
+    from frplib.frps       import FRP
+    from frplib.statistics import Statistic, Condition
+
+
+#
+# Type variables to specialize factory return values. We use bound S
+# for StatisticFactory and statlike_factory because the return value
+# of the latter needs settable .name/.doc attributes.
+#
+
+T = TypeVar('T')
+S = TypeVar('S', bound='Statistic')
 
 
 #
@@ -74,7 +90,7 @@ def doc_of(f: Callable, auto_doc: str | bool = False, pars=None) -> str:
 # the factory decorators.
 #
 
-class Factory:
+class Factory(Generic[T]):
     """Wrapper class for all sorts of factories.
 
     This wraps a callable and delegates all calls to that callable.
@@ -126,7 +142,7 @@ class Factory:
     """
     def __init__(
             self,
-            f: Callable,
+            f: Callable[..., T],
             summary='',
             *,
             name: str | None = None,
@@ -167,7 +183,7 @@ class Factory:
 
         self.__doc__ = self._long
 
-    def __call__(self, *args, **kwds):
+    def __call__(self, *args, **kwds) -> T:
         return self._fn(*args, **kwds)
 
     def __repr__(self):
@@ -181,7 +197,7 @@ class Factory:
             return 'A factory'
         return 'A factory that '
 
-class StatisticFactory(Factory):
+class StatisticFactory(Factory[S]):
     """Wrapper class for a statistic factory.
 
     This is just Factory with an appropriate default prefix.
@@ -192,7 +208,7 @@ class StatisticFactory(Factory):
             return 'A statistic factory'
         return 'A factory producing a statistic that '
 
-class ConditionFactory(StatisticFactory):
+class ConditionFactory(StatisticFactory['Condition']):
     """Wrapper class for a condition factory.
 
     This is just Factory with an appropriate default prefix.
@@ -203,7 +219,7 @@ class ConditionFactory(StatisticFactory):
             return 'A condition factory'
         return 'A factory producing a condition that '
 
-class KindFactory(Factory):
+class KindFactory(Factory['Kind']):
     """Wrapper class for a Kind factory.
 
     This is just Factory with an appropriate default prefix.
@@ -214,7 +230,7 @@ class KindFactory(Factory):
             return 'A Kind factory'
         return 'A factory producing a Kind that represents '
 
-class FrpFactory(Factory):
+class FrpFactory(Factory['FRP']):
     """Wrapper class for an FRP factory.
 
     This is just Factory with an appropriate default prefix.
@@ -290,11 +306,11 @@ def _make_sig(name: str, pars, param_vals) -> str:
     return ''.join(sig)
 
 def statlike_factory(
-        cast_to: type,
-        cast_with: Callable,
-        factory_class: type,
+        cast_to: type[S],
+        cast_with: Callable[..., S],
+        factory_class: type[Factory[S]],
         valid_kwds: list[str],
-        f: Callable,
+        f: Callable[..., S],
         *,
         doc='',
         summary='',
@@ -303,7 +319,7 @@ def statlike_factory(
         auto_name: str | bool = True,
         allow_markup=False,
         **stat_kwds
-):                                     # pylint: disable=too-many-locals, too-many-arguments
+) -> Factory[S]:                      # pylint: disable=too-many-locals, too-many-arguments
     """Creates a factory for a function that returns a callable with its own docstring.
 
     This is parameterized by the type cast_to of object the function should return,
@@ -367,18 +383,18 @@ def statlike_factory(
                              allow_markup=allow_markup, auto_doc=auto_doc, pars=pars)
 
 def objlike_factory(
-        cast_to: type,
-        cast_with: Callable,
-        factory_class: type,
+        cast_to: type[T],
+        cast_with: Callable[..., T],
+        factory_class: type[Factory[T]],
         valid_kwds: list[str],
-        f: Callable,
+        f: Callable[..., T],
         *,
         summary='',
         doc='',
         name: str | None = None,
         allow_markup=False,
         **extra_kwargs
-):
+) -> Factory[T]:
     """Creates a factory for a function that returns an object without its own docstring.
 
     This is parameterized by the type cast_to of object the function should return,
