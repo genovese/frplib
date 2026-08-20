@@ -36,32 +36,49 @@ from frplib.env    import environment
 _builtin_help = builtins.help
 
 
-def help(obj=None, builtin=False):    # pylint: disable=redefined-builtin
+def help(obj=None, builtin=False, *, invoked_by=None) -> None:    # pylint: disable=redefined-builtin
     """Specialized version of Python built-in help for the frplib playground.
 
     This handles some types of objects specially, including those with
     a '__frplib_help__' attribute, and otherwise delegates to the built-in
     help.
 
-    Classes, modules, routines, and properties are automatically delegated
-    to the built-in help.
-
     If object has an __frplib_help__ attribute, this determines the output.
     This can be:
+        + a method of the object that returns a renderable object (a string
+          or a rich.console.RenderableType), which is called with the
+        value of the `invoked_by` argument and its return value rendered.
+        If the method returns None, builtin help is used as a fallback.
 
-    + a method of the object that returns a renderable object (a string
-      or a rich.console.RenderableType), which is called with no arguments
-      and its return value rendered
+        + a string, which is assumed to be markdown formatted and
+          rendered as such, or
 
-    + a string, which is assumed to be markdown formatted and
-      rendered as such, or
+        + a renderable object, which is rendered directly
 
-    + a renderable object, which is rendered directly
+    Without an __frplib_help__ attribute, classes, modules,
+    routines, and properties are automatically delegated to the
+    built-in help.
 
     If the object has a __doc__ attribute, a clean version of that attribute
     is printed.
 
-    Otherwise, built-in help is used.
+    Otherwise, this delegates to te the built-in help.
+
+    Parameters
+    ----------
+    obj: If supplied, an object to get help on. If not, this invokes
+        the builtin help with no arguments.
+
+    builtin: If True, delegate to builtin help immediately. (Default: False)
+
+    invoked_by: a value passed to __frplib_help__ when it is a method.
+        This allows the method to track where it is coming from and
+        react accordingly. The key use case is when the method looks
+        up an info file for an object which does not exist. In the
+        info() display this will lead to help(obj) being called
+        which would look for the info data pointlessly (as it is
+        not there). So by setting invoked_by='info', this method
+        can bail to the builtin help immediately (by returning None).
 
     """
     if obj is None:
@@ -73,7 +90,7 @@ def help(obj=None, builtin=False):    # pylint: disable=redefined-builtin
         if callable(fh):
             help_doc = fh()
             if help_doc is not None:
-                environment.console.print(fh())
+                environment.console.print(fh(invoked_by))
             else:
                 _builtin_help(obj)
         elif isinstance(fh, str):
