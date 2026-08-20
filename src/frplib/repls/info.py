@@ -176,7 +176,10 @@ def menu_select_via_dialog(root_data: InfoTree, action: Callable | None, **kwds)
     except Exception as e:
         raise PlaygroundError(str(e)) from e
 
-    path: list[tuple[str, InfoNode]] = []
+    def _project(p: list[tuple[str, InfoNode, InfoTree]]) -> list[tuple[str, InfoNode]]:
+        return [(k, n) for k, n, _ in p]
+
+    path: list[tuple[str, InfoNode, InfoTree]] = []
     current_data: InfoTree = root_data
 
     while True:
@@ -186,7 +189,7 @@ def menu_select_via_dialog(root_data: InfoTree, action: Callable | None, **kwds)
             self_endpoint = []
             base_choices = [k for k in current_data if not k.startswith('_')]
         else:
-            current_key, current_node = path[-1]
+            current_key, current_node, _ = path[-1]
             self_endpoint = [f"◉ {current_key}"] if current_node.get('filepath', None) else []
             breadcrumb = " ➔ ".join(node[0] for node in path)
             msg = f"[{breadcrumb}]  Type to filter, Enter to select, arrows or C-n/C-p to navigate, C-c to cancel:"
@@ -266,27 +269,28 @@ def menu_select_via_dialog(root_data: InfoTree, action: Callable | None, **kwds)
 
         if not choice:
             environment.console.print("\nSelection cancelled.")
-            return path
+            return _project(path)
 
         # A branch node that is a document endpoint and is selected
         if self_endpoint and choice == self_endpoint[0]:
             if action is not None:
                 assert path                 # We know path is not empty because self_endpoint defined
-                _, current_node = path[-1]  # current_node already defined properly but ... clarity
+                _, current_node, _ = path[-1]  # current_node already defined properly but ... clarity
                 action(current_node['filepath'], **kwds)
-            return path
+            return _project(path)
 
         if choice == BACK_LABEL:
-            path.pop()
+            _, _, parent_data = path.pop()
+            current_data = parent_data
         else:
             current_node = current_data[choice]
-            path.append((choice, current_node))
+            path.append((choice, current_node, current_data))
 
             # A leaf node is always an endpoint, so filepath is not None
             if current_node['subtopics'] is None:
                 if action is not None:
                     action(current_node['filepath'], **kwds)
-                return path
+                return _project(path)
 
             current_data = current_node['subtopics']
 
@@ -323,7 +327,10 @@ def menu_select_via_completion(root_data: InfoTree, action: Callable, **kwds) ->
     path otherwise.
 
     """
-    path: list[tuple[str, InfoNode]] = []
+    def _project(p: list[tuple[str, InfoNode, InfoTree]]) -> list[tuple[str, InfoNode]]:
+        return [(k, n) for k, n, _ in p]
+
+    path: list[tuple[str, InfoNode, InfoTree]] = []
     current_data: InfoTree = root_data
 
     while True:
@@ -331,7 +338,7 @@ def menu_select_via_completion(root_data: InfoTree, action: Callable, **kwds) ->
             self_endpoint = []
             base_choices = [k for k in current_data if not k.startswith('_')]
         else:
-            current_key, current_node = path[-1]
+            current_key, current_node, _ = path[-1]
 
             # Label for a non-leaf node that is a valid endpoint
             self_endpoint = [f"◉ {current_key}"] if current_node.get('filepath', None) else []
@@ -369,7 +376,7 @@ def menu_select_via_completion(root_data: InfoTree, action: Callable, **kwds) ->
             )
         except (KeyboardInterrupt, EOFError):
             environment.console.print("\nSelection cancelled.")
-            return path
+            return _project(path)
 
         if not raw:  # Empty input
             # We only reach here when self_endpoint is set, so choice is not None
@@ -383,21 +390,22 @@ def menu_select_via_completion(root_data: InfoTree, action: Callable, **kwds) ->
             # Branch node endpoint
             if action is not None:
                 assert path                 # We know path is not empty because self_endpoint defined
-                _, current_node = path[-1]  # current_node already defined properly but ... clarity
+                _, current_node, _ = path[-1]  # current_node already defined properly but ... clarity
                 action(current_node['filepath'], **kwds)
-            return path
+            return _project(path)
 
         if choice == BACK_LABEL:
-            path.pop()
+            _, _, parent_data = path.pop()
+            current_data = parent_data
         else:
             current_node = current_data[choice]
-            path.append((choice, current_node))
+            path.append((choice, current_node, current_data))
 
             # A leaf node is always an endpoint, so filepath is not None
             if current_node['subtopics'] is None:
                 if action is not None:
                     action(current_node['filepath'], **kwds)
-                return path
+                return _project(path)
 
             current_data = current_node['subtopics']
 
