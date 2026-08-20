@@ -97,7 +97,7 @@ Kinds:
         Observations (|): combinators kinds observations.md
         Conditioning (//): combinators kinds conditioning.md
     Expectations: kinds expectation.md
-Statistics: 
+Statistics:
     Overview: statistics overview.md
     Builtin Constants: builtin-constants.md
     Built-Ins: statistics builtins.md
@@ -270,6 +270,7 @@ Combinators: combinators.md
     Kind Combinators: combinators kind.md
     Statistic Combinators: combinators statistic.md
 Actions: actions.md
+Values and Vector Tuples: vectuples.md
 Numeric Calculations: numerics.md
     is_zero: numerics is_zero.md
     as_float: numerics as_float.md
@@ -290,20 +291,28 @@ Symbolic Calculations: symbolic.md
     substitute_with: symbolic substitutions.md
     substitution: symbolic substitutions.md
 Utilities: utilities.md
-    tup: utilities tup.md
-    irange: utilities irange.md
-    as_scalar: utilities as_scalar.md
-    as_quantity: utilities as_quantity.md
-    every: utilities every.md
-    some: utilities some.md
-    lmap: utilities lmap.md
-    fold: utilities fold.md
-    frequencies: utilities frequencies.md
-    index_of: utilities index_of.md
-    index_where: utilities index_where.md
-    iterate: utilities iterate.md
-    iterates: utilities iterates.md
-    show: utilities show.md
+    Vector Tuple and Quantity Helpers:
+        tup: utilities tup.md
+        as_scalar: utilities as_scalar.md
+        as_quantity: utilities as_quantity.md
+    Sequence Helpers:
+        irange: utilities irange.md
+        index_of: utilities index_of.md
+        index_where: utilities index_where.md
+        every: utilities every.md
+        some: utilities some.md
+        lmap: utilities lmap.md
+        fold: utilities fold.md
+        fold1: utilities fold.md
+    Function Helpers:
+        identity: utilities identity.md
+        const: utilities const.md
+        compose: utilities compose.md
+        iterate: utilities iterate.md
+        iterates: utilities iterates.md
+        frequencies: utilities frequencies.md
+    Output Helpers:
+        show: utilities show.md
 Example Index: examples.md
 Module Index: modules.md
 Object Index: objects.md

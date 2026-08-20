@@ -28,6 +28,10 @@ so these accept a variety of forms, including for instance string fractions
 like '1/3' or '7/9'. In the rare cases where you want to do the conversion
 yourself, see `as_quantity` below.
 
+## Numeric Tests
+
++ `is_zero(x)` :: test if a quantity is zero
+
 ## Numeric Functions
 
 + `numeric_abs` :: absolute value
@@ -47,6 +51,8 @@ yourself, see `as_quantity` below.
 + `as_float` :: converts a vector tuple with high-precision components
       to a vector tuple of standard floats. This is mostly used when
       frplib calculations are fed to other functions or libraries.
+
++ `as_numpy` :: ATTN
 
 + `as_quantity` :: converts a value to a quantity. This accepts
       quantities, floats, integers, fractions, and strings. Strings

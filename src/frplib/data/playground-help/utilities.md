@@ -1,57 +1,11 @@
 # Utilities
 
-**frplib** includes a variety of utilities to make various
-operations easier and to access information from objects
-like kinds, FRPs, etc. in a uniform way.
+**frplib** includes a variety of utility functions to make common
+computations easier. These functions are divided into several categories
+as shown below. You can get detailed on each of these functions at
+lower levels in the info hierarchy.
 
-## Output
-
-+ `show(x)` :: displays an object, list, or dictionary in a more friendly manner.
-    See subtopic `show`.
-
-## Cloning
-
-+ `clone(X)` :: produces a copy of its argument `X` if possible; primarily useful with
-    FRPs and conditional FRPs, where it produces fresh copies with their own values.
-
-## Property Accessors
-
-+ `dim` :: `dim(x)` returns the dimension of `x`, if available. Note that taking
-      the dimension of an FRP may force the kind computation.
-
-+ `codim` :: `codim(x)` returns the codimension of `x`, if available
-
-+ `size` :: `size(x)` returns the size of `x`, usually a kind, if available
-
-+ `values` :: `values(x)` returns the *set* of `x`'s values, if available; applies to kinds
-
-+ `typeof` :: `typeof(x)` returns the type of a statistic, conditional Kind, conditional FRP
-
-
-## Symbolic Manipulation
-
-+ `is_symbolic(x)` :: returns true if `x` is a symbolic expression
-
-+ `gen_symbol()` :: returns a unique symbol name every time it is called
-
-+ `symbols(names)` takes a string of space-separated names and returns a tuple
-      of tuples with those names. Supports automatically numbered symbols with
-      a `...` pattern.
-
-+ `symbol(name)` takes a string and creates a symbolic term with that name
-
-+ `substitute(quantity, mapping)` :: substitutes values from mapping for the
-      symbols in `quantity`; mapping is a dictionary associating symbol names with values.
-      Not all symbols need to be substituted; if all are substituted with a numeric value
-      then the result is numeric.
-
-+ `substitute_with(mapping)` :: returns a function that takes a quantity and substitutes
-      with mapping in that quantity.
-
-+ `substitution(quantity, **kw)` :: like `substitute` but takes names and values as
-      keyword arguments rather than through a dictionary.
-
-## Tuples and Quantities
+## Vector Tuple and Quantity Helpers
 
 + `tup` :: converts arguments to a quantitative vector tuple, whose values are
       numeric or symbolic quantities and can be added or scaled like vectors.
@@ -64,27 +18,6 @@ like kinds, FRPs, etc. in a uniform way.
       and 1-dimensional tuples to scalar floats.
 
 + `as_numpy` :: converts high-precision decimal tuples to a numpy float array
-
-## Function Helpers
-
-+ `identity` :: a function that returns its argument as is
-
-+ `const(a)` :: returns a function that itself always returns the value `a`
-
-+ `compose(f,g)` :: returns the function `f` after `g`
-
-+ `iterate(f, n, start)` :: returns nth item in sequence `start, f(start), f(f(start)), ...`
-
-+ `iterates(f, n, start)` :: returns sequence of first n items from `start, f(start), f(f(start)), ...`
-
-+ `fold(f, init, inputs)` :: folds an input sequence using the folding function `f` from the
-                             initial accumulator `init`
-
-+ `fold1(f, ilist)` :: folds a non-empty input list using the folding function `f` using
-                       the first element of the list as the initial accumulator.
-                       The input elements and accumulators have the same type.
-
-+ `is_zero(x)` :: test if a quantity is zero
 
 ## Sequence Helpers
 
@@ -100,11 +33,30 @@ like kinds, FRPs, etc. in a uniform way.
 
 + `lmap(f, iterable)` :: returns a *list* containing `f(x)` for every `x` in `iterable`
 
++ `fold(f, init, inputs)` :: folds an input sequence using the folding function `f` from the
+                             initial accumulator `init`
+
++ `fold1(f, ilist)` :: folds a non-empty input list using the folding function `f` using
+                       the first element of the list as the initial accumulator.
+                       The input elements and accumulators have the same type.
+
 + `frequencies(iterable, counts_only=False)` :: computes counts of
    unique values in iterable; returns a dictionary, but if
    `counts_only` is True, return just the counts without labels
 
+## Function Helpers
 
-## Sub-topics
++ `identity` :: a function that returns its argument as is
 
-`symbols`, `irange`, `index_of`, `iterate`, `iterates`, `fold`, `show`
++ `const(a)` :: returns a function that itself always returns the value `a`
+
++ `compose(f,g)` :: returns the function `f` after `g`
+
++ `iterate(f, n, start)` :: returns nth item in sequence `start, f(start), f(f(start)), ...`
+
++ `iterates(f, n, start)` :: returns sequence of first n items from `start, f(start), f(f(start)), ...`
+
+## Output Helpers
+
++ `show(x)` :: displays an object, list, or dictionary in a more friendly manner.
+    See subtopic `show`.
