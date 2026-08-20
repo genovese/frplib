@@ -5,7 +5,7 @@ or rich ways in an interactive session. While this can be used at the
 library level, it is primarily for interactive use and not thread safe.
 
 """
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes, redefined-builtin
 
 from __future__ import annotations
 
@@ -104,10 +104,10 @@ class Environment:
     dark_mode: bool = False
     is_interactive: bool = False
     command_number_in_prompt: bool = False
-    console: Console = Console(highlight=True, theme=bright_theme)
+    info_params: InfoParams = field(default_factory=default_info_params)
     numeric_out_params: NumericOutParams = field(default_factory=default_numeric_out_params)
     frp_params: FrpParams = field(default_factory=default_frp_params)
-    info_params: InfoParams = field(default_factory=default_info_params)
+    console: Console = Console(highlight=True, theme=bright_theme)
 
     def on_ascii_only(self) -> None:
         "Require ASCII-only output, no rich text, unicode, or markdown."
@@ -209,6 +209,10 @@ class Environment:
             f'dark_mode                = {b(self.dark_mode)}',
             f'command_number_in_prompt = {b(self.command_number_in_prompt)}',
             '',
+            '[info]',
+            f'pager  = {b(info_pars["pager"])}',
+            f'dialog = {b(info_pars["dialog"])}',
+            '',
             '[numeric_out]',
             f'decimal_digits       = {num_pars["decimal_digits"]}',
             f'nice_digits          = {num_pars["nice_digits"]}',
@@ -220,14 +224,11 @@ class Environment:
             '[frp]',
             f'complexity_threshold = {frp_pars["complexity_threshold"]}',
             f'evolution_threshold  = {frp_pars["evolution_threshold"]}',
-            '',
-            '[info]',
-            f'pager  = {b(info_pars["pager"])}',
-            f'dialog = {b(info_pars["dialog"])}',
         ]
         print('\n'.join(lines), file=stream)
 
     def console_str(self, rich_str) -> str:
+        """Captures and returns a rich string printed to the console."""
         with self.console.capture() as capture:
             self.console.print(rich_str)
         return capture.get()
@@ -240,6 +241,10 @@ class Environment:
 # Schema mapping TOML section names to (env attribute, {key: converter}) pairs.
 # Adding a new configurable param means adding one entry here and one line in write_config.
 SECTION_SCHEMA: dict[str, tuple[str, dict[str, Callable[[Any], Any]]]] = {
+    'info': ('info_params', {
+        'pager':  bool,
+        'dialog': bool,
+    }),
     'numeric_out': ('numeric_out_params', {
         'decimal_digits':       int,
         'nice_digits':          int,
@@ -251,10 +256,6 @@ SECTION_SCHEMA: dict[str, tuple[str, dict[str, Callable[[Any], Any]]]] = {
     'frp': ('frp_params', {
         'complexity_threshold': int,
         'evolution_threshold':  int,
-    }),
-    'info': ('info_params', {
-        'pager':  bool,
-        'dialog': bool,
     }),
 }
 
