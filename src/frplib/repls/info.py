@@ -26,6 +26,7 @@ from rich.markdown import Markdown
 
 from frplib.env              import environment
 from frplib.exceptions       import PlaygroundError
+from frplib.repls.help       import help                # pylint: disable=redefined-builtin
 from frplib.repls.info_types import InfoNode, InfoTree
 
 if __name__ == '__main__':
@@ -481,6 +482,43 @@ def info_search(candidate: str, menu: InfoTree, pager=None, flattened=None):
 # Info Display in the Terminal
 #
 
+def get_info_markdown(docpath: list[str] | None = None, *, obj=None) -> Markdown | None:
+    """Displays an info topic document in the repl.
+
+    Parameters
+    ----------
+    docpath - if supplied, a list of file path components for the document resource
+    obj - if supplied, an object whose __info__ attribute will be used to lookup
+        the document. The attribute is a ::-separated string of Keys in the info tree.
+
+    """
+    if docpath is None and obj is None:
+        docpath = ['_Topics.md']  # Summary of available topics, not typically needed
+
+    if obj is not None:
+        if hasattr(obj, '__info__'):
+            docpath = obj.__info__.split('::')
+            if docpath:
+                docpath[-1] += '.md'  # Always a markdown file at the end
+        else:
+            return None
+
+    if TYPE_CHECKING:
+        assert docpath is not None
+
+    topic_path = files('frplib.data') / 'playground-help'
+    for d in docpath:
+        topic_path = topic_path / d
+
+    if not topic_path.is_file():
+        return None
+
+    help_text = topic_path.read_text()
+    # ATTN: Rich behaving oddly here
+    code_theme = 'monokai' if environment.dark_mode else 'slate'
+
+    return Markdown(help_text, code_theme=code_theme)
+
 def display_info(docpath: list[str] | None = None, *, obj=None, pager=None) -> None:
     """Displays an info topic document in the repl.
 
@@ -496,39 +534,70 @@ def display_info(docpath: list[str] | None = None, *, obj=None, pager=None) -> N
     if pager is None:
         pager = environment.info_params.get('pager', False)  # ATTN: Add to environment
 
-    if docpath is None and obj is None:
-        docpath = ['_Topics.md']  # Summary of available topics, not typically needed
+    info_text = get_info_markdown(docpath, obj=obj)
 
-    if obj is not None:
-        if hasattr(obj, '__info__'):
-            docpath = obj.__info__.split('::')
-            if docpath:
-                docpath[-1] += '.md'  # Always a markdown file at the end
-        else:
-            help(obj)
+    if info_text is None:
+        if obj is not None:
+            help(obj, invoked_by='info')
             return
-
-    if TYPE_CHECKING:
-        assert docpath is not None
-
-    topic_path = files('frplib.data') / 'playground-help'
-    for d in docpath:
-        topic_path = topic_path / d
-
-    if not topic_path.is_file():
         print_formatted_text(HTML('<violet>I could not find any guidance at the specified path. '
                                   'Try info() to interactively search the available topics.</violet>'))
         return
 
-    help_text = topic_path.read_text()
-    # ATTN: Rich behaving oddly here
-    code_theme = 'monokai' if environment.dark_mode else 'slate'
-    info_text = Markdown(help_text, code_theme=code_theme)
     if pager:
         with environment.console.pager():
             environment.console.print(info_text)
     else:
         environment.console.print(info_text)
+
+# def display_info(docpath: list[str] | None = None, *, obj=None, pager=None) -> None:
+#     """Displays an info topic document in the repl.
+#
+#     Parameters
+#     ----------
+#     docpath - if supplied, a list of file path components for the document resource
+#     obj - if supplied, an object whose __info__ attribute will be used to lookup
+#         the document. The attribute is a ::-separated string of Keys in the info tree.
+#     pager - if supplied, a Boolean indicating whether to use a pager. If not supplied,
+#         the environment setting will be used.
+#
+#     """
+#     if pager is None:
+#         pager = environment.info_params.get('pager', False)  # ATTN: Add to environment
+#
+#     if docpath is None and obj is None:
+#         docpath = ['_Topics.md']  # Summary of available topics, not typically needed
+#
+#     if obj is not None:
+#         if hasattr(obj, '__info__'):
+#             docpath = obj.__info__.split('::')
+#             if docpath:
+#                 docpath[-1] += '.md'  # Always a markdown file at the end
+#         else:
+#             help(obj)
+#             return
+#
+#     if TYPE_CHECKING:
+#         assert docpath is not None
+#
+#     topic_path = files('frplib.data') / 'playground-help'
+#     for d in docpath:
+#         topic_path = topic_path / d
+#
+#     if not topic_path.is_file():
+#         print_formatted_text(HTML('<violet>I could not find any guidance at the specified path. '
+#                                   'Try info() to interactively search the available topics.</violet>'))
+#         return
+#
+#     help_text = topic_path.read_text()
+#     # ATTN: Rich behaving oddly here
+#     code_theme = 'monokai' if environment.dark_mode else 'slate'
+#     info_text = Markdown(help_text, code_theme=code_theme)
+#     if pager:
+#         with environment.console.pager():
+#             environment.console.print(info_text)
+#     else:
+#         environment.console.print(info_text)
 
 
 #
