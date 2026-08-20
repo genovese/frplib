@@ -45,9 +45,9 @@ FRPs:
     The States of an FRP: frps states.md
     Examining Properties: frps properties.md
     Special Methods: frps methods.md
-    The kind Function: frps kind.md
+    The frp and clone Functions: frps frp-and-clone.md
     Builtin FRP Factories:
-        FisherYates: factories frp FisherYates.md
+        shuffle: factories frp shuffle.md
     Custom FRP Factories: frps factories.md
     FRP Procedures: frps procedures.md
     FRP Combinators:
@@ -61,10 +61,33 @@ Kinds:
     Overview: kinds overview.md
     Examining Properties: kinds properties.md
     Displaying Kinds: kinds display.md
-    Special Methods: kinds methods.md
+    Special Methods:
+        Comparing Kinds:  kinds methods comparing.md
+        Kernels: kinds kernels.md
+        Likelihoods: kinds kernels.md
+        Entropy: kinds kernels.md
+        Sampling: kinds sampling.md
+        Serialization: kinds methods serialize.md
     The kind Function: kinds kind.md
     Builtin Kind Factories:
         constant: factories kind constant.md
+        binary: factories kind binary.md
+        choice: factories kind choice.md
+        uniform: factories kind uniform.md
+        weighted_as: factories kind weighted_as.md
+        weighted_pairs: factories kind weighted_pairs.md
+        weighted_by: factories kind weighted_by.md
+        arbitrary: factories kind arbitrary.md
+        evenly_spaced: factories kind evenly_spaced.md
+        integers: factories kind integers.md
+        symmetric: factories kind .md
+        linear: factories kind .md
+        geometric: factories kind .md
+        without_replacement: factories kind without_replacement.md
+        subsets: factories kind .md
+        permutations_of: factories kind .md
+        ordered_samples: factories kind .md
+        bin: factories kind .md
     Custom Kind Factories: kinds factories.md
     Kind Procedures: kinds procedures.md
     Kind Combinators:
@@ -195,24 +218,45 @@ The Big 3+1: big-3+1.md
     Constraining with Observations: big-3+1 observations.md
     Predicting with Expectations: big-3+1 expectations.md
 Factories: factories.md
-    FRP Factories: factories FRP
-        frp: factories FRP frp
-        shuffle: factories FRP shuffle
-    Kind Factories: factories kind
+    FRP Factories: factories FRPs.md
+        frp: factories FRP frp.md
+        clone: factories FRP clone.md
+        shuffle: factories FRP shuffle.md
+    Kind Factories: factories Kinds.md
         kind: factories kind kind.md
         constant: factories kind constant.md
-        choice: factories kind choice.md
         binary: factories kind binary.md
+        choice: factories kind choice.md
         uniform: factories kind uniform.md
         weighted_as: factories kind weighted_as.md
-        weighted_by: factories kind weighted_by.md
         weighted_pairs: factories kind weighted_pairs.md
+        weighted_by: factories kind weighted_by.md
+        arbitrary: factories kind arbitrary.md
         evenly_spaced: factories kind evenly_spaced.md
+        integers: factories kind integers.md
+        symmetric: factories kind .md
+        linear: factories kind .md
+        geometric: factories kind .md
         without_replacement: factories kind without_replacement.md
-    Statistic Factories: factories statistic
-        Projections: factories statistic projections.md
-        Get: factories statistic Get.md
-        Permute: factories statistic Permute.md
+        subsets: factories kind .md
+        permutations_of: factories kind .md
+        ordered_samples: factories kind .md
+        bin: factories kind .md
+    Statistic Factories: factories Statistics.md
+        statistic: factories statistic constructors.md
+        scalar_statistic: factories statistic constructors.md
+        condition: factories statistic constructors.md
+        Proj: factories statistic proj.md
+        Constantly: factories statistic constantly.md
+        Permute: factories statistic permute.md
+        Append: factories statistic append.md
+        Prepend: factories statistic prepend.md
+        Get: factories statistic get.md
+        Keep: factories statistic keep.md
+        MaybeMap: factories statistic maybe-map.md
+        IndexOf: factories statistic index-of.md
+        Cases: factories statistic cases.md
+        ChiSquare: factories statistic chisquare.md
         Condition Factories: factories condition.md
             And: conditions factories and.md
             Or: conditions factories or.md
@@ -227,13 +271,36 @@ Combinators: combinators.md
     Statistic Combinators: combinators statistic.md
 Actions: actions.md
 Numeric Calculations: numerics.md
+    is_zero: numerics is_zero.md
+    as_float: numerics as_float.md
+    as_numpy: numerics as_numpy.md
+    numeric_abs: numerics numeric_abs.md
+    numeric_sqrt: numerics numeric_sqrt.md
+    numeric_exp: numerics numeric_exp.md
+    numeric_ln: numerics numeric_ln.md
+    numeric_log10: numerics numeric_log10.md
+    numeric_log2: numerics numeric_log2.md
+    numeric_ceil: numerics numeric_ceil.md
+    numeric_floor: numerics numeric_floor.md
 Symbolic Calculations: symbolic.md
-    symbols: symbolic.md
+    symbols: symbolic symbols.md
+    is_symbol: symbolic is_symbol.md
+    gen_symbol: symbolic gen_symbol.md
+    substitute: symbolic substitutions.md
+    substitute_with: symbolic substitutions.md
+    substitution: symbolic substitutions.md
 Utilities: utilities.md
+    tup: utilities tup.md
+    irange: utilities irange.md
+    as_scalar: utilities as_scalar.md
+    as_quantity: utilities as_quantity.md
+    every: utilities every.md
+    some: utilities some.md
+    lmap: utilities lmap.md
     fold: utilities fold.md
+    frequencies: utilities frequencies.md
     index_of: utilities index_of.md
     index_where: utilities index_where.md
-    irange: utilities irange.md
     iterate: utilities iterate.md
     iterates: utilities iterates.md
     show: utilities show.md

@@ -2040,7 +2040,7 @@ def permutations_of(xs: Iterable, r=None) -> Kind:
     return Kind([KindBranch.make(vs=pi, p=1) for pi in permutations(xs, r)])
 
 # ATTN: lower does not need to be lower just any bin boundary (but watch the floor below)
-def bin(scalar_kind, lower, width):      # pylint: disable=redefined-builtin
+def bin(scalar_kind, lower, width) -> Kind:      # pylint: disable=redefined-builtin
     """Returns a Kind similar to that given but with values binned in specified intervals.
 
     The bins are intervals of width `width` starting at `lower`.  So, for instance,

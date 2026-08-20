@@ -53,7 +53,7 @@ like kinds, FRPs, etc. in a uniform way.
 
 ## Tuples and Quantities
 
-+ `qvec` :: converts arguments to a quantitative vector tuple, whose values are
++ `tup` :: converts arguments to a quantitative vector tuple, whose values are
       numeric or symbolic quantities and can be added or scaled like vectors.
 
 + `as_scalar` :: converts a 1-dimensional tuple to a scalar
@@ -62,6 +62,8 @@ like kinds, FRPs, etc. in a uniform way.
 
 + `as_float` :: converts high-precision decimal tuples to Python floats,
       and 1-dimensional tuples to scalar floats.
+
++ `as_numpy` :: converts high-precision decimal tuples to a numpy float array
 
 ## Function Helpers
 
