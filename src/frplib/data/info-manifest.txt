@@ -313,9 +313,13 @@ Utilities: utilities.md
         frequencies: utilities frequencies.md
     Output Helpers:
         show: utilities show.md
+Useful Programming Patterns:
+    Decorators: patterns decorators.md
+    The Factory Trick: patterns factory-trick.md
+    Scripts: patterns scripts.md
+Troubleshooting: troubleshooting.md
 Example Index: examples.md
 Module Index: modules.md
 Object Index: objects.md
-Troubleshooting: troubleshooting.md
 Resources: resources.md
 _Topics: topics.md
