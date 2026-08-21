@@ -12,6 +12,7 @@ from prompt_toolkit.shortcuts      import print_formatted_text as print    # pyl
 from ptpython.prompt_style         import PromptStyle
 
 from frplib.env                    import environment
+from frplib.repls.info             import html_escape
 from frplib.repls.playground_repl  import PlaygroundRepl
 from frplib.repls.ptembed          import embed
 
@@ -35,10 +36,12 @@ def configure(repl):
         """
         def in_prompt(self):
             style_prompt = style_prompt_dark if environment.dark_mode else style_prompt_bright
+            prompt_tag = html_escape(environment.prompt_tag)
+            prompt_sep = html_escape(environment.prompt_sep)
             if environment.command_number_in_prompt:
                 n = repl.current_statement_index
-                return HTML(style_prompt(f"playground[{n}]&gt; "))
-            return HTML(style_prompt("playground&gt; "))
+                return HTML(style_prompt(f'{prompt_tag}[{n}]{prompt_sep}'))
+            return HTML(style_prompt(f'{prompt_tag}{prompt_sep}'))
 
         def in2_prompt(self, width):
             style_prompt = style_prompt_dark if environment.dark_mode else style_prompt_bright

@@ -4,7 +4,10 @@
 
 from __future__          import annotations
 
+import contextlib
+import os
 import re
+import shutil
 
 from collections.abc     import Callable
 from importlib.resources import as_file, files
@@ -527,6 +530,51 @@ def get_info_markdown(docpath: list[str] | None = None, *, obj=None) -> Markdown
 
     return Markdown(help_text, code_theme=code_theme)
 
+def _autodetect_pager_styles() -> bool:
+    """Returns True if the user environment suggests the pager can render ANSI colors.
+
+    If the user has set PAGER or MANPAGER themselves, we trust their choice
+    outright and assume this choice offers the desired functionality. (Users
+    can explicitly suppress rendering if they choose.)
+
+    Otherwise, returns True only when the pager `less` is available, since
+    it is the only pager we explicitly configure with color support;
+    see configured_pager.
+
+    """
+    if os.environ.get('PAGER') or os.environ.get('MANPAGER'):
+        return True
+    return shutil.which('less') is not None
+
+@contextlib.contextmanager
+def configured_pager():
+    """Context manager that temporarily configures a well-behaved PAGER, if possible.
+
+    If the user has not set PAGER or MANPAGER themselves, and `less` is
+    available on PATH (see _autodetect_pager_styles), this *temporarily*
+    sets the PAGER environment variable to invoke `less` with
+    the -F -R options. (The skip the pager for text under one screen and
+    render ANSI colors  properly.) The environment variable is restored
+    on exit from the context.
+
+    Otherwise, this is a no-op. Note that a pager that the user has
+    explicitly selected is never overridden.
+
+    """
+    if os.environ.get('PAGER') or os.environ.get('MANPAGER') or not shutil.which('less'):
+        yield
+        return
+
+    prior = os.environ.get('PAGER')
+    os.environ['PAGER'] = 'less -F -R'
+    try:
+        yield
+    finally:
+        if prior is None:
+            os.environ.pop('PAGER', None)
+        else:
+            os.environ['PAGER'] = prior
+
 def display_info(docpath: list[str] | None = None, *, obj=None, pager=None) -> None:
     """Displays an info topic document in the repl.
 
@@ -540,7 +588,7 @@ def display_info(docpath: list[str] | None = None, *, obj=None, pager=None) -> N
 
     """
     if pager is None:
-        pager = environment.info_params.get('pager', False)  # ATTN: Add to environment
+        pager = environment.info_params.get('pager', False)
 
     info_text = get_info_markdown(docpath, obj=obj)
 
@@ -553,7 +601,10 @@ def display_info(docpath: list[str] | None = None, *, obj=None, pager=None) -> N
         return
 
     if pager:
-        with environment.console.pager():
+        styles = environment.info_params.get('pager_styles')
+        if styles is None:
+            styles = _autodetect_pager_styles()
+        with configured_pager(), environment.console.pager(styles=styles):
             environment.console.print(info_text)
     else:
         environment.console.print(info_text)

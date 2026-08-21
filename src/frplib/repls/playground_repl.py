@@ -12,12 +12,13 @@ from importlib import import_module
 from ptpython.repl         import PythonRepl
 from ptpython.python_input import PythonInput
 
-from frplib.env        import environment
-from frplib.exceptions import FrplibException
-from frplib.protocols  import Renderable
-from frplib.repls.help import help              # pylint: disable=[redefined-builtin]
-from frplib.repls.info import info
-from frplib.vec_tuples import VecTuple
+from frplib.env              import environment
+from frplib.exceptions       import FrplibException
+from frplib.protocols        import Renderable
+from frplib.repls.help       import help              # pylint: disable=[redefined-builtin]
+from frplib.repls.info       import info
+from frplib.repls.resources  import cookbook, cheatsheet, textbook
+from frplib.vec_tuples       import VecTuple
 
 
 #
@@ -430,6 +431,9 @@ class PlaygroundRepl(PythonRepl):
             "get_playground",
             "help",
             "info",
+            "cookbook",
+            "cheatsheet",
+            "textbook",
             "explain_error",
             "_running_in_playground"
         ]
@@ -438,6 +442,9 @@ class PlaygroundRepl(PythonRepl):
         pgd_globals["get_playground"] = get_playground
         pgd_globals["help"] = help
         pgd_globals["info"] = info
+        pgd_globals["cookbook"] = cookbook
+        pgd_globals["cheatsheet"] = cheatsheet
+        pgd_globals["textbook"] = textbook
         pgd_globals["explain_error"] = explain_error
         pgd_globals["_running_in_playground"] = True
         environment.interactive_mode()

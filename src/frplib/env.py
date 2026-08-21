@@ -23,6 +23,9 @@ from rich.console import Console
 from rich.theme   import Theme
 
 bright_theme = Theme({
+    "markdown.h2": "#4f2c1d underline",
+    "markdown.h3": "#4f2c1d bold",
+    "markdown.h4": "#4f2c1d italic",
     "repr.number": "#3333cc",
     "repr.number_complex": "#333366",
     "repr.bool_true": "#009933",
@@ -32,7 +35,8 @@ bright_theme = Theme({
     "repr.attrib_value": "#000033",
     "markdown.item.bullet": "bold magenta",
     "markdown.item.number": "bold magenta",
-    "markdown.code": "bold red on #cccccc",
+    "markdown.code": "bold #5b84b1",
+    "markdown.code_block": "#006747 on #cccccc",
 })
 
 dark_theme = Theme({
@@ -43,7 +47,7 @@ dark_theme = Theme({
     "repr.str": "#ccff99",
     "repr.attrib_name": "#ccffff",
     "repr.attrib_value": "#ffffcc",
-    "markdown.code": "bold magenta on white",
+    "markdown.code": "bold #006747 on white",
     "markdown.code_block": "#4682b4 on white",
 })
 
@@ -58,14 +62,33 @@ def default_frp_params() -> FrpParams:
     }
 
 class InfoParams(TypedDict):
-    pager: bool     # Use a pager to display long info docs
-    dialog: bool    # If True, use dialog interactive interface, else use completion interface
+    pager: bool                # Use a pager to display long info docs
+    pager_styles: bool | None  # Show styles (e.g., color) in the pager; None means auto-detect
+    dialog: bool               # If True, use dialog interactive interface, else use completion interface
 
 def default_info_params() -> InfoParams:
     return {
-        'pager': False,
+        'pager': True,
+        'pager_styles': None,
         'dialog': True,
     }
+
+def parse_pager_styles(v: Any) -> bool | None:
+    """Converts a TOML value for pager_styles to bool | None.
+
+    Accepts True, False, or the string "auto" (any case, and
+    ignoring whitespace) for None.
+
+    The auto case will attempt to detect the pager based on the
+    setting of the PAGER/MANPAGER environment variables and whether
+    `less` is available on the path.
+
+    """
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str) and v.strip().lower() == 'auto':
+        return None
+    raise ValueError(f'pager_styles must be true, false, or "auto", got {v!r}')
 
 
 class NumericOutParams(TypedDict):
@@ -104,6 +127,8 @@ class Environment:
     dark_mode: bool = False
     is_interactive: bool = False
     command_number_in_prompt: bool = False
+    prompt_tag: str = "playground"
+    prompt_sep: str = '> '
     info_params: InfoParams = field(default_factory=default_info_params)
     numeric_out_params: NumericOutParams = field(default_factory=default_numeric_out_params)
     frp_params: FrpParams = field(default_factory=default_frp_params)
@@ -135,14 +160,44 @@ class Environment:
         "Show current command number in the title bar instead of the prompt"
         self.command_number_in_prompt = False
 
+    def set_prompt(self, tag: str = '', sep: str = '') -> None:
+        """Sets the tag and/or separator used for the playground prompt.
+
+        Parameters
+        ----------
+        tag: the part of the prompt before the separator (and optional
+            command number) [default: 'playground']
+        sep: the separator between the tag (and optional command number)
+            [default: '> ']
+
+        Empty strings are skipped. Plain, unescaped text is expected;
+        HTML-escaping for display and TOML-escaping for the config
+        file are both handled automatically wherever these are used.
+
+        """
+        if tag:
+            self.prompt_tag = tag
+        if sep:
+            self.prompt_sep = sep
+
     def on_info_dialog(self) -> None:
         self.info_params['dialog'] = True
 
     def off_info_dialog(self) -> None:
         self.info_params['dialog'] = False
 
-    def on_info_pager(self) -> None:
+    def on_info_pager(self, styles: bool | None = None) -> None:
+        """Turns on the pager for info documents.
+
+        The `styles` option determines whether colored/styled
+        rendering should be assumed in pager output. True forces
+        styling; False suppresses it; and None (the default)
+        attempts to auto-detect the capability based on
+        PAGER/MANPAGER and whether `less` is available.
+
+        """
         self.info_params['pager'] = True
+        self.info_params['pager_styles'] = styles
 
     def off_info_pager(self) -> None:
         self.info_params['pager'] = False
@@ -195,6 +250,13 @@ class Environment:
         def b(v: bool) -> str:
             return 'true' if v else 'false'
 
+        def tri(v: bool | None) -> str:
+            return '"auto"' if v is None else b(v)
+
+        def toml_str(v: str) -> str:
+            escaped = v.replace('\\', '\\\\').replace('"', '\\"')
+            return f'"{escaped}"'
+
         lines = [
             '# frplib configuration file',
             '# Recognized locations (first found is used):',
@@ -205,24 +267,35 @@ class Environment:
             '#     macOS:   ~/Library/Application Support/frplib/',
             '#     Windows: %APPDATA%/frplib/',
             '',
-            f'ascii_only               = {b(self.ascii_only)}',
-            f'dark_mode                = {b(self.dark_mode)}',
-            f'command_number_in_prompt = {b(self.command_number_in_prompt)}',
+            f'ascii_only = {b(self.ascii_only)}   # Rich text in playground output suppressed (True) or on (False)',
+            f'dark_mode = {b(self.dark_mode)}    # Dark mode (True) or Light mode (False)',
+            f'command_number_in_prompt = {b(self.command_number_in_prompt)}  # Command number in prompt (True) or status bar (False)',
+            f'prompt_tag = {toml_str(self.prompt_tag)}  # The text before the separator in the playground prompt.',
+            f'prompt_sep = {toml_str(self.prompt_sep)}  # The separator text in the playground prompt.',
             '',
             '[info]',
-            f'pager  = {b(info_pars["pager"])}',
-            f'dialog = {b(info_pars["dialog"])}',
+            f'pager = {b(info_pars["pager"])}    # Pager for info documents on (True) or off (False)',
+            '# Assume the pager can render formatting (True), suppress formatting in the pager (False), or',
+            '# attempt to auto-detect formatting capability ("auto").',
+            f'pager_styles = {tri(info_pars["pager_styles"])}',
+            f'dialog = {b(info_pars["dialog"])}  # Interactive info search uses dialog (True) or completion (False)',
             '',
             '[numeric_out]',
-            f'decimal_digits       = {num_pars["decimal_digits"]}',
-            f'nice_digits          = {num_pars["nice_digits"]}',
-            f'max_denom            = {num_pars["max_denom"]}',
-            f'denom_limit          = {num_pars["denom_limit"]}',
+            '# Current decimal precision (in digits) used for display.',
+            f'decimal_digits = {num_pars["decimal_digits"]}',
+            '# Digits used for aesthetically pleasing rounding, >= 0, <= decimal_digits.',
+            f'nice_digits = {num_pars["nice_digits"]}',
+            '# The maximum denominator with which a number will be printed as a fraction.',
+            f'max_denom = {num_pars["max_denom"]}',
+            '# Set of denominator values for which to suppress rational expression',
+            f'exclude_denoms = [{", ".join(str(x) for x in sorted(num_pars["exclude_denoms"]))}]',
+            f'denom_limit = {num_pars["denom_limit"]}',
             f'rational_denom_limit = {num_pars["rational_denom_limit"]}',
-            f'exclude_denoms       = [{", ".join(str(x) for x in sorted(num_pars["exclude_denoms"]))}]',
             '',
             '[frp]',
+            '# Size threshold above which an FRPs Kind will not be automatically computed.',
             f'complexity_threshold = {frp_pars["complexity_threshold"]}',
+            '# Steps threshold above which evolve will force intermediate FRPs to activate.',
             f'evolution_threshold  = {frp_pars["evolution_threshold"]}',
         ]
         print('\n'.join(lines), file=stream)
@@ -242,8 +315,9 @@ class Environment:
 # Adding a new configurable param means adding one entry here and one line in write_config.
 SECTION_SCHEMA: dict[str, tuple[str, dict[str, Callable[[Any], Any]]]] = {
     'info': ('info_params', {
-        'pager':  bool,
-        'dialog': bool,
+        'pager':        bool,
+        'dialog':       bool,
+        'pager_styles': parse_pager_styles,
     }),
     'numeric_out': ('numeric_out_params', {
         'decimal_digits':       int,
@@ -281,11 +355,12 @@ def find_config() -> Path | None:
 
 
 def apply_config(env: 'Environment', config: dict) -> None:
-    """Apply a parsed TOML config dict to env, silently ignoring unknown keys.
+    """Applies a parsed TOML config dict to env, silently ignoring unknown keys.
 
-    Top-level boolean keys (ascii_only, dark_mode, command_number_in_prompt) are
+    Top-level boolean keys (e.g., ascii_only, dark_mode, command_number_in_prompt) are
     applied directly. Sectioned params ([numeric_out], [frp], [info]) are applied
-    via SECTION_SCHEMA, which maps each key to a converter function.
+    via SECTION_SCHEMA, which maps each key to a converter function. If a value
+    fails conversion, it is skipped with a warning printed to stderr.
 
     """
     if 'ascii_only' in config:
@@ -294,6 +369,10 @@ def apply_config(env: 'Environment', config: dict) -> None:
         env.on_dark_mode() if config['dark_mode'] else env.on_bright_mode()
     if 'command_number_in_prompt' in config:
         env.command_number_in_prompt = bool(config['command_number_in_prompt'])
+    if 'prompt_tag' in config and isinstance(config['prompt_tag'], str) and config['prompt_tag']:
+        env.prompt_tag = config['prompt_tag']
+    if 'prompt_sep' in config and isinstance(config['prompt_sep'], str) and config['prompt_sep']:
+        env.prompt_sep = config['prompt_sep']
 
     for section, section_spec in SECTION_SCHEMA.items():
         attr, converters = section_spec
@@ -301,7 +380,10 @@ def apply_config(env: 'Environment', config: dict) -> None:
             target = getattr(env, attr)
             for key, convert in converters.items():
                 if key in config[section]:
-                    target[key] = convert(config[section][key])
+                    try:
+                        target[key] = convert(config[section][key])
+                    except Exception as exc:
+                        print(f"warning: invalid value for [{section}].{key} in .frplib.toml: {exc}", file=sys.stderr)
 
 
 #
