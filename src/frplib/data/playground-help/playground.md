@@ -171,24 +171,50 @@ on your system.
 
 ### Paging for info and help
 
-By default, info documents and help are run through a pager
-to let you scroll long text easily. You can turn this on 
-or off, both within a session and for your persistent configuration,
-see *Configuring the Playground Environment*.
+By default, info documents and help are run through a pager to let
+you scroll long text easily. You can configure this behavior in
+several dimensions as described in the info topic
+*Configuring the Playground Environment*.
 
-However, many standard pagers will operate even for short text documents,
-which can be distracting. Some pagers have an option that gives a
-more flexible behavior.
+The info pager is set to only show up for long documents, and it
+should also render the document formatting.
+These capabilities should be available automatically on Mac and Linux
+systems, but by default, Windows ships with a less capable pager.
 
+For Windows users, [jftuga/less-Windows](https://github.com/jftuga/less-Windows)
+is a standalone GNU version of the pager `less` that is compiled for
+Windows 10/11 with no dependencies, and which supports these
+capabilities. It's packaged for winget, so it can be installed with:
+```
+  winget install jftuga.less
+```
+See also the configuration topic mentioned above.
+
+#### If you already have set your PAGER environment variable...
+
+The playground will respect your configuration, so if you have
+set your `PAGER` environment variable, it will use that as is.
+If so, you may wish to configure the pager for the default
+capabilities.
+For Mac and Linux, using zsh or bash, 
+put the following in your init file:
+```
+    export PAGER='less -F -R'
+```
+For Windows Powershell, add the following to your profile script
+(e.g. `notepad $PROFILE`, creating it if it doesn't exist):
+```
+    $Env:PAGER = "less -F -R"
+```
+This config will cause `less` to skip the pager if the text is under
+one screen's worth and it will render formatting, which makes for a
+more pleasant workflow.
 The pager `less`, available on Mac, Linux, and Windows is a good choice
-for this. You can set the following either at your shell prompt or
-in your bash or zsh init file:
-```
-    export PAGER='less -F'
-```
-This will cause `less` to skip the pager if the text is under one screen's worth,
-which makes for a more pleasant workflow.
+for this; other modern pagers have similar options.
 
+## Exiting the Playground
+
+Enter `quit()` at the prompt to exit the playground.
 
 ## Loading the Playground in a Script
 

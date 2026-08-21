@@ -1,4 +1,6 @@
-# Roulette Example Chapter 0, Section 2
+""" Roulette Example Chapter 4, Sections 1, 2, and 3
+
+"""
 
 __all__ = ['roulette']
 
