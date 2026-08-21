@@ -21,9 +21,30 @@ interactive environment for simulating and analyzing random systems.
 It focuses primarily on *finite* random systems as a means to
 building the central concepts and tools fo probability theory.
 
-ATTN
-Two principle abstractions underlie the software.
-An *FRP* (Fixed Random Payoff) is a device that represents
+This takes a novel approach to probabillity theory by using a
+*physical* model for random variables. Two principle abstractions
+underlie the model. An *FRP* (Fixed Random Payoff) is a device that
+represents an observable random quantity. An FRP produces a random
+value at some point during the random system's evolution, and that
+value is thereafter fixed for all time. Its value is what we observe
+and measure for the random quantity the FRP represents.
+
+At any point, our knowledge about the FRP's value -- and our
+predictions of its value based on that knowledge -- is captured by
+its *Kind*. Finding an FRP's Kind lets us make predictions and
+decisions *before* we observe the FRP's value.
+
+Both FRPs and Kinds can be operated on with a common set of four
+operations called the **Big 3+1**:
+
++ Tranforming with Statistics
++ Building with Joins
++ Constraining with Observations
++ Predicting with Expectations
+
+These four operations and one principle (the Likelihood Principle)
+give us all tools we need to derive probability theory and
+statistics for finite systems and beyond.
 
 
 **Table of Contents**
