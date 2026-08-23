@@ -52,6 +52,8 @@ statistics for finite systems and beyond.
 - [Installation](#installation)
   - [Install Python](#install-python)
   - [Install pipx](#install-pipx)
+  - [Other Helpful Installs](#other-software-worth-installing)
+  - [How We Use frplib](#two-ways-to-use-frplib-and-why-it-matters)
   - [Install frp application](#installing-the-app-with-pipx)
   - [Install frplib](#installing-the-library-in-a-virtual-environment)
   - [Windows notes](#windows-notes)
@@ -172,10 +174,11 @@ which is necessary on all three platforms.
 You will need to *open a new terminal window*
 for that change to take effect.
 
-### Other software worth installing (while you're at it)
+### Other software worth installing
 
 TL;DR A good terminal emulator and a modern pager like `less`
 can make the user experience more pleasant.
+These are worth installinng while you're at it.
 
 The `frplib` playground offers a nicer experience with a modern terminal emulator
 that can display rich text, colors, and formatting
