@@ -50,6 +50,13 @@ statistics for finite systems and beyond.
 **Table of Contents**
 
 - [Installation](#installation)
+  - [Install Python](#install-python)
+  - [Install pipx](#install-pipx)
+  - [Install frp application](#installing-the-app-with-pipx)
+  - [Install frplib](#installing-the-library-in-a-virtual-environment)
+  - [Windows notes](#windows-notes)
+  - [Running frp](#running-frp)
+  - [Upgrading](#upgrading)
 - [Quick Start](#quick-start)
 - [Resources](#resources)
 - [License](#license)
@@ -65,7 +72,7 @@ the [Windows Terminal](https://learn.microsoft.com/en-us/windows/terminal/)
 and a modern pager like [jftuga/less-Windows](https://github.com/jftuga/less-Windows).
 
 
-### Install Python, a prerequisite
+### Install Python
 
 `frplib` requires **Python 3.10 or later** with `pip` included. 
 Python 3.10 through 3.14 are officially supported.
@@ -126,7 +133,7 @@ python3.12 -m ensurepip --upgrade
 exists as of Python 3.12.)
 
 
-### Installing pipx
+### Install pipx
 
 [`pipx`](https://pipx.pypa.io/) is a command-line tool that installs
 Python applications in their own environment
@@ -236,8 +243,9 @@ If you installed Python yourself from
 this restriction does not apply, and a plain `pip install` should
 work fine.
 
-### Installing the app with pipx (recommended for `frp`)
+### Installing the app with pipx
 
+This is the recommended way to install the `frp` application.
 If you have not already installed `pipx`, do so now; see [Install pipx](#install-pipx) above.
 
 Then install `frplib`:
@@ -252,7 +260,7 @@ frp --help
 ### Installing the library in a virtual environment
 
 To import `frplib` modules in your own code, the idiomatic Python way
-is install it into a virtual environment (called a venv for short)
+is to install it into a virtual environment (called a venv for short)
 in your current project, rather than system wide.
 For example, you can create such a venv in the folder containing
 your course work, and then activate it when working with `frplib`.
@@ -336,7 +344,8 @@ frp --help
 ```
 This works cleanly even for Microsoft Store Python, which, unlike the python.org
 installer, puts python on `PATH` but not in the Scripts folder where pip-installed
-commands like frp land.
+commands like frp land,
+which `pipx ensurepath` already took care of for you.
 
 #### Windows Fallback option: installing with plain pip and fixing PATH manually
 
@@ -455,7 +464,7 @@ python -m frplib --version
 ```
 at the terminal/shell/powershell prompt.
 
-### Upgrading frplib
+### Upgrading
 
 To upgrade an existing installation for a new version,
 there are two easy steps.
