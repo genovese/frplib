@@ -1,15 +1,20 @@
 # Examining Properties of FRPs
 
+If `X` is an FRP, then we can query its various properties with several builtin functions.
+
 ## Property Accessors
 
-+ `dim` :: `dim(x)` returns the dimension of `x`, if available. Note that taking
-      the dimension of an FRP may force the kind computation.
++ `dim` :: `dim(X)` returns the dimension of `X`, if available. Note that taking
+      the dimension of an FRP may force the Kind or value computation.
 
-+ `codim` :: `codim(x)` returns the codimension of `x`, if available
++ `codim` :: `codim(X)` returns the codimension of `x`, which will always be 0 for an FRP.
 
-+ `size` :: `size(x)` returns the size of `x`, usually a kind, if available
++ `size` :: `size(X)` returns the size of `kind(X)`, forcing the computation of the Kind.
 
-+ `values` :: `values(x)` returns the *set* of `x`'s values, if available; applies to kinds
++ `typeof` :: `typeof(x)` returns the type `codim -> dim` of an FRP.
 
-+ `typeof` :: `typeof(x)` returns the type of a statistic, conditional Kind, conditional FRP
+## Kinds
 
++ `kind` :: `kind(X)` returns the Kind of `X`. In most cases, this is already computed,
+     but in some complex calculations the Kind can be slow to compute. This forces
+     that computation.

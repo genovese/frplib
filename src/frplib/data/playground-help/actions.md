@@ -3,6 +3,23 @@
 Actions are operations that have side-effects, such as displaying some output
 or producing a random sample. There are currently only a few main actions:
 
++ `clean` :: Accepts any Kind and removes any branches that are numerically zero
+      according to a specified tolerance (default 1e-16). It also rounds numeric
+      values to avoid round-off error in comparing values.
+
++ `evolve` :: evolve a random system over a specified number of steps, updating
+      the state at each step. `evolve(start_state, next_state, n_steps = 1)`
+      where `start_state` is the Kind of the starting state, `next_state` is
+      the conditional Kind of the next state given the current state, and
+      the process is evolved `n_steps` times. Returns the Kind of the
+      state after the specified number of steps.
+
++ `D_` :: The distribution operator for a Kind or FRP.
+
+   If `X` is an FRP (or a Kind), then `D_(X)` returns a function from statistics
+   to values. Specifically, `D_(X)(psi) = E(psi(X))` for any compatible statistic
+   `psi`.
+
 + `E` :: Computes expectations/risk-neutral prices for Kinds, FRPs, conditional Kinds,
          and conditional FRPs.
 
@@ -20,21 +37,6 @@ or producing a random sample. There are currently only a few main actions:
    This function returns the expectation/risk-neutral price for the Kind/FRP
    associated with that value.
    
-+ `D_` :: The distribution operator for a Kind or FRP.
-
-   If `X` is an FRP (or a Kind), then `D_(X)` returns a function from statistics
-   to values. Specifically, `D_(X)(psi) = E(psi(X))` for any compatible statistic
-   `psi`.
-
-+ `unfold` :: Accepts any Kind and shows the unfolded tree. This is usually
-      applied to Kinds of dimension greater than 1. It does not currently 
-      support Kinds with symbolic weights. 
-      Example: `unfold(uniform((0,0), (0, 1), (1, 0), (1, 1)))`
-
-+ `clean` :: Accepts any Kind and removes any branches that are numerically zero
-      according to a specified tolerance (default 1e-16). It also rounds numeric
-      values to avoid round-off error in comparing values.
-
 + `FRP.sample` :: activate clones of a given FRP and tabulates the results. Also accepts a Kind.
       This is the same functionality as running a demo in the frp market.
       `FRP.sample(n, X)` will demo `n` clones of `X` if `X` is an FRP or `n` FRPs
@@ -42,9 +44,8 @@ or producing a random sample. There are currently only a few main actions:
       to True; if False, the values of all individual samples are given.
       Example: `FRP.sample(10_000, either(0,1))`
 
-+ `evolve` :: evolve a random system over a specified number of steps, updating
-      the state at each step. `evolve(start_state, next_state, n_steps = 1)`
-      where `start_state` is the Kind of the starting state, `next_state` is
-      the conditional Kind of the next state given the current state, and
-      the process is evolved `n_steps` times. Returns the Kind of the
-      state after the specified number of steps.
++ `unfold` :: Accepts any Kind and shows the unfolded tree. This is usually
+      applied to Kinds of dimension greater than 1. It does not currently 
+      support Kinds with symbolic weights. 
+      Example: `unfold(uniform((0,0), (0, 1), (1, 0), (1, 1)))`
+

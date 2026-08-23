@@ -19,9 +19,9 @@ the book.
 provides both a library for use in your Python code and an
 interactive environment for simulating and analyzing random systems.
 It focuses primarily on *finite* random systems as a means to
-building the central concepts and tools fo probability theory.
+building the central concepts and tools of probability theory.
 
-This takes a novel approach to probabillity theory by using a
+This takes a novel approach to probability theory by using a
 *physical* model for random variables. Two principle abstractions
 underlie the model. An *FRP* (Fixed Random Payoff) is a device that
 represents an observable random quantity. An FRP produces a random
@@ -29,15 +29,15 @@ value at some point during the random system's evolution, and that
 value is thereafter fixed for all time. Its value is what we observe
 and measure for the random quantity the FRP represents.
 
-At any point, our knowledge about the FRP's value -- and our
-predictions of its value based on that knowledge -- is captured by
+At any point, our knowledge about the FRP's value — and our
+predictions of its value based on that knowledge — is captured by
 its *Kind*. Finding an FRP's Kind lets us make predictions and
 decisions *before* we observe the FRP's value.
 
 Both FRPs and Kinds can be operated on with a common set of four
 operations called the **Big 3+1**:
 
-+ Tranforming with Statistics
++ Transforming with Statistics
 + Building with Joins
 + Constraining with Observations
 + Predicting with Expectations
@@ -56,7 +56,16 @@ statistics for finite systems and beyond.
 
 ## Installation
 
-### Python installation is a prerequisite
+TL;DR Install an appropriate version of Python (3.10 - 3.14) with `pip` and
+the application-management tool `pipx`.  Then install the `frp` application
+with `pipx` and the `frplib` library into a virtual environment with `pip`.
+
+For Windows users, it's recommended to also install
+the [Windows Terminal](https://learn.microsoft.com/en-us/windows/terminal/)
+and a modern pager like [jftuga/less-Windows](https://github.com/jftuga/less-Windows).
+
+
+### Install Python, a prerequisite
 
 `frplib` requires **Python 3.10 or later** with `pip` included. 
 Python 3.10 through 3.14 are officially supported.
@@ -116,20 +125,57 @@ python3.12 -m ensurepip --upgrade
 `ensurepip`, bundled with Python itself, takes care of it, and `distutils` no longer
 exists as of Python 3.12.)
 
-While you're at it, `sudo apt install pipx` is worth doing now — see below.
+
+### Installing pipx
+
+[`pipx`](https://pipx.pypa.io/) is a command-line tool that installs
+Python applications in their own environment
+and exposes their command(s) on your `PATH`.
+It works smoothly whether or not your Python is externally managed.
+We will use it to install the `frp` application easily,
+so it is worth installing on your system.
+
+On Mac with homebrew
+```
+brew install pipx
+pipx ensurepath
+```
+
+On Ubuntu or other Debian-based Linux:
+```
+sudo apt install pipx
+pipx ensurepath
+```
+
+On Windows
+```
+py -m pip install --user pipx
+py -m pipx ensurepath
+```
+unless you installed your Python from the Microsoft Store
+in which case you should do
+```
+python -m pip install --user pipx
+python -m pipx ensurepath
+```
+See [Windows notes](#windows-notes) below.
+
+The `ensurepath` adds pipx's own bin directory to your `PATH`,
+which is necessary on all three platforms.
+You will need to *open a new terminal window*
+for that change to take effect.
 
 ### Other software worth installing (while you're at it)
 
-TL;DR A good terminal emulator, a modern pager like `less`, and the
-Python package installer `pipx` are highly worth installing.
-
+TL;DR A good terminal emulator and a modern pager like `less`
+can make the user experience more pleasant.
 
 The `frplib` playground offers a nicer experience with a modern terminal emulator
 that can display rich text, colors, and formatting
 and with a configurable pager. A modern terminal app
 makes it super easy to enter and edit multi-line code in the playground.
 
-On Mac, the built-in Terminal app does fine, but I suggest
+On Mac, the built-in Terminal app or xterm both do fine, but I suggest
 the fully featured [Iterm2](https://iterm2.com/), which is easy to install
 and highly performant.
 
@@ -152,10 +198,6 @@ capabilities. It's packaged for winget, so it can be installed with:
   winget install jftuga.less
 ```
 
-Finally, on all platforms, the [`pipx`](https://pipx.pypa.io/)` Python installer
-s a valuable addition to your toolkit, especially essential for certain
-Python installations. See this [note](#note-on-pip-install).
-
 ### Two ways to use `frplib`, and why it matters
 
 `frplib` is both a command-line app (the `frp` script, giving you `market` and
@@ -163,7 +205,7 @@ Python installations. See this [note](#note-on-pip-install).
 your own experiments). **Plan on setting up both**. For the course, you need to
 be able to 
 
-- Run **`frp market` / `frp playground` from anywhere**, which you get when installing with
+- Run **`frp playground` / `frp market` from anywhere**, which you get when installing with
   **pipx**, as described below. It keeps `frplib` in its own isolated environment and puts only the
   `frp` command on your path.
 - **Import `frplib` modules in your own scripts or notebooks**, which requires a separate
@@ -179,8 +221,8 @@ other section.)
 
 Recent changes to Python ([PEP 668](https://peps.python.org/pep-0668/))
 impact global installation of packages for OS-managed Pythons. On
-Linux distributions and on Homebrew's Python for Macs, a plain `pip
-install frplib` will likely fail with an error mentioning
+Linux distributions and on Homebrew's Python for Macs, a plain `pip install frplib` 
+will likely fail with an error mentioning
 `externally-managed-environment`. This is because your OS package
 manager (`apt`, `brew`, ...) manages that Python installation, and
 pip refuses to modify it directly, even with `--user`. **Don't** use
@@ -196,36 +238,13 @@ work fine.
 
 ### Installing the app with pipx (recommended for `frp`)
 
-[`pipx`](https://pipx.pypa.io/) installs a Python application into its own private
-environment and exposes just its command(s) on your `PATH` — exactly what you want for
-a CLI tool like `frp`, and it works the same way whether or not your Python is
-externally managed.
+If you have not already installed `pipx`, do so now; see [Install pipx](#install-pipx) above.
 
-Install pipx once, using whichever of these matches your setup:
-
-```console
-# Debian/Ubuntu, or Mac with Homebrew
-sudo apt install pipx      # or: brew install pipx
-pipx ensurepath
-
-# Any Python from python.org, or pyenv (Mac, Windows, Linux)
-python3 -m pip install --user pipx     # use `py` in place of `python3` on Windows
-python3 -m pipx ensurepath
-```
-
-The `ensurepath` adds pipx's own bin directory to your `PATH`. **Open a new terminal window**
-for that change to take effect, then install `frplib`:
-
+Then install `frplib`:
 ```console
 pipx install frplib
 ```
-
-To update `frplib` later:
-```console
-pipx upgrade frplib
-```
-Either way, you should now be able to run:
-
+You should now be able to run:
 ```console
 frp --help
 ```
@@ -241,7 +260,7 @@ your course work, and then activate it when working with `frplib`.
 The standard workflow looks like the following.
 In a terminal, change to the folder where you want to work.
 
-  1. Create the venv. *You only need to do this once.
+  1. Create the venv. *You only need to do this once*.
   ```console
   python3 -m venv myproject-env         # create the venv (use `py` on Windows)
   ```
@@ -256,9 +275,9 @@ In a terminal, change to the folder where you want to work.
      Again, this assumes you are in your project directory/folder when
      you issue the commands.
 
-     Your prompt should now show `(myproject-env)`. Install `frplib` into it:
+     Your prompt should now show `(myproject-env)`.
 
-  3. Install any packages you want to use when this environment is active.
+  3. Install `frplib` and any other packages you want to use when this environment is active.
      *Do this as needed*. The environment remembers what you install.
      ```console
      pip install frplib
@@ -292,35 +311,34 @@ Two important steps for Windows users:
    or from the Microsoft Store. Everything below assumes you're
    working in the Windows Terminal (or an equivalent), in a Powershell tab.
 
-2. **Use `py` to invoke Python** (Try `py --version` now!)
-   The python.org installer puts the `py` launcher in `C:\Windows`, so
-   it's *always* on your `PATH`, regardless of whether you checked
-   "Add python.exe to PATH" during setup. Using `python` / `python3`
-   will only work if that box was checked. Because it works no
-   matter how your Python was installed or configured `py` is the
-   more reliable choice.
+2. **How to invoke Python.**
 
-   The one exception is the Microsoft Store Python package, which has no `py`
-   launcher — use `python` instead, which the Store puts on your `PATH` for you. (If
-   `py --version` just failed, this is almost certainly your situation.) Store Python
-   has one more quirk worth knowing about, once we get to installing `frp` below.
+   - **Use `py`...** Try `py --version` now — it should just work. The
+     python.org installer puts the `py` launcher in `C:\Windows`, so it's
+     *always* on your `PATH`, regardless of whether you checked "Add
+     python.exe to PATH" during setup; `python` / `python3` only work
+     directly if that box was checked. That's what makes `py` the
+     reliable, default choice.
 
-Given the above, the recommended route for getting the `frp` app on Windows is:
-```console
-py -m pip install --user pipx
-py -m pipx ensurepath
-```
-Close and reopen your terminal, and then do:
+   - **...Except if you installed Python from the Microsoft Store.** 
+     That package has no `py` launcher at all — use `python` instead, which
+     the Store puts on your `PATH` for you automatically. (If `py
+     --version` just failed above, this is almost certainly your
+     situation.) Store Python has one more quirk worth knowing about,
+     once we get to installing `frp` below.
+
+Given the above, the recommended route for getting the `frp` app on Windows 
+(once you've installed `pipx` and reopened your terminal; see [Install pipx](#install-pipx) above)
+is
 ```console
 pipx install frplib
 frp --help
 ```
 This works cleanly even for Microsoft Store Python, which, unlike the python.org
 installer, puts python on `PATH` but not in the Scripts folder where pip-installed
-commands like frp land. The `pipx ensurepath` finds and adds that folder for you, so you
-don't need to hunt for it yourself.
+commands like frp land.
 
-#### Fallback option: installing with plain pip and fixing PATH manually
+#### Windows Fallback option: installing with plain pip and fixing PATH manually
 
 If you'd rather not use pipx — e.g., you did a plain `pip install frplib` and `frp` isn't
 found at the terminal — you can add the right folder to `PATH` yourself. Start a
@@ -437,6 +455,21 @@ python -m frplib --version
 ```
 at the terminal/shell/powershell prompt.
 
+### Upgrading frplib
+
+To upgrade an existing installation for a new version,
+there are two easy steps.
+
+First, upgrade the `frp` application with
+```
+  pipx upgrade frplib
+```
+You do not need to activate a venv to do this.
+
+Second, activate the venv where you are using `frplib` and then do
+```
+  pip install --upgrade frplib
+```
 
 ## Quick Start
 
@@ -532,7 +565,7 @@ available help commands, which are fairly straightforward.
 
 In the playground, you can access help in (at least) five ways.
 First, the playground function `info` is an interface to built-in documention.
-Enter `info()` at the prompt to start an interactive search through the hiearchcy
+Enter `info()` at the prompt to start an interactive search through the hierarchy
 of info documents.
 Second, for any topic, you pass that as a string to `info` to see the
 documentation on that topic.
@@ -554,7 +587,7 @@ and will otherwise delegate to the built-in help.
 To force the built-in help, pass `True` as the second argument, e.g.,
 `help(obj, True)`.
 Finally, the playground will show you the signatures
-of functions as you type (when you enter the opening parenthis).
+of functions as you type (when you enter the opening parenthesis).
 It will also give you dynamic completion of names as you type
 them, making it easier to locate the function or data you want to use.
 

@@ -35,13 +35,13 @@ yourself, see `as_quantity` below.
 ## Numeric Functions
 
 + `numeric_abs` :: absolute value
-+ `numeric_ceil`:: ceiling, smallest integer greater than or equal to argument
++ `numeric_sqrt` :: square root
 + `numeric_exp` :: exponential function
-+ `numeric_floor` :: floor, largest integer less than or equal to argument
 + `numeric_ln` :: natural logarithm
 + `numeric_log10` :: logarithm base 10
 + `numeric_log2` :: logarithm base 2
-+ `numeric_sqrt` :: square root
++ `numeric_ceil`:: ceiling, smallest integer greater than or equal to argument
++ `numeric_floor` :: floor, largest integer less than or equal to argument
 
 ## Conversion Functions
 
@@ -52,7 +52,7 @@ yourself, see `as_quantity` below.
       to a vector tuple of standard floats. This is mostly used when
       frplib calculations are fed to other functions or libraries.
 
-+ `as_numpy` :: ATTN
++ `as_numpy` :: convert a value to a numpy array
 
 + `as_quantity` :: converts a value to a quantity. This accepts
       quantities, floats, integers, fractions, and strings. Strings

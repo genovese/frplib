@@ -51,11 +51,11 @@ FRPs:
     Custom FRP Factories: frps factories.md
     FRP Procedures: frps procedures.md
     FRP Combinators:
-        Transform (^): combinators frps transform.md
-        Independent Join (*): combinators frps ijoin.md
-        General Join (>>): combinators frps gjoin.md
-        Observations (|): combinators frps observations.md
-        Conditioning (//): combinators frps conditioning.md
+        Transform (^): combinators frp transform.md
+        Independent Join (*): combinators frp ijoin.md
+        General Join (>>): combinators frp gjoin.md
+        Observations (|): combinators frp observations.md
+        Conditioning (//): combinators frp conditioning.md
     Expectations: frps expectation.md
 Kinds:
     Overview: kinds overview.md
