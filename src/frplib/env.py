@@ -202,6 +202,16 @@ class Environment:
     def off_info_pager(self) -> None:
         self.info_params['pager'] = False
 
+    def set_max_denom(self, mdenom: int) -> None:
+        """Sets the maximum denominator for which numbers will print as fractions.
+
+        This must be positive and realistically should not be too large.
+        The default is 50, but values like 99 or 999 are good choices.
+
+        """
+        if mdenom > 0:
+            self.numeric_out_params['max_denom'] = mdenom
+
     def interactive_mode(self, ascii=None) -> None:
         "Indicate that this session is interactive. No need to turn this off."
         self.is_interactive = True
