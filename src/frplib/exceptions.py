@@ -65,7 +65,7 @@ class StatisticError(ConstructionError):
     pass
 
 class FactoryError(ConstructionError):
-    "A problem in the definition of a Statistic, Kind, or FRP factory"
+    "A problem in the definition of a Statistic, Condition, Kind, or FRP factory"
     pass
 
 class IndexingError(PlaygroundError):

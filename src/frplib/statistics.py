@@ -1132,7 +1132,7 @@ class ProjectionStatistic(Statistic, Projection):
     """Special statistics that extract one or more components from the tuple passed as input.
 
     This class should not be used directly but only through the Proj statistic factory.
-    See `Proj` and Chapter 0, Section 2.3.
+    See `Proj` and Chapter 2.4 in the text.
 
     """
     def __init__(
@@ -1148,7 +1148,7 @@ class ProjectionStatistic(Statistic, Projection):
         if isinstance(onto, ProjectionStatistic):
             indices: Iterable[int] | slice | 'ProjectionStatistic' = onto.subspace
             dim = onto.dim
-            label = onto.name.replace('project[', '').replace(']', '')
+            label = onto.name.replace('Proj[', '').replace(']', '')
 
         if isinstance(onto, Iterable):
             indices = list(onto)
@@ -1167,8 +1167,8 @@ class ProjectionStatistic(Statistic, Projection):
             # if indices.start == 0 or indices.stop == 0:
             #     raise StatisticError('Projection indices are 1-indexed and must be non-zero')
 
-        description = textwrap.wrap(f'''A statistic that projects any value of dimension >= {codim or 1}
-                                        to extract the {dim} components with indices {label}.''')
+        description = textwrap.wrap(f'''projects any value of dimension >= {codim or 1}
+                                        to extract the {dim} components with indices {label}''')
         # ATTN: Just pass project here, don't take an fn arg!
         super().__init__(fn, codim, dim, name, '\n'.join(description))
         self._components = indices
@@ -1642,8 +1642,9 @@ Scalar = Statistic(lambda x: x[0] if is_tuple(x) else x, codim=1, dim=1, strict=
 __ = Statistic(identity, codim=ANY_TUPLE, name='__', description='represents the value given to the statistic')
 _x_ = Scalar
 
+@statistic_factory
 def Constantly(*x) -> Statistic:
-    """A statistic factory that produces a statistic that always returns the specified value.
+    """always returns the specified value.
 
     This accepts either a single tuple argument, which will be converted to a quantity vector,
     or multiple arguments that will be aggregated into a quantity vector.
@@ -1662,51 +1663,51 @@ def Constantly(*x) -> Statistic:
     return MonoidalStatistic(lambda _: xvec, unit=xvec, codim=ANY_TUPLE, dim=len(xvec),
                              name=f'constant {xvec}', description=f'always returns {xvec}')
 
-Sum = MonoidalStatistic(sum, unit=0, codim=0, dim=1, name='sum',
+Sum = MonoidalStatistic(sum, unit=0, codim=0, dim=1, name='Sum',
                         description='returns the sum of all the components of the given value')
-Product = MonoidalStatistic(prod, unit=1, codim=0, dim=1, name='product',
+Product = MonoidalStatistic(prod, unit=1, codim=0, dim=1, name='Product',
                             description='returns the product of all the components of the given value')
-Count = MonoidalStatistic(len, unit=0, codim=0, dim=1, name='count',
+Count = MonoidalStatistic(len, unit=0, codim=0, dim=1, name='Count',
                           description='returns the number of components in the given value')
-Max = MonoidalStatistic(max, unit=as_quantity('-infinity'), codim=0, dim=1, name='max',
+Max = MonoidalStatistic(max, unit=as_quantity('-infinity'), codim=0, dim=1, name='Max',
                         description='returns the maximum of all components of the given value')
-Min = MonoidalStatistic(min, unit=as_quantity('infinity'), codim=0, dim=1, name='min',
+Min = MonoidalStatistic(min, unit=as_quantity('infinity'), codim=0, dim=1, name='Min',
                         description='returns the minimum of all components of the given value')
-Mean = Statistic(lambda x: sum(x) / as_real(len(x)), codim=0, dim=1, name='mean',
+Mean = Statistic(lambda x: sum(x) / as_real(len(x)), codim=0, dim=1, name='Mean',
                  description='returns the arithmetic mean of all components of the given value')
-Floor = Statistic(numeric_floor, codim=1, dim=1, name='floor',
+Floor = Statistic(numeric_floor, codim=1, dim=1, name='Floor',
                   description='returns the greatest integer <= its argument')
-Ceil = Statistic(numeric_ceil, codim=1, dim=1, name='ceiling',
+Ceil = Statistic(numeric_ceil, codim=1, dim=1, name='Ceil',
                  description='returns the least integer >= its argument')
 
-Sqrt = Statistic(numeric_sqrt, codim=1, dim=1, name='sqrt', strict=True,
+Sqrt = Statistic(numeric_sqrt, codim=1, dim=1, name='Sqrt', strict=True,
                  description='returns the square root of a scalar argument')
-Exp = Statistic(numeric_exp, codim=1, dim=1, name='exp', strict=True,
+Exp = Statistic(numeric_exp, codim=1, dim=1, name='Exp', strict=True,
                 description='returns the exponential of a scalar argument')
-Log = Statistic(numeric_ln, codim=1, dim=1, name='log', strict=True,
+Log = Statistic(numeric_ln, codim=1, dim=1, name='Log', strict=True,
                 description='returns the natural logarithm of a positive scalar argument')
-Log2 = Statistic(numeric_log2, codim=1, dim=1, name='log', strict=True,
+Log2 = Statistic(numeric_log2, codim=1, dim=1, name='Log2', strict=True,
                  description='returns the logarithm base 2 of a positive scalar argument')
-Log10 = Statistic(numeric_log10, codim=1, dim=1, name='log', strict=True,
+Log10 = Statistic(numeric_log10, codim=1, dim=1, name='Log10', strict=True,
                   description='returns the logarithm base 10 of a positive scalar argument')
 # ATTN: Can use the decimal recipes for sin and cos
-Sin = Statistic(math.sin, codim=1, dim=1, name='sin', strict=True,
+Sin = Statistic(math.sin, codim=1, dim=1, name='Sin', strict=True,
                 description='returns the sine of a scalar argument')
-Cos = Statistic(math.cos, codim=1, dim=1, name='cos', strict=True,
+Cos = Statistic(math.cos, codim=1, dim=1, name='Cos', strict=True,
                 description='returns the cosine of a scalar argument')
-Tan = Statistic(math.tan, codim=1, dim=1, name='tan', strict=True,
+Tan = Statistic(math.tan, codim=1, dim=1, name='Tan', strict=True,
                 description='returns the tangent of a scalar argument')
-Sinh = Statistic(math.sinh, codim=1, dim=1, name='sin', strict=True,
+Sinh = Statistic(math.sinh, codim=1, dim=1, name='Sinh', strict=True,
                  description='returns the hyperbolic sine of a scalar argument')
-Cosh = Statistic(math.cosh, codim=1, dim=1, name='cos', strict=True,
+Cosh = Statistic(math.cosh, codim=1, dim=1, name='Cosh', strict=True,
                  description='returns the hyperbolic cosine of a scalar argument')
-Tanh = Statistic(math.tanh, codim=1, dim=1, name='tan', strict=True,
+Tanh = Statistic(math.tanh, codim=1, dim=1, name='Tanh', strict=True,
                  description='returns the hyperbolic tangent of a scalar argument')
 
 # Make Abs act like Norm for larger dimensions
 # Abs = Statistic(numeric_abs, codim=1, dim=1, name='abs',
 #                 description='returns the absolute value of the given number')
-@statistic(codim=(1, infinity), dim=1, name='abs',
+@statistic(codim=(1, infinity), dim=1, name='Abs',
            description='returns the absolute value of the given number or the modulus of a tuple')
 def Abs(x):
     # ATTN: if x has symbolic components, it would be nice to handle this
@@ -1715,8 +1716,9 @@ def Abs(x):
         return numeric_abs(x[0])
     return numeric_sqrt(sum(u * u for u in x))
 
+@statistic_factory
 def Dot(*vec):
-    """Statistic factory that takes the vector dot product with a specified vector tuple.
+    """returns the vector dot product with a specified vector tuple.
 
     If the input tuple is empty, an error is raised.
 
@@ -2063,8 +2065,9 @@ def _find_cycles(inds: list[int], drop_singletons=True) -> list[list[int]]:
     return cycles
 
 
+@statistic_factory
 def Permute(*p: int | tuple[int, ...], cycle=True):
-    """A statistics factory that produces permutation statistics.
+    """produces permutation statistics.
 
     Accepts a list of (1-indexed) component indices (either as
     individual arguments or as a single iterable).
@@ -2378,27 +2381,23 @@ def project(*indices_or_tuple) -> ProjectionStatistic:
     return ProjectionStatistic(
         get_indices,
         indices,
-        name=f'project[{label}]')
+        name=f'Proj[{label}]')
 
 
 class ProjectionFactory:
-    """Creates a Projection Statistic.
+    """A factory that creates projection statistics over specified indices.
 
-    Projections are statistics that extract one or more components
-    from the tuple passed as input.
-
-    In frplib, `Proj` is a factory for creating projection statistics.
-    We specify which projection is produced by indicating the
-    components in brackets, like indexing an array. The components
-    for a projection statistic are **1-based**, so the first component
-    has index 1 (not 0 like in Python).
+    A projection is specified by giving component indices in brackets,
+    like indexing an array. The components for a projection statistic
+    are **1-based**, so the first component has index 1 (not 0 like in
+    Python).
 
     So for example, `Proj[1]` is the projection that returns the
     first component of a tuple and `Proj[1, 3, 5]` returns a new
     tuple with the first, third, and fifth components of its argument.
 
-    The `Proj` factory supports a variety of ways to select components.
-    The following forms can be used within the `[]` brackets:
+    This supports a variety of ways to select components,
+    with each form below used within the `[]` brackets:
 
     + a single, positive integer `i` selects the ith component
     + a single, negative integer `-i` selects the ith component
@@ -2419,10 +2418,7 @@ class ProjectionFactory:
       but not including `j`, skipping by `k` components
       at each step.
 
-    The `Projbar` factory is like `Proj` but the specification
-    in brackets indicates which components to *exclude*.
-
-    See Chapter 0, Section 2.3 for more detail.
+    See Chapter 2.4 in the text for more detail.
 
     """
     @overload
@@ -2455,14 +2451,19 @@ class ProjectionFactory:
     def __getitem__(self, *indices_or_tuple) -> ProjectionStatistic:
         return project(*indices_or_tuple)
 
+    def __frplib_repr__(self):
+        return "A factory that creates projection statistics over specified indices."
+
+
 Proj = ProjectionFactory()
 
 #
 # Additional Utility Statistics
 #
 
+@statistic_factory
 def Cases(d, default=None):
-    """Statistic factory that constructs a statistic from a dictionary and optional default.
+    """represents a dictionary and optional default.
 
     The dictionary specifies the mapping from inputs to outputs. The
     statistic may have multiple codimensions, but all all outputs
@@ -2563,8 +2564,9 @@ def Freqs(xs):
     cnts = frequencies(xs, counts_only=True)
     return VecTuple.pad_to(cnts, n)
 
+@statistic_factory
 def Append(*v):
-    """Statistics factory. The returned statistic appends given values to its input.
+    """appends specified values to its input.
 
     Values are specified as one or more scalars or tuples.
     If no values are given, this is equivalent to Id.
@@ -2581,13 +2583,14 @@ def Append(*v):
         return Id
 
     @statistic
-    def append(input):
-        return VecTuple.join(input, *v)
+    def append(inpt):
+        return VecTuple.join(inpt, *v)
 
     return append
 
+@statistic_factory
 def Prepend(*v):
-    """Statistics factory. The returned statistic prepends given values to its input.
+    """prepends specified values to its input.
 
     Values are specified as one or more scalars or tuples.
     If no values are given, this is equivalent to Id.
@@ -2609,8 +2612,9 @@ def Prepend(*v):
 
     return prepend
 
+@condition_factory
 def ElementOf(*v):
-    """Condition factory that tests for membership in a collection of values.
+    """tests for membership in a collection of values.
 
     Values are specified with a single iterable argument containing
     the values, or with more than one arguments. In both cases, all
@@ -2634,8 +2638,9 @@ def ElementOf(*v):
 
     return element_of
 
+@statistic_factory
 def Get(obj, key=identity, scalarize=True):
-    """Statistic factory for accessing a python object with [].
+    """accesses a python object with [] with the input as index.
 
     Parameters
     ----------
@@ -2670,8 +2675,9 @@ def Get(obj, key=identity, scalarize=True):
 
     return get_obj
 
+@statistic_factory
 def Keep(predicate: Condition, pad=nothing) -> Statistic:
-    """Statistic factory that keeps components satisfying a predicate.
+    """keeps components of its input that satisfy a predicate.
 
     The returned statistic applies the condition `predicate`
     to each component of the input tuple. Components for which
@@ -2712,8 +2718,9 @@ def Keep(predicate: Condition, pad=nothing) -> Statistic:
 
     return keep
 
+@statistic_factory
 def MaybeMap(stat: Statistic, pad=nothing) -> Statistic:
-    """Statistic factory that keeps components satisfying a predicate.
+    """applies a statistic to every input component, keeping those whose value is not nothing/None.
 
     A combination of ForEach and Keep. Like ForEach, it applies a
     statistic to each component, joining the returned value into the
@@ -2798,8 +2805,9 @@ def MaybeMap(stat: Statistic, pad=nothing) -> Statistic:
 
     return maybe_map
 
+@statistic_factory
 def IndexOf(*items):
-    """Statistic factory that gives first index of specified tuple within its input tuple, or -1 if none.
+    """returns the first index of the specified tuple within its input tuple, or -1 if none.
 
     Accepts a single sequence or multiple arguments that are combined into a sequence.
 
@@ -2862,8 +2870,9 @@ def IndexOf(*items):
 
     return contains_comp
 
+@condition_factory
 def Contains(*items):
-    """Condition factory that tests if a specified tuple is within its input tuple, or -1 if none.
+    """tests if a specified tuple is within its input tuple, or -1 if none.
 
     Accepts a single sequence or multiple arguments that are combined into a sequence.
 

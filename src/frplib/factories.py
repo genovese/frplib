@@ -40,6 +40,8 @@ if TYPE_CHECKING:
     from frplib.frps       import FRP
     from frplib.statistics import Statistic, Condition
 
+from frplib.exceptions import FactoryError
+
 
 #
 # Type variables to specialize factory return values. We use bound S
@@ -268,12 +270,30 @@ def _make_param_map(pars):
         for i, p in enumerate(pars):
             # We don't check the ordering here because python will do it
             # when the function is defined. E.g., kw-only must follow positional.
-            if pars[p].kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
-                val_map[pars[p].name] = args[i]   # Again, these must be first
+            if pars[p].kind == inspect.Parameter.POSITIONAL_ONLY:
+                if i < len(args):
+                    val_map[pars[p].name] = args[i]
+                elif pars[p].default != inspect.Parameter.empty:
+                    val_map[pars[p].name] = pars[p].default
+                else:
+                    raise FactoryError(f'factory could not get value for positional parameter {pars[p].name}')
+            elif pars[p].kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
+                if i < len(args):
+                    val_map[pars[p].name] = args[i]
+                elif pars[p].name in kwds:
+                    val_map[pars[p].name] = kwds[pars[p].name]
+                elif pars[p].default != inspect.Parameter.empty:
+                    val_map[pars[p].name] = pars[p].default
+                else:
+                    raise FactoryError(f'factory could not get value for parameter {pars[p].name}')
             elif pars[p].kind == inspect.Parameter.VAR_POSITIONAL:
                 val_map[pars[p].name] = tuple(args[i:])
-            else:
+            elif pars[p].name in kwds:
                 val_map[pars[p].name] = kwds[pars[p].name]
+            elif pars[p].default != inspect.Parameter.empty:
+                val_map[pars[p].name] = pars[p].default
+            else:
+                raise FactoryError(f'factory could not get value for parameter {pars[p].name}')
         return val_map
 
     return get_values

@@ -29,7 +29,7 @@ from frplib.kinds      import Kind, is_kind, kind, ConditionalKind, permutations
 from frplib.numeric    import Numeric, Nothing, show_tuple, as_real
 from frplib.protocols  import Projection, SupportsExpectation, SupportsKindOf
 from frplib.quantity   import as_quant_vec, show_qtuple
-from frplib.statistics import Statistic, statistic, analyze_domain, compose2, infinity, tuple_safe, Proj, Prepend
+from frplib.statistics import Statistic, statistic, analyze_domain, compose2, infinity, tuple_safe, Proj
 from frplib.symbolic   import Symbolic, is_symbolic
 from frplib.utils      import const, identity, is_tuple, scalarize, some
 from frplib.vec_tuples import (VecTuple, as_scalar, as_scalar_weak, as_vec_tuple, vec_tuple, value_set_from)
@@ -85,6 +85,14 @@ def vector_safe(f):
         return f(as_vec_tuple(v))
 
     return g
+
+def prepender(v) -> Statistic:
+    """A bare bones statistic factory like Prepend. Takes a single qvec and prepends it."""
+    @statistic
+    def _prepend(inpt):
+        return VecTuple.join(v, inpt)
+
+    return _prepend
 
 
 #
@@ -888,7 +896,7 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
                     raise ConstructionError(f'Dictionary for a conditional FRP should map to FRPs,'
                                             f' but {v} is not an FRP')
                 kin = as_quant_vec(k)
-                vout = v.transform(Prepend(kin))  # Input pass through
+                vout = v.transform(prepender(kin))  # Input pass through
                 self._joined_map[kin] = vout
                 self._target_map[kin] = v
             self._original_fn: Callable[[ValueType], FRP] | None = None
@@ -1104,7 +1112,7 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
                         f'encountered a problem passing {value} to a conditional FRP:\n  {str(e)}'
                     ) from e
 
-                extended = result.transform(Prepend(value))  # Input pass through
+                extended = result.transform(prepender(value))  # Input pass through
 
                 if self._auto_clone:
                     extended = extended.clone()
@@ -1138,7 +1146,7 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
                 if self._auto_clone:
                     result = result.clone()
                 else:
-                    extended = result.transform(Prepend(value))  # Input pass through
+                    extended = result.transform(prepender(value))  # Input pass through
                     self._joined_map[value] = extended   # Cache, fn should be pure
                     self._target_map[value] = result     # Store unextended to ease some operations
                 return result   # on auto_clone do a clone() here
