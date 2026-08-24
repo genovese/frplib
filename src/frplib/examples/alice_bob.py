@@ -1,6 +1,7 @@
-#
-# Alice and Bob Example as described in the text Ch 0, Sec 6
-#
+""" Alice and Bob Monoid Trick and Cards Example from Chapter 7 Dialogue 1 in the text.
+
+
+"""
 
 from frplib.frps       import conditional_frp
 from frplib.kinds      import Kind, conditional_kind, weighted_as, uniform
