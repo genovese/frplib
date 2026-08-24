@@ -1,6 +1,6 @@
 # Transforming an FRP
 
-There are three ways to transform an FRP by a statistic.
+There are three operators used to transform an FRP by a statistic.
 
 + `^` :: The transformation operator takes an FRP on the left and a statistic on the right
       and returns the transformed FRP. The advantage of this operator is that the
@@ -22,3 +22,20 @@ There are three ways to transform an FRP by a statistic.
       Example: `psi @ X | (full == 2)`.  Here, `full` is a condition that
       acts on the `X` (the "full" FRP) rather than on the transformed
       FRP `psi(X)`. The result is equivalent to `psi(X | (full == 2))`.
+
+In addition, you can transform with an FRP *procedure*.
+
+If `X` is an FRP and `psi` is a compatible statistic,
+the FRP `Y = psi(X)` can be obtained by a procedure as follows
+
+```python
+    @frp
+    def Y():
+        x = yield X
+        return psi(x)
+```
+
+Note that this defines an **FRP** not a function.  For simple transforms, the
+operators are generally more convenient. The advantage of procedures is that
+they can concisely express a complex combination of operations.
+See topic *FRP Procedures* for more detail.
