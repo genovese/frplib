@@ -1895,9 +1895,10 @@ class FRP:
     def __frplib_repr__(self) -> str:
         if self._kind == Kind.empty:
             return 'The [bold]empty FRP[/] of dimension [#3333cc]0[/] with value [bold #4682b4]<>[/]'
-        if self._kind is not None:
+        # When FRPs are derived from procedures but unkinded, we do not issue the warning.
+        if self._kind is not None or (self._expr is not None and isinstance(self._expr, GeneratedFrpExpression)):
             return f'An [bold]FRP[/] with value [bold #4682b4]{self.value}[/]'
-        return f'An [bold]FRP[/] with value [bold #4682b4]{self.value}[/]. (It may be slow to evaluate its kind.)'
+        return f'An [bold]FRP[/] with value [bold #4682b4]{self.value}[/]  (It may be slow to evaluate its kind.)'
 
     def __repr__(self) -> str:
         if environment.is_interactive:
