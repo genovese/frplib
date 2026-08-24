@@ -1539,8 +1539,9 @@ def sequence_of_values(    # pylint: disable=too-many-branches
 
 void: Kind = Kind.empty
 
+@kind_factory
 def constant(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis]) -> Kind:  # type: ignore
-    """Kind Factory: returns the Kind of a constant FRP with the specified value.
+    """a constant with the specified value.
 
     Accepts any collection of symbolic or numeric values or
     iterables thereof and flattens this into a quantitative tuple
@@ -1554,8 +1555,9 @@ def constant(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[El
     value = as_quant_vec(sequence_of_values(*xs, flatten=Flatten.EVERYTHING))
     return Kind.unit(value)
 
+@kind_factory
 def binary(p='1/2'):
-    """A binary choice between 0 and 1 with respective weights 1 - p and p.
+    """a binary choice between 0 and 1 with respective weights 1 - p and p.
 
     The weight p can be any quantity but if numeric should be 0 <= p <= 1.
     The default is p = 1/2.
@@ -1583,8 +1585,9 @@ def binary(p='1/2'):
     return weighted_as(0, 1, weights=[1 - w, w])
 
 # DEPRECATED
+@kind_factory
 def either(a, b, weight_ratio=1) -> Kind:
-    """A choice between two possibilities a and b with ratio of weights (a to b) of `weight_ratio`.
+    """a choice between two possibilities a and b with ratio of weights (a to b) of `weight_ratio`.
 
     DEPRECATED: Use choice instead. Note the difference of the weight_ratio.
 
@@ -1612,8 +1615,9 @@ def choice(a, b, weight_ratio=1) -> Kind:
     return Kind([KindBranch.make(vs=as_quant_vec(a), p=1 - p_b),
                  KindBranch.make(vs=as_quant_vec(b), p=p_b)])
 
+@kind_factory
 def uniform(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis]) -> Kind:   # type: ignore
-    """Returns a Kind with equal weights on the given values.
+    """a symmetric choice (equal weights) over the specified values.
 
     Values can be specified in a variety of ways:
       + As explicit arguments, e.g.,  uniform(1, 2, 3, 4)
@@ -1647,8 +1651,9 @@ def uniform(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ell
         return Kind.empty
     return Kind([KindBranch.make(vs=x, p=1) for x in values])
 
+@kind_factory
 def symmetric(*xs, around=None, weight_by=lambda dist: 1 / dist if dist > 0 else 1) -> Kind:
-    """Returns a Kind with the given values and weights a symmetric function of the values.
+    """a choice over the specified values with weights a symmetric function of the values.
 
     Specifically, the weights are determined by the distance of each value
     from a specified value `around`:
@@ -1695,12 +1700,13 @@ def symmetric(*xs, around=None, weight_by=lambda dist: 1 / dist if dist > 0 else
         around = sum(values) / n  # type: ignore
     return Kind([KindBranch.make(vs=post(x), p=as_numeric(weight_by(abs(x - around)))) for x in values])
 
+@kind_factory
 def linear(
         *xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis],  # type: ignore
         first=1,
         increment=1
 ) -> Kind:
-    """Returns a Kind with the specified values and weights varying linearly
+    """a choice over the specified values with weights a varying linearly.
 
     Parameters
     ----------
@@ -1733,12 +1739,13 @@ def linear(
 
     return Kind([KindBranch.make(vs=x, p=w) for x, w in zip(values, weights)])
 
+@kind_factory
 def geometric(
         *xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ellipsis],  # type: ignore
         first=1,
         r=0.5
 ) -> Kind:
-    """Returns a Kind with the specified values and weights varying geometrically
+    """a choice over the specified values with weights a varying geometrically.
 
     Parameters
     ----------
@@ -1774,8 +1781,9 @@ def geometric(
         w = w * ratio
     return Kind([KindBranch.make(vs=x, p=w) for x, w in zip(values, weights)])
 
+@kind_factory
 def weighted_by(*xs, weight_by: Callable) -> Kind:
-    """Returns a Kind with the specified values weighted by a function of those values.
+    """a choice over the specified values weighted by a function of those values.
 
     Parameters
     ----------
@@ -1823,8 +1831,9 @@ def weighted_by(*xs, weight_by: Callable) -> Kind:
             branches.append(KindBranch.make(vs=as_quant_vec(x), p=w))
     return Kind(branches)
 
+@kind_factory
 def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] | None = None) -> Kind:
-    """Returns a Kind with the specified values weighted by given weights.
+    """a choice over the specified values with the specified weights.
 
     Parameters
     ----------
@@ -1901,8 +1910,9 @@ def weighted_as(*xs, weights: Iterable[ScalarQ | Symbolic] | None = None) -> Kin
     return Kind([KindBranch.make(vs=as_quant_vec(x), p=as_quantity(w))
                  for x, w in zip(values, kweights) if not is_zero(w)])
 
+@kind_factory
 def weighted_pairs(*xs) -> Kind:     # Iterable[tuple[ValueType | ScalarQ, ScalarQ]]
-    """Returns a Kind specified by a sequence of (value, weight) pairs.
+    """a choice over the specified sequence of (value, weight) pairs.
 
     Parameters
     ----------
@@ -1926,8 +1936,9 @@ def weighted_pairs(*xs) -> Kind:     # Iterable[tuple[ValueType | ScalarQ, Scala
     return Kind([KindBranch.make(vs=as_quant_vec(v), p=as_quantity(w))
                  for v, w in val_wgts if not is_zero(w)])
 
+@kind_factory
 def arbitrary(*xs, names: list[str] | None = None):
-    """Returns a Kind with the given values and arbitrary symbolic weights.
+    """a choice over the specified values with arbitrary symbolic weights.
 
     Values can be specified in a variety of ways:
       + As explicit arguments, e.g.,  arbitrary(1, 2, 3, 4)
@@ -1972,8 +1983,9 @@ def arbitrary(*xs, names: list[str] | None = None):
         syms.append(gen_symbol())
     return Kind([KindBranch.make(vs=x, p=sym) for x, sym in zip(values, syms)])
 
+@kind_factory
 def integers(start, stop=None, step: int = 1, weight_fn=lambda _: 1):
-    """Kind of an FRP whose values consist of integers from `start` to `stop` by `step`.
+    """a choice over integer values from `start` to `stop` by `step`.
 
     If `stop` is None, then the values go from 0 to `tart`. Otherwise, the values
     go from `start` up to but not including `stop`.
@@ -1989,8 +2001,9 @@ def integers(start, stop=None, step: int = 1, weight_fn=lambda _: 1):
         return Kind.empty
     return Kind([KindBranch.make(vs=as_numeric_vec(x), p=weight_fn(x)) for x in range(start, stop, step)])
 
+@kind_factory
 def evenly_spaced(start, stop=None, num: int = 2, by=None, weight_by=lambda _: 1):
-    """Kind of an FRP whose values consist of evenly spaced numbers from `start` to `stop`.
+    """a choice over evenly spaced numbers from `start` to `stop`.
 
     If `stop` is None, then the values go from 0 to `start`. Otherwise, the values
     go from `start` up to but not including `stop`.
@@ -2044,8 +2057,9 @@ def evenly_spaced(start, stop=None, num: int = 2, by=None, weight_by=lambda _: 1
             v += by
         return Kind([KindBranch.make(vs=(x,), p=weight_by(x)) for x in vals])
 
+@kind_factory
 def without_replacement(n: int, *xs) -> Kind:
-    """Kind of an FRP that samples n items from a set without replacement.
+    """a uniform choice over samples without replacement of `n` items from a set.
 
     The set of values to sample from can a single iterable
     (including generators or iterators) or multiple arguments. This
@@ -2082,8 +2096,9 @@ def without_replacement(n: int, *xs) -> Kind:
         sample_from = sequence_of_values(*xs)
     return Kind([KindBranch.make(vs=as_quant_vec(comb), p=1) for comb in combinations(sample_from, n)])
 
+@kind_factory
 def subsets(xs: Collection, outside_element) -> Kind:
-    """Kind of an FRP whose values are subsets of a given collection.
+    """a uniform choice over subsets of a specified collection.
 
     Because the dimension needs to be consistent, outside_element,
     a value not in the collection, should be supplied to pad
@@ -2101,17 +2116,20 @@ def subsets(xs: Collection, outside_element) -> Kind:
 
     return Kind([KindBranch.make(vs=sub, p=1) for sub in annotated])
 
+@kind_factory
 def ordered_samples(n: int, xs: Iterable) -> Kind:
-    "Kind of an FRP whose values are all ordered samples of size `n` from the given collection."
+    "a uniform choice over all ordered samples of size `n` from the specified collection."
     return permutations_of // without_replacement(n, xs)
 
+@kind_factory
 def permutations_of(xs: Iterable, r=None) -> Kind:
-    "Kind of an FRP whose values are permutations of a given collection."
+    "a uniform choice over all permutations of a specified collection."
     return Kind([KindBranch.make(vs=pi, p=1) for pi in permutations(xs, r)])
 
 # ATTN: lower does not need to be lower just any bin boundary (but watch the floor below)
+@kind_factory
 def bin(scalar_kind, lower, width) -> Kind:      # pylint: disable=redefined-builtin
-    """Returns a Kind similar to that given but with values binned in specified intervals.
+    """a choice similar to the specified Kind but with values binned in specified intervals.
 
     The bins are intervals of width `width` starting at `lower`.  So, for instance,
     `lower` to `lower` + `width`, and so on.
