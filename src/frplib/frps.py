@@ -2416,6 +2416,10 @@ class TaggedFRP(FRP):
 # Utilities and Additional Factories and Combinators
 #
 
+def activate(f: FRP) -> None:
+    """Activates an FRP but does not reveal the value."""
+    _ = FRP.activate(f)
+
 @overload
 def independent_join(ks: Iterable[Kind]) -> Kind:
     ...
@@ -2607,7 +2611,9 @@ class FisherYates(FrpExpression):
     def _refresh_cached_value(self) -> ValueType | None:
         return self._cached_value
 
+@frp_factory
 def shuffle(items: Iterable) -> FRP:
+    """a uniform random shuffle of the given items."""
     return frp(FisherYates(items))
 
 
