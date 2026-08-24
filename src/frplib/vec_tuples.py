@@ -47,6 +47,9 @@ from __future__ import annotations
 
 import math
 
+import numpy
+import numpy.typing
+
 from collections.abc   import Iterable
 from decimal           import Decimal
 from fractions         import Fraction
@@ -309,6 +312,19 @@ def as_bool(v):
 
     """
     return bool(as_scalar_strict(v))
+
+def as_numpy(x, missing=numpy.nan) -> numpy.typing.NDArray:
+    "Converts non-symbolic components to floats; returns a float scalar for dimension 1."
+    converted = []
+    for xi in x:
+        if isinstance(xi, Decimal):
+            converted.append(float(xi))
+        elif xi is nothing:
+            converted.append(missing)
+        else:
+            converted.append(xi)
+
+    return numpy.array(converted)
 
 
 #
