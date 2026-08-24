@@ -54,7 +54,7 @@ statistics for finite systems and beyond.
   - [Install pipx](#install-pipx)
   - [Other Helpful Installs](#other-software-worth-installing)
   - [How We Use frplib](#two-ways-to-use-frplib-and-why-it-matters)
-  - [Install frp application](#installing-the-app-with-pipx)
+  - [Install frp application](#installing-the-frp-app-with-pipx)
   - [Install frplib](#installing-the-library-in-a-virtual-environment)
   - [Windows notes](#windows-notes)
   - [Running frp](#running-frp)
@@ -149,6 +149,12 @@ On Mac with homebrew
 brew install pipx
 pipx ensurepath
 ```
+or if you do not have homebrew, just with Python
+```
+python3 -m pip install --user pipx
+python3 -m pipx ensurepath
+```
+If your Python is `python` instead of `python3`, use that instead.
 
 On Ubuntu or other Debian-based Linux:
 ```
@@ -246,7 +252,7 @@ If you installed Python yourself from
 this restriction does not apply, and a plain `pip install` should
 work fine.
 
-### Installing the app with pipx
+### Installing the frp app with pipx
 
 This is the recommended way to install the `frp` application.
 If you have not already installed `pipx`, do so now; see [Install pipx](#install-pipx) above.

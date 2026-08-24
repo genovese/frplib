@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.2.14 - 2026-08-??
+
+The info system is up and running, but some documents
+are still not populated. (There are many!) So this
+is a transitional release in that regard.
+
+### Changed
+
+- Conditional Kinds and Conditional FRPs callable access
+  now returns the target. But both .target and .joined
+  methods are in place to make both easy and clear.
+
+- Language on Joins and Observations now fully matches
+  the text.
+
+- Built-in factories are now marked with the appropriate
+  factory decorator, giving them more salient documentation.
+
+- Updated PDF documents (textbook, cheatsheet, etc)
+
+- Better default markdown style for info nodes
+
+### Added
+
+- Many, many new info documents
+
+- cheatsheet(), textbook(), and cookbook() functions
+  open these documents in a PDF viewer or allow you
+  to copy the functions to a specified directory.
+
+- Auto-detects pager capabilities when configuring pager
+  (unless the user overrides with an explicit PAGER
+  or MANPAGER) giving the equivalent of -F -R capability
+  (no pager for short text, ANSI rendering in pager).
+  This applies to info and the custom help.
+  It relies on the less pager. If you have a modern
+  pager with this functionality that you would prefer,
+  set PAGER explicitly. Installation instructions
+  point windows users to a suitable pager.
+
+- New example modules: `hello_world`, `d_and_d`, `deal_for_alice`
+
+- Functions: `branch`, `as_numpy`, `activate`, `environment.set_max_denom`
+
+- @flexible_inputs decorator that lets a user-defined
+  functions take either a single tuple argument or
+  multiple components as separate arguments.
+
+- Built-in statistics: Dim, ChiSquare
+
+### Fixed
+
+- Fixed bug with default arguments for factories
+
+- Fixed bug in info navigation
+
+- Updated installation instructions
+
+- Factories now show the correct return type in type checking
+
+- Improved type inference for conditional_kinds and conditional_frp
+  and their domain argument.
+
 ## 0.2.13 - 2026-08-17
 
 This is a transitional release that introduces some significant
@@ -83,7 +146,6 @@ of the text.
   clarity.
 
 - new exception type FactoryError for users in factory functions
-
 
 ### Fixed
 

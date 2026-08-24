@@ -12,6 +12,7 @@ max-positional-arguments = 7
 max-locals = 16
 max-attributes = 10
 max-statements = 75
+max-branches = 20
 
 [FORMAT]
 
