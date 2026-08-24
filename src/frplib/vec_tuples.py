@@ -542,7 +542,7 @@ class VecTuple(tuple[T, ...]):
         if len(x) == 0:
             return cls(())
 
-        if len(x) == 1 and _is_sequence(x[0]) and not isinstance(x[0], tuple):
+        if len(x) == 1 and _is_sequence(x[0]):  # ATTN:Aug2026 Should include?? -> and not isinstance(x[0], tuple):
             vtups: Iterable = x[0]
         else:
             vtups = x
