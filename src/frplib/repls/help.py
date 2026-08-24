@@ -30,7 +30,7 @@ import inspect
 
 from rich.markdown import Markdown
 
-from frplib.env    import environment
+from frplib.repls.paging import paged_help, print_paged
 
 
 _builtin_help = builtins.help
@@ -82,29 +82,29 @@ def help(obj=None, builtin=False, *, invoked_by=None) -> None:    # pylint: disa
 
     """
     if obj is None:
-        _builtin_help()
+        paged_help(_builtin_help)
     elif builtin:
-        _builtin_help(obj)
+        paged_help(_builtin_help, obj)
     elif hasattr(obj, '__frplib_help__'):
         fh = obj.__frplib_help__
         if callable(fh):
-            help_doc = fh()
+            help_doc = fh(invoked_by)
             if help_doc is not None:
-                environment.console.print(fh(invoked_by))
+                print_paged(help_doc)
             else:
-                _builtin_help(obj)
+                paged_help(_builtin_help, obj)
         elif isinstance(fh, str):
-            environment.console.print(Markdown(fh))
+            print_paged(Markdown(fh))
         else:
-            environment.console.print(fh)
+            print_paged(fh)
     elif (inspect.isroutine(obj)
           or inspect.ismodule(obj)
           or isinstance(obj, (type, property))):
-        _builtin_help(obj)
+        paged_help(_builtin_help, obj)
     elif getattr(obj, '__doc__', None):  # ATTN:Aug2026 Not sure if this branch is a good idea
-        environment.console.print(inspect.cleandoc(obj.__doc__))
+        print_paged(inspect.cleandoc(obj.__doc__))
     else:
-        _builtin_help(obj)
+        paged_help(_builtin_help, obj)
 
 # ATTN:Aug2026 The following are provisional and experimental
 # Considering how users can annotate objects to make notes
@@ -135,4 +135,4 @@ def annotate(obj, doc: str, drop_frplib_help=False) -> None:
 
 def view_annotation(obj) -> None:
     """Displays the object's __doc__ attribute nicely in the playground."""
-    environment.console.print(inspect.cleandoc(obj.__doc__))
+    print_paged(inspect.cleandoc(obj.__doc__))
