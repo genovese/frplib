@@ -37,7 +37,7 @@ from frplib.numeric    import (Numeric, ScalarQ, Nothing, is_nothing, as_nice_nu
 from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection, SupportsKindOf, SupportsConditionalKindOf, Kinded
 from frplib.quantity   import (as_quantity, as_nice_quantity, as_quant_vec, is_quantifiable,
-                               show_quantities, show_qtuples)
+                               show_quantities, show_qtuples, tup)
 from frplib.statistics import (Condition, MonoidalStatistic, Statistic,
                                analyze_domain, compose2, Proj, statistic, tuple_safe)
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol, is_zero
@@ -1385,6 +1385,76 @@ def fast_join_pow(mstat: MonoidalStatistic, k: Kind, n: int) -> Kind:
     if n % 2 == 0:
         return mstat(kn2 * kn2)
     return mstat(k * mstat(kn2 * kn2))
+
+def branch(*maybe_ks, weights: list[Numeric] | None = None, values: list | None = None):
+    """Builds a multi-level Kind by joining the specified Kinds with the given weights.
+
+    Parameters
+    ----------
+    maybe_ks -- one or more Kinds or quantities. Quantities will automatically
+        be converted to constant Kinds
+
+    weights -- a list of positive or symbolic weights in the same order
+        as the specified Kinds.  Extra weights are ignored. If the list
+        is too short, the last weight in the list is repeated as needed.
+        If empty or None, the weights are taken to be all 1.
+
+    values --a list of values in the same order as the specified Kinds.
+        These are the values at the branching. If missing, they are
+        taken to be 1..n where n is the number of Kinds. Extra values are
+        ignored, and an error raised if an insufficient number is given.
+
+    Returns the joined Kind, marked as raw for display purposes.
+
+    Examples:
+      + branch(choice(1, 2), choice(2, 3), choice(4, 5), weights=[1, 4, 2])
+      + branch(1, 2, 3, 4) is equivalent to uniform((1, 1), (2, 2), (3, 3), (4, 4))
+
+    """
+    if not maybe_ks:
+        return Kind.empty
+
+    n_k = len(maybe_ks)
+
+    ks = []
+    dim_k = None
+    for k in maybe_ks:
+        if not is_kind(k):
+            k = constant(tup(k))
+
+        if dim_k is None:
+            dim_k = k.dim
+        elif dim_k != k.dim:
+            raise KindError(f'branch: supplied Kinds must have equal dimensions (saw {dim_k}, {k.dim})')
+
+        ks.append(k)
+
+    if weights is None:
+        weights = [1] * n_k
+    elif len(weights) < n_k:
+        weights = weights[:] + [weights[-1]] * (n_k - len(weights))
+    elif len(weights) > n_k:
+        weights = weights[:n_k]
+
+    if values is None:
+        values = list(range(1, n_k + 1))
+    elif len(values) > n_k:
+        values = values[:n_k]
+    elif len(values) < n_k:
+        raise KindError(f'branch: too few values ({len(values)} < {n_k}) supplied')
+
+    seen = set()
+    for val in values:
+        if val in seen:
+            raise KindError(f'branch: top level Kind branches on non-distinct values (e.g., {val})')
+        seen.add(val)
+
+    source = weighted_as(values, weights=weights)
+    targets = conditional_kind({
+        values[ind]: k for ind, k in enumerate(ks)
+    })
+
+    return source >> targets    # wrap in unfolded when available
 
 
 #
