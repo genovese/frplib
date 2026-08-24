@@ -25,7 +25,7 @@ from frplib.kinds import (                                # pylint: disable=rede
     Kind, ConditionalKind,
     kind, conditional_kind,
     is_kind, kind_factory, given,
-    unfold, clean, fast_join_pow, bayes,
+    unfold, clean, fast_join_pow, bayes, branch,
     constant, uniform, choice, binary, either,   # DEPRECATED: either
     symmetric, linear, geometric,
     weighted_by, weighted_as, weighted_pairs,
@@ -84,6 +84,7 @@ from frplib.expectations import E, Var, D_
 from frplib.frps import (
     FRP, frp, conditional_frp, is_frp, frp_factory, evolve,
     average_conditional_entropy, mutual_information, shuffle,
+    activate, independent_join,
 )
 
 from frplib.calculate import substitute, substitute_with, substitution
@@ -107,7 +108,7 @@ from frplib.utils import (
 
 from frplib.vec_tuples import (
     VecTuple,
-    as_numeric_vec, as_scalar, as_vec_tuple, as_float, as_bool,
+    as_numeric_vec, as_scalar, as_vec_tuple, as_float, as_bool, as_numpy,
     map_to_vec_tuple, is_vec_tuple, vec_tuple
 )
 
@@ -122,7 +123,7 @@ __all__ = [
     # frplib.kinds
     'Kind', 'ConditionalKind',
     'kind', 'conditional_kind', 'given',
-    'is_kind', 'unfold', 'clean', 'fast_join_pow', 'bayes',
+    'is_kind', 'unfold', 'clean', 'fast_join_pow', 'bayes', 'branch',
     'constant', 'uniform', 'choice', 'binary', 'either',   # DEPRECATED: either
     'symmetric', 'linear', 'geometric',
     'weighted_by', 'weighted_as', 'weighted_pairs',
@@ -157,6 +158,7 @@ __all__ = [
     # frplib.frps
     'FRP', 'frp', 'conditional_frp', 'is_frp', 'evolve',
     'average_conditional_entropy', 'mutual_information', 'shuffle',
+    'activate', 'independent_join',
     # frplib.calculate
     'substitute', 'substitute_with', 'substitution',
     # frplib.numeric
@@ -174,7 +176,7 @@ __all__ = [
     'values', 'dim', 'codim', 'size', 'typeof', 'show', 'some',
     # frplib.vec_tuples
     'VecTuple',
-    'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float', 'as_bool',
+    'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float', 'as_bool', 'as_numpy',
     'map_to_vec_tuple', 'is_vec_tuple', 'vec_tuple',
     # frplib.market
     'Market',

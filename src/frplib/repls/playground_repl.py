@@ -34,7 +34,7 @@ playground_imports: dict[str, list[str]] = {
         'Kind', 'ConditionalKind',
         'kind', 'conditional_kind',
         'is_kind', 'kind_factory', 'given',
-        'unfold', 'clean', 'fast_join_pow', 'bayes',
+        'unfold', 'clean', 'fast_join_pow', 'bayes', 'branch',
         'constant', 'uniform', 'choice', 'binary', 'either',  # DEPRECATED: either
         'symmetric', 'linear', 'geometric',
         'weighted_by', 'weighted_as', 'weighted_pairs',
@@ -68,6 +68,7 @@ playground_imports: dict[str, list[str]] = {
     'frps': [
         'FRP', 'frp', 'conditional_frp', 'is_frp', 'frp_factory', 'evolve',
         'average_conditional_entropy', 'mutual_information', 'shuffle',
+        'activate', 'independent_join',
     ],
     'calculate': ['substitute', 'substitute_with', 'substitution'],
     'numeric': ['numeric_exp', 'numeric_ln', 'numeric_log10', 'numeric_log2',
@@ -83,7 +84,7 @@ playground_imports: dict[str, list[str]] = {
     ],
     'vec_tuples': [
         'VecTuple',
-        'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float', 'as_bool',
+        'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float', 'as_bool', 'as_numpy',
         'map_to_vec_tuple', 'is_vec_tuple', 'vec_tuple',
     ],
     'market': [
