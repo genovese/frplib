@@ -1200,16 +1200,16 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
     def conditional_kind_of(self) -> 'ConditionalKind':
         "Computes the conditional Kind of this conditional FRP. Warning: Evaluates target Kinds."
         if self._is_dict:
-            c_kind = {k: kind(v) for k, v in self._target_map.items()}
-            return ConditionalKind(c_kind, codim=self._codim, dim=self._dim, domain=c_kind.keys())
+            return ConditionalKind({k: kind(v) for k, v in self._target_map.items()},
+                                   codim=self._codim, dim=self._dim, domain=self._target_map.keys())
 
         if self._has_domain_set:
             domain = self._domain_set
 
             # If we've evaluated the whole domain, convert to a dictionary
             if domain == set(self._target_map.keys()):
-                c_kind = {k: kind(v) for k, v in self._target_map.items()}
-                return ConditionalKind(c_kind, codim=self._codim, dim=self._dim, domain=domain)
+                return ConditionalKind({k: kind(v) for k, v in self._target_map.items()},
+                                       codim=self._codim, dim=self._dim, domain=domain)
         else:
             domain = self._domain   # type: ignore
 
@@ -1220,8 +1220,8 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
 
     def clone(self) -> ConditionalFRP:
         if self._is_dict:
-            cloned = {k: v.clone() for k, v in self._target_map.items()}
-            return ConditionalFRP(cloned, codim=self._codim, dim=self._dim, domain=self._domain,
+            return ConditionalFRP({k: v.clone() for k, v in self._target_map.items()},
+                                  codim=self._codim, dim=self._dim, domain=self._domain,
                                   auto_clone=self._auto_clone)
 
         # NB! We clone here out of caution, in case a function returns an existing FRP
@@ -1406,8 +1406,8 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
         s_dim = statistic.dim
 
         if self._is_dict:
-            f_mapping = {k: statistic(v) for k, v in self._joined_map.items()}
-            return ConditionalFRP(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain,
+            return ConditionalFRP({k: statistic(v) for k, v in self._joined_map.items()},
+                                  codim=self._codim, target_dim=s_dim, domain=domain,
                                   auto_clone=self._auto_clone)
 
         if self._dim is not None:
@@ -1452,8 +1452,8 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
         s_dim = statistic.dim
 
         if self._is_dict:
-            f_mapping = {k: statistic(v) for k, v in self._target_map.items()}
-            return ConditionalFRP(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain,
+            return ConditionalFRP({k: statistic(v) for k, v in self._target_map.items()},
+                                  codim=self._codim, target_dim=s_dim, domain=domain,
                                   auto_clone=self._auto_clone)
 
         if self._dim is not None:
@@ -1490,10 +1490,10 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
         # proj = drop_input(self._codim)
 
         if self._is_dict or (self._has_domain_set and self._domain_set == set(self._joined_map.keys())):
-            mapping = {given: (frp >> cfrp).transform(drop_input(len(given)))
-                       for given, frp in self._joined_map.items()}
-            return ConditionalFRP(mapping, codim=self._codim, dim=cfrp._dim, domain=domain,
-                                  auto_clone=self._auto_clone)
+            return ConditionalFRP(
+                {given: (frp >> cfrp).transform(drop_input(len(given)))
+                 for given, frp in self._joined_map.items()},
+                codim=self._codim, dim=cfrp._dim, domain=domain, auto_clone=self._auto_clone)
 
         def joined(*given):
             return (self(*given) >> cfrp).transform(drop_input(len(given)))

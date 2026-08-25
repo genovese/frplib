@@ -550,7 +550,7 @@ class VecTuple(tuple[T, ...]):
         joined = []
         for vt in map(as_vec_tuple, vtups):
             joined.extend(list(vt))
-        return cls(joined)
+        return cls(cast(Iterable[T], joined))
 
     @classmethod
     def concat(cls: Type[Self], *values: Self) -> Self:

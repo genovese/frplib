@@ -2656,8 +2656,8 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
         s_dim = statistic.dim
 
         if self._is_dict:
-            f_mapping = {k: statistic(v) for k, v in self._joined_map.items()}
-            return ConditionalKind(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain)
+            return ConditionalKind({k: statistic(v) for k, v in self._joined_map.items()},
+                                   codim=self._codim, target_dim=s_dim, domain=domain)
 
         if self._dim is not None:
             def transformed(*value):
@@ -2698,8 +2698,8 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
         s_dim = statistic.dim
 
         if self._is_dict:
-            f_mapping = {k: statistic(v) for k, v in self._target_map.items()}
-            return ConditionalKind(f_mapping, codim=self._codim, target_dim=s_dim, domain=domain)
+            return ConditionalKind({k: statistic(v) for k, v in self._target_map.items()},
+                                   codim=self._codim, target_dim=s_dim, domain=domain)
 
         def transformed(*value):
             return statistic(self._target_fn(*value))
@@ -2726,8 +2726,9 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
 
         # For dict or function with whole domain seen, use a dict; otherwise wrap the function
         if self._is_dict or (self._has_domain_set and self._domain_set == set(self._joined_map.keys())):
-            mapping = {given: (kind >> ckind).map(drop_input(len(given))) for given, kind in self._joined_map.items()}
-            return ConditionalKind(mapping, codim=self._codim, dim=ckind._dim, domain=domain)
+            return ConditionalKind(
+                {given: (kind >> ckind).map(drop_input(len(given))) for given, kind in self._joined_map.items()},
+                codim=self._codim, dim=ckind._dim, domain=domain)
 
         def joined(*given):
             return (self.joined(*given) >> ckind).map(drop_input(len(given)))

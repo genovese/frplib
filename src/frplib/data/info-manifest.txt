@@ -80,14 +80,14 @@ Kinds:
         arbitrary: factories kind arbitrary.md
         evenly_spaced: factories kind evenly_spaced.md
         integers: factories kind integers.md
-        symmetric: factories kind .md
-        linear: factories kind .md
-        geometric: factories kind .md
+        symmetric: factories kind symmetric.md
+        linear: factories kind linear.md
+        geometric: factories kind geometric.md
         without_replacement: factories kind without_replacement.md
-        subsets: factories kind .md
-        permutations_of: factories kind .md
-        ordered_samples: factories kind .md
-        bin: factories kind .md
+        subsets: factories kind subsets.md
+        permutations_of: factories kind permutations_of.md
+        ordered_samples: factories kind ordered_samples.md
+        bin: factories kind bin.md
     Custom Kind Factories: kinds factories.md
     Kind Procedures: kinds procedures.md
     Kind Combinators:
@@ -234,14 +234,14 @@ Factories: factories.md
         arbitrary: factories kind arbitrary.md
         evenly_spaced: factories kind evenly_spaced.md
         integers: factories kind integers.md
-        symmetric: factories kind .md
-        linear: factories kind .md
-        geometric: factories kind .md
+        symmetric: factories kind symmetric.md
+        linear: factories kind linear.md
+        geometric: factories kind geometric.md
         without_replacement: factories kind without_replacement.md
-        subsets: factories kind .md
-        permutations_of: factories kind .md
-        ordered_samples: factories kind .md
-        bin: factories kind .md
+        subsets: factories kind subsets.md
+        permutations_of: factories kind permutations_of.md
+        ordered_samples: factories kind ordered_samples.md
+        bin: factories kind bin.md
     Statistic Factories: factories Statistics.md
         statistic: factories statistic constructors.md
         scalar_statistic: factories statistic constructors.md
@@ -270,6 +270,7 @@ Combinators: combinators.md
     Kind Combinators: combinators kind.md
     Statistic Combinators: combinators statistic.md
 Actions: actions.md
+Market Tools: market.md
 Values and Vector Tuples: vectuples.md
 Numeric Calculations: numerics.md
     is_zero: numerics is_zero.md

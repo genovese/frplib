@@ -1,6 +1,24 @@
 # Changelog
 
-## 0.2.14 - 2026-08-??
+## 0.3.1 - 2026-08-24
+
+### Changed
+
+- Updated textbook
+
+- Elaborated the info hierarchy
+
+### Added
+
+- Many new info documents, but many still missing
+  or incomplete in the new system.
+
+### Fixed
+
+- Several internal typing irregularities
+
+
+## 0.2.14 - 2026-08-23
 
 The info system is up and running, but some documents
 are still not populated. (There are many!) So this
