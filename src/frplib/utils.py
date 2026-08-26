@@ -11,6 +11,7 @@ from typing_extensions import Any, Concatenate, ParamSpec, TypeGuard
 from frplib.env        import environment
 from frplib.exceptions import OperationError
 from frplib.protocols  import Renderable
+from frplib.unique     import INFO_AUTO
 
 #
 # Generic
@@ -25,8 +26,20 @@ def identity(x: A) -> A:
     return x
 
 def const(a: A) -> Callable[[Any], A]:
-    "Returns a constant function that returns the given value."
-    def const_fn(x: Any) -> A:
+    """Returns a constant function that returns the given value.
+
+    The value can be of any type, and the returned function accepts
+    exactly one argument.
+
+    Example
+    ```python
+        f = const(10)
+        f(4)     #=> 10
+        f(0)     #=> 10
+        f('foo') #=> 10
+
+    """
+    def const_fn(_x: Any) -> A:
         return a
     return const_fn
 
@@ -203,7 +216,7 @@ def index_where(predicate, xs, not_found=-1, *, start=0, stop=sys.maxsize):
         return not_found
 
     for i, v in enumerate(xs):
-        if i >= start and i < stop and predicate(v):
+        if start <= i < stop and predicate(v):
             return i
     return not_found
 
@@ -464,21 +477,15 @@ def show(x, *, print_it=True, indent=0, render=True):
 # Info tags
 #
 
-setattr(clone, '__info__', 'utilities')
-setattr(dim, '__info__', 'utilities')
-setattr(codim, '__info__', 'utilities')
-setattr(size, '__info__', 'utilities')
-setattr(values, '__info__', 'utilities')
-setattr(identity, '__info__', 'utilities')
-setattr(const, '__info__', 'utilities')
-setattr(compose, '__info__', 'utilities')
-setattr(irange, '__info__', 'utilities::irange')
-setattr(index_of, '__info__', 'utilities::index_of')
-setattr(index_where, '__info__', 'utilities::index_where')
-setattr(every, '__info__', 'utilities')
-setattr(some, '__info__', 'utilities')
-setattr(lmap, '__info__', 'utilities')
-setattr(is_tuple, '__info__', 'utilities')
-setattr(frequencies, '__info__', 'utilities')
-setattr(show, '__info__', 'utilities::show')
-setattr(iterate, '__info__', 'utilities::iterate')
+for obj in [
+    clone,
+    identity, const,
+    compose, every, some,
+    index_of, index_where, irange,
+    iterate, iterates,
+    lmap, fold, fold1,
+    frequencies,
+    values, dim, codim, size, typeof,
+    show,
+]:
+    setattr(clone, '__info__', INFO_AUTO)

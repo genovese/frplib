@@ -29,6 +29,7 @@ from frplib.numeric    import (Numeric, NumericQ, NumericQuantity, ScalarQ, noth
                                as_nice_numeric, as_numeric, as_real, is_scalar_q,
                                numeric_q_from_str, show_values, show_nice_numeric)
 from frplib.symbolic   import Symbolic, is_symbolic, symbol
+from frplib.unique     import INFO_AUTO
 from frplib.vec_tuples import VecTuple, vec_tuple
 
 
@@ -152,15 +153,36 @@ def as_quant_vec(x, convert=as_quantity):
         return VecTuple(map(convert, x))
     return vec_tuple(convert(x))
 
-def qvec(*xs, convert=as_quantity):
-    "Wraps its arguments in a quantitative vector. If given a single iterable, converts that instead."
+def tup(*xs, convert=as_quantity):
+    """Wraps its arguments in a quantitative vector.
+
+    It accepts either a single iterable argument that should contain the
+    quantifiables to be included in the tuple *or* one or more
+    quantifiable arguments that will be the components of the resulting
+    tuple.
+
+    To combine tuples and quantities into a single tuple, see
+    `VecTuple.join`.
+
+    Examples
+
+    + `tup(1, 2, 3)` => <1, 2, 3>
+    + `tup(1)` => <1>
+    + `tup('1/2')` => <0.5>
+    + `tup()` => <>
+    + `tup([10, 20, 30, 40])` => <10, 20, 30, 40>
+    + `tup(['10', '20', '30', '40'])` => <10, 20, 30, 40>
+
+    """
     if len(xs) == 0:
         return vec_tuple()
     if len(xs) == 1 and isinstance(xs[0], Iterable) and not isinstance(xs[0], str):
         return as_quant_vec(xs[0], convert=convert)
     return as_quant_vec(xs, convert=convert)
 
-tup = qvec  # NOTE: tup is the user-facing version we will use henceforth, allows specialization later
+# NOTE CRG Aug 2026: tup is the user-facing version, qvec still used internally from earlier
+# We will specialize later.
+qvec = tup
 
 def show_quantity(x: Numeric | Symbolic | Nothing, digits=None) -> str:
     """Converts a single quantity to a string, hopefully in a pleasant way."""
@@ -242,5 +264,5 @@ def show_qtuple(
 # Info tags
 #
 
-setattr(qvec, '__info__', 'utilities')
-setattr(as_quantity, '__info__', 'utilities')
+setattr(tup, '__info__', INFO_AUTO)
+setattr(as_quantity, '__info__', INFO_AUTO)

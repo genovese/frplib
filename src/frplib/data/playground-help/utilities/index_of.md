@@ -1,10 +1,13 @@
 # index_of
 
+`index_of` finds the index of a value in a sequence.
+The full signature is
 ```
 index_of(value, xs, not_found=-1, *, start=0, stop=sys.maxsize)
 ```
+where `xs` is the sequence.
 
-Returns the index of `value` in `xs`, or `not_found` if none. If xs
+This returns the index of `value` in `xs`, or `not_found` if none. If `xs`
 is a list or tuple, restrict attention to the slice from start to
 stop, exclusive, where start <= stop.
 

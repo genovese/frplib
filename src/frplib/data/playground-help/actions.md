@@ -14,11 +14,16 @@ or producing a random sample. There are currently only a few main actions:
       the process is evolved `n_steps` times. Returns the Kind of the
       state after the specified number of steps.
 
-+ `D_` :: The distribution operator for a Kind or FRP.
++ `FRP.sample` :: activate clones of a given FRP and tabulates the results. Also accepts a Kind.
+      This is the same functionality as running a demo in the frp market.
+      `FRP.sample(n, X)` will demo `n` clones of `X` if `X` is an FRP or `n` FRPs
+      with Kind `X` if `X` is a Kind. The optional argument `summary` defaults
+      to True; if False, the values of all individual samples are given.
+      Example: `FRP.sample(10_000, either(0,1))`
 
-   If `X` is an FRP (or a Kind), then `D_(X)` returns a function from statistics
-   to values. Specifically, `D_(X)(psi) = E(psi(X))` for any compatible statistic
-   `psi`.
+
+The following are covered elsewhere but can generate output or additional computation
+and so are listed here in that spirit.
 
 + `E` :: Computes expectations/risk-neutral prices for Kinds, FRPs, conditional Kinds,
          and conditional FRPs.
@@ -37,13 +42,6 @@ or producing a random sample. There are currently only a few main actions:
    This function returns the expectation/risk-neutral price for the Kind/FRP
    associated with that value.
    
-+ `FRP.sample` :: activate clones of a given FRP and tabulates the results. Also accepts a Kind.
-      This is the same functionality as running a demo in the frp market.
-      `FRP.sample(n, X)` will demo `n` clones of `X` if `X` is an FRP or `n` FRPs
-      with Kind `X` if `X` is a Kind. The optional argument `summary` defaults
-      to True; if False, the values of all individual samples are given.
-      Example: `FRP.sample(10_000, either(0,1))`
-
 + `unfold` :: Accepts any Kind and shows the unfolded tree. This is usually
       applied to Kinds of dimension greater than 1. It does not currently 
       support Kinds with symbolic weights. 

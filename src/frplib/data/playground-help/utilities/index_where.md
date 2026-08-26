@@ -1,10 +1,13 @@
 # index_where
 
+`index_where` finds the index in a sequence where a predicate is first True.
+The full signature is
 ```
-index_where(predicate, xs, not_found=-1, *, start=0, stop=sys.maxsize)
+  index_where(predicate, xs, not_found=-1, *, start=0, stop=sys.maxsize)
 ```
+where `predicate` is a Boolean function and `xs` is the sequence.
 
-Returns the index in `xs` at which `predicate` first returns True, 
+This returns the index in `xs` at which `predicate` first returns True, 
 or `not_found` if none. If xs is a list or tuple, restrict attention 
 to the slice from start to stop, exclusive, where start <= stop.
 

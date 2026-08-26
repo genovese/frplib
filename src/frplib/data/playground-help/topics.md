@@ -1,41 +1,28 @@
-Playground help is available for the general topics listed below. In
-addition, if you pass info() a function or object from the playground,
-it will attempt to display guidance on an appropriate topic. For
-example, `info(uniform)`. Keep in mind you can also use Python's
-built-in help to get usage documentation on any function, like
-`help(uniform)`, though you should probably try `info` first.
+Calling `info()` in the playground will start the interactive help
+system. You will be given a set of topics, arranged hierarchically,
+and you can navigate through the topic keys by moving (with arrow
+keys or C-n/C-p) or by typing to do a fuzzy search on the nodes at
+the current level. Hitting enter when on a node will open that node,
+either a subtree or a document. The `Go Back` node will take you to
+a higher level in the hierarchy.
 
-In addition, `info` accepts a topic string (in quotes) as an argument.
-The top-level topics are:
+In addition, if you pass info() a function or object from the
+playground, it will attempt to display guidance on an appropriate
+topic. For example, `info(uniform)`.
 
-General Topics
---------------
-+ overview
-+ actions
-+ frps
-+ frp-combinators
-+ frp-factories
-+ kinds
-+ kind-combinators
-+ kind-factories
-+ numerics
-+ statistics
-+ statistic-builtins
-+ statistic-combinators
-+ statistic-factories
-+ projections
-+ utilities
-+ modules
-+ object-index
+In addition, `info` accepts a topic string (in quotes) as an
+argument. If it is an exact topic key (see below for a list), you
+will be shown that document. Otherwise, that string will be used as
+an initial search key to narrow the list of topics at the top level.
+There is generally no need to use or remember the full keys.
 
-These topics are hierarchically organized, and many have
-sub-topics with seperate info pages. Each topic's page
-lists the available sub-topics derived from it.
+You can also use Python's built-in help to get usage documentation
+on any function, like `help(uniform)`. This will get the info
+document if available. To force the native help function pass `True`
+as the second argument, e.g., `help(uniform, True)`.
 
-A sub-topic name is formed by joining the topic name to the sub-topic
-with `::`. For example, `kinds::factories::uniform` gives details on
-the `uniform` factory. (Incidentally, this is the same page you get
-if you call `info(uniform)` on the `uniform` function directly.)
+A full topic name is formed by joining the names at every level
+with `::` along the path from the root to the node of interest.
 
-
-
+Full Topic Keys
+---------------

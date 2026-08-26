@@ -22,14 +22,24 @@ from __future__ import annotations
 from decimal import Decimal
 
 from frplib.kinds import (                                # pylint: disable=redefined-builtin
+    # Classes
     Kind, ConditionalKind,
-    kind, conditional_kind,
-    is_kind, kind_factory, given,
-    unfold, clean, fast_join_pow, bayes, branch,
-    constant, uniform, choice, binary, either,   # DEPRECATED: either
+    # Smart constructors and factory decorators
+    kind, conditional_kind, kind_factory,
+    # Utilities
+    is_kind, given,
+    clean, fast_join_pow, bayes,
+    # Display
+    unfold,
+    # Combinators
+    bin, branch,
+    # Factories
+    constant, uniform, choice, binary,
+    either,   # DEPRECATED
     symmetric, linear, geometric,
     weighted_by, weighted_as, weighted_pairs,
-    arbitrary, integers, evenly_spaced, bin,
+    arbitrary,
+    integers, evenly_spaced,
     without_replacement, ordered_samples, subsets, permutations_of,
 )
 

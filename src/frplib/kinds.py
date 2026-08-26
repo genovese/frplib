@@ -41,6 +41,7 @@ from frplib.quantity   import (as_quantity, as_nice_quantity, as_quant_vec, is_q
 from frplib.statistics import (Condition, MonoidalStatistic, Statistic,
                                analyze_domain, compose2, Proj, statistic, tuple_safe)
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol, is_zero
+from frplib.unique     import INFO_AUTO
 from frplib.utils      import compose, const, dim, identity, is_interactive, is_tuple, lmap
 from frplib.vec_tuples import (VecTuple, as_numeric_vec, as_scalar_strict, as_vec_tuple, vec_tuple,
                                as_scalar_weak, value_set_from)
@@ -2915,27 +2916,25 @@ def tbl(mix, pad=': '):
 # Info tags
 #
 
-setattr(kind, '__info__', 'kind-factories::kind')
-setattr(conditional_kind, '__info__', 'kind-factories')
-setattr(constant, '__info__', 'kind-factories::constant')
-setattr(uniform, '__info__', 'kind-factories::uniform')
-setattr(either, '__info__', 'kind-factories::either')
-setattr(binary, '__info__', 'kind-factories::binary')
-setattr(weighted_as, '__info__', 'kind-factories::weighted_as')
-setattr(weighted_by, '__info__', 'kind-factories::weighted_by')
-setattr(weighted_pairs, '__info__', 'kind-factories::weighted_pairs')
-setattr(symmetric, '__info__', 'kind-factories')
-setattr(linear, '__info__', 'kind-factories')
-setattr(geometric, '__info__', 'kind-factories')
-setattr(arbitrary, '__info__', 'kind-factories')
-setattr(integers, '__info__', 'kind-factories')
-setattr(evenly_spaced, '__info__', 'kind-factories')
-setattr(without_replacement, '__info__', 'kind-factories')
-setattr(ordered_samples, '__info__', 'kind-factories')
-setattr(subsets, '__info__', 'kind-factories')
-setattr(permutations_of, '__info__', 'kind-factories')
-setattr(bin, '__info__', 'kind-combinators::bin')
-setattr(unfold, '__info__', 'actions')
-setattr(clean, '__info__', 'actions')
-setattr(fast_join_pow, '__info__', 'kind-combinators::fast_join_pow')
-setattr(bayes, '__info__', 'kind-combinators')
+for obj in [
+    # Smart constructors and factory decorators
+    kind, conditional_kind,
+    # Utilities
+    is_kind, given,
+    clean, fast_join_pow, bayes,
+    # Display
+    unfold,
+    # Combinators
+    bin, branch,
+    # Factories
+    constant, uniform, choice, binary,
+    either,   # DEPRECATED
+    symmetric, linear, geometric,
+    weighted_by, weighted_as, weighted_pairs,
+    arbitrary,
+    integers, evenly_spaced,
+    without_replacement, ordered_samples, subsets, permutations_of,
+]:
+    setattr(obj, '__info__', INFO_AUTO)
+
+setattr(kind_factory, '__info__', 'Factories')

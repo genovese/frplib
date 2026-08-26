@@ -28,6 +28,14 @@ so these accept a variety of forms, including for instance string fractions
 like '1/3' or '7/9'. In the rare cases where you want to do the conversion
 yourself, see `as_quantity` below.
 
+Note that the string form of a quantity can be different than
+passing in a float. For instance, the number 0.1 does not have an
+exact binary expansion, so `as_quantity(0.1)` will be less precise
+than `as_quantity('0.1')` as the former is first converted to an
+(inexact) float before being converted to a quantity whereas the
+latter is converted to a quantity (more precise) directly. It is
+rare that one needs to worry about this, however.
+
 ## Numeric Tests
 
 + `is_zero(x)` :: test if a quantity is zero

@@ -5,6 +5,7 @@
 from __future__          import annotations
 
 import re
+import sys
 
 from collections.abc     import Callable
 from importlib.resources import as_file, files
@@ -29,6 +30,7 @@ from frplib.exceptions       import PlaygroundError
 from frplib.repls.help       import help                # pylint: disable=redefined-builtin
 from frplib.repls.info_types import InfoNode, InfoTree
 from frplib.repls.paging     import print_paged
+from frplib.unique           import INFO_AUTO
 
 if __name__ == '__main__':
     # Regenerating frplib/data/info_tree.py (see below) must not require
@@ -237,11 +239,13 @@ def menu_select_via_dialog(root_data: InfoTree, action: Callable | None, **kwds)
 
         @nav_kb.add("up")
         @nav_kb.add("c-p")
-        def _nav_up(event):   _nav(-1)
+        def _nav_up(_event):
+            _nav(-1)
 
         @nav_kb.add("down")
         @nav_kb.add("c-n")
-        def _nav_down(event):  _nav(1)
+        def _nav_down(_event):
+            _nav(1)
 
         search_field.control.key_bindings = nav_kb
 
@@ -430,7 +434,25 @@ def _flattened_menu(menu: InfoTree, *, key: str, path: list[str]) -> dict[str, I
         path.pop()
     return flattened
 
+def _menu_leaves(menu: InfoTree, *, files_of: dict | None = None, check=False) -> dict[str, list[str]]:
+    if files_of is None:
+        files_of = {}
+    for k in menu:
+        subtree = menu[k]['subtopics']
+        if subtree is None:  # leaf
+            if r' ' not in k and 'filepath' in menu[k] and (fpath := menu[k]['filepath']):
+                if check and k in files_of and (''.join(fpath) != ''.join(files_of[k])):
+                    print(f'Warning: info leaf {k} has conflicting file paths {fpath} and {files_of[k]}',
+                          file=sys.stderr)
+                files_of[k] = fpath
+        else:
+            _menu_leaves(subtree, files_of=files_of)
+
+    return files_of
+
+
 info_tree_joined: dict[str, InfoNode] = _flattened_menu(info_tree, key='', path=[])
+info_tree_leaves: dict[str, list[str]] = _menu_leaves(info_tree)   # somewhat profligate but fine
 
 def info_interactive(menu: InfoTree, pager=None):
     """Runs the interactive info system for the playground."""
@@ -506,9 +528,18 @@ def get_info_markdown(docpath: list[str] | None = None, *, obj=None) -> Markdown
 
     if obj is not None:
         if hasattr(obj, '__info__'):
-            docpath = obj.__info__.split('::')
-            if docpath:
-                docpath[-1] += '.md'  # Always a markdown file at the end
+            if obj.__info__ is INFO_AUTO:
+                if hasattr(obj, '__name__') and obj.__name__ in info_tree_leaves:
+                    docpath = info_tree_leaves[obj.__name__]
+                else:
+                    return None  # ATTN:Aug2026  print warning??
+            else:
+                docpath = obj.__info__.split('::')
+                if docpath:
+                    # Always a markdown file at the end
+                    # NOTE: This mutation OK since we created docpath here
+                    # but docpath from elsewhere should be read-only!
+                    docpath[-1] += '.md'
         else:
             return None
 
@@ -769,24 +800,24 @@ def _make_info_dict():
 
     return data
 
-# Executing with uv run will produce a new version of info_tree.py
+# Executing with make or uv run will produce a new version of info_tree.py
 
 if __name__ == '__main__':
     import pprint
     import subprocess
     import sys
 
-    it = _make_info_dict()
+    it_table = _make_info_dict()
     tree_rs = files('frplib.data') / 'info_tree.py'
 
     with as_file(tree_rs) as physical_path:
-        with physical_path.open("w", encoding='utf-8') as f:
+        with physical_path.open("w", encoding='utf-8') as tree_file:
             print(f"Generating {str(physical_path)}...", end='', flush=True)
             print('"""Generated file defining the dictionary representing the info topic document tree."""',
-                  file=f)
-            print("\nfrom frplib.repls.info_types import InfoTree\n", file=f)
-            print("info_tree: InfoTree = ", file=f, end='')
-            pprint.pp(it, stream=f, indent=4, width=100)
+                  file=tree_file)
+            print("\nfrom frplib.repls.info_types import InfoTree\n", file=tree_file)
+            print("info_tree: InfoTree = ", file=tree_file, end='')
+            pprint.pp(it_table, stream=tree_file, indent=4, width=100)
 
         print(" formatting...", end='', flush=True)
         try:

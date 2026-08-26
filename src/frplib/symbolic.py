@@ -17,6 +17,7 @@ from frplib.exceptions import ConstructionError, MismatchedDomain
 from frplib.numeric    import (Numeric, ScalarQ, Nothing,
                                as_real, as_nice_numeric, as_numeric,
                                is_scalar_q, show_numeric)
+from frplib.unique     import INFO_AUTO
 # from frplib.protocols  import NamedCallable
 # from frplib.utils      import every
 
@@ -223,7 +224,7 @@ class Symbolic(ABC):
         if isinstance(other, str):
             return str(self) < other
         if is_scalar_q(other):
-            pv = self.pure_value()
+            pv = self.pure_value()   # pylint: disable=assignment-from-no-return
             if pv is not None:
                 return pv < as_real(other)
         return True
@@ -235,7 +236,7 @@ class Symbolic(ABC):
         if isinstance(other, str):
             return str(self) > other
         if is_scalar_q(other):
-            pv = self.pure_value()
+            pv = self.pure_value()   # pylint: disable=assignment-from-no-return
             if pv is not None:
                 return pv > as_real(other)
         return False
@@ -247,7 +248,7 @@ class Symbolic(ABC):
         if isinstance(other, str):
             return str(self) <= other
         if is_scalar_q(other):
-            pv = self.pure_value()
+            pv = self.pure_value()   # pylint: disable=assignment-from-no-return
             if pv is not None:
                 return pv <= as_real(other)
         return True
@@ -259,7 +260,7 @@ class Symbolic(ABC):
         if isinstance(other, str):
             return str(self) >= other
         if is_scalar_q(other):
-            pv = self.pure_value()
+            pv = self.pure_value()   # pylint: disable=assignment-from-no-return
             if pv is not None:
                 return pv >= as_real(other)
         return False
@@ -1055,7 +1056,7 @@ def symbolic(numerator: Union[Symbolic, str], denominator: Union[Symbolic, Liter
         numerator = symbol(numerator)
 
     npv = numerator.pure_value()
-    dpv = denominator.pure_value() if denominator != 1 else 1  # type: ignore
+    dpv = denominator.pure_value() if denominator != 1 else 1
     if npv is not None and dpv is not None:
         return as_real(npv / dpv)
     elif npv is not None and denominator == 1:
@@ -1206,5 +1207,5 @@ def symbolic_lg(x: Symbolic) -> Symbolic:
 # Info tags
 #
 
-setattr(symbol, '__info__', 'utilities::symbols')
-setattr(gen_symbol, '__info__', 'utilities::symbols')
+for obj in [gen_symbol, is_symbolic, is_zero, symbol, symbols]:
+    setattr(obj, '__info__', INFO_AUTO)

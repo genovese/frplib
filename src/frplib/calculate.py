@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from frplib.kinds      import Kind
 from frplib.symbolic   import Symbolic
+from frplib.unique     import INFO_AUTO
 from frplib.vec_tuples import VecTuple
 
 
@@ -50,6 +51,6 @@ def substitution(quantity, **kw):
 # Info tags
 #
 
-setattr(substitute, '__info__', 'utilities::symbols')
-setattr(substitute_with, '__info__', 'utilities::symbols')
-setattr(substitution, '__info__', 'utilities::symbols')
+setattr(substitute, '__info__', INFO_AUTO)
+setattr(substitute_with, '__info__', INFO_AUTO)
+setattr(substitution, '__info__', INFO_AUTO)

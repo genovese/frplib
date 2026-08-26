@@ -31,6 +31,7 @@ from frplib.protocols  import Projection, SupportsExpectation, SupportsKindOf
 from frplib.quantity   import as_quant_vec, show_qtuple
 from frplib.statistics import Statistic, statistic, analyze_domain, compose2, infinity, tuple_safe, Proj
 from frplib.symbolic   import Symbolic, is_symbolic
+from frplib.unique     import INFO_AUTO
 from frplib.utils      import const, identity, is_tuple, scalarize, some
 from frplib.vec_tuples import (VecTuple, as_scalar, as_scalar_weak, as_vec_tuple, vec_tuple, value_set_from)
 
@@ -2661,8 +2662,12 @@ def _expectation_from_expr(expr: FrpExpression):
 # Info tags
 #
 
-setattr(frp, '__info__', 'frp-factories')
-setattr(conditional_frp, '__info__', 'frp-factories')
-setattr(shuffle, '__info__', 'frp-factories')
-setattr(independent_join, '__info__', 'frp-combinators')
-setattr(evolve, '__info__', 'actions')
+for obj in [
+    frp, conditional_frp, is_frp,
+    evolve,
+    shuffle,
+    activate, independent_join,
+    average_conditional_entropy, mutual_information,
+]:
+    setattr(obj, '__info__', INFO_AUTO)
+setattr(frp_factory, '__info__', 'Factories')

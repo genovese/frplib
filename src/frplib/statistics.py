@@ -2456,6 +2456,7 @@ class ProjectionFactory:
 
 
 Proj = ProjectionFactory()
+setattr(Proj, '__name__', 'Proj')   # For info lookup
 
 #
 # Additional Utility Statistics
@@ -2905,81 +2906,45 @@ def ChiSquare(expected):
 # Info tags
 #
 
-setattr(statistic, '__info__', 'statistic-factories')
-setattr(scalar_statistic, '__info__', 'statistic-factories')
-setattr(condition, '__info__', 'statistic-factories')
-setattr(Constantly, '__info__', 'statistic-factories')
-setattr(Permute, '__info__', 'statistic-factories')
-setattr(Proj, '__info__', 'statistic-factories::projections')
-setattr(Append, '__info__', 'statistic-factories')
-setattr(Prepend, '__info__', 'statistic-factories')
-setattr(ElementOf, '__info__', 'statistic-factories')
-setattr(Get, '__info__', 'statistic-factories')
-setattr(IndexOf, '__info__', 'statistic-factories')
-setattr(Contains, '__info__', 'statistic-factories')
-setattr(ChiSquare, '__info__', 'statistic-factories')
-
-setattr(__, '__info__', 'statistic-builtins')
-setattr(Id, '__info__', 'statistic-builtins')
-setattr(Scalar, '__info__', 'statistic-builtins')
-
-setattr(Sum, '__info__', 'statistic-builtins')
-setattr(Count, '__info__', 'statistic-builtins')
-setattr(Min, '__info__', 'statistic-builtins')
-setattr(Max, '__info__', 'statistic-builtins')
-setattr(ArgMin, '__info__', 'statistic-builtins')
-setattr(ArgMax, '__info__', 'statistic-builtins')
-setattr(Mean, '__info__', 'statistic-builtins')
-setattr(Ascending, '__info__', 'statistic-builtins')
-setattr(Descending, '__info__', 'statistic-builtins')
-setattr(Distinct, '__info__', 'statistic-builtins')
-setattr(Median, '__info__', 'statistic-builtins')
-setattr(Quartiles, '__info__', 'statistic-builtins')
-setattr(IQR, '__info__', 'statistic-builtins')
-setattr(Binomial, '__info__', 'statistic-builtins')
-setattr(Diff, '__info__', 'statistic-builtins')
-setattr(Diffs, '__info__', 'statistic-builtins')
-setattr(Dim, '__info__', 'statistic-builtins')
-setattr(Abs, '__info__', 'statistic-builtins')
-setattr(Sqrt, '__info__', 'statistic-builtins')
-setattr(Floor, '__info__', 'statistic-builtins')
-setattr(Ceil, '__info__', 'statistic-builtins')
-setattr(Exp, '__info__', 'statistic-builtins')
-setattr(Log, '__info__', 'statistic-builtins')
-setattr(Log2, '__info__', 'statistic-builtins')
-setattr(Log10, '__info__', 'statistic-builtins')
-setattr(Sin, '__info__', 'statistic-builtins')
-setattr(Cos, '__info__', 'statistic-builtins')
-setattr(Tan, '__info__', 'statistic-builtins')
-setattr(ACos, '__info__', 'statistic-builtins')
-setattr(ASin, '__info__', 'statistic-builtins')
-setattr(ATan2, '__info__', 'statistic-builtins')
-setattr(Sinh, '__info__', 'statistic-builtins')
-setattr(Cosh, '__info__', 'statistic-builtins')
-setattr(Tanh, '__info__', 'statistic-builtins')
-setattr(FromDegrees, '__info__', 'statistic-builtins')
-setattr(FromRadians, '__info__', 'statistic-builtins')
-setattr(NormalCDF, '__info__', 'statistic-builtins')
-setattr(SumSq, '__info__', 'statistic-builtins')
-setattr(Norm, '__info__', 'statistic-builtins')
-setattr(Dot, '__info__', 'statistic-builtins')
-setattr(StdDev, '__info__', 'statistic-builtins')
-setattr(Variance, '__info__', 'statistic-builtins')
-setattr(Cases, '__info__', 'statistic-builtins')
-setattr(Bag, '__info__', 'statistic-builtins')
-setattr(Freqs, '__info__', 'statistic-builtins')
-setattr(top, '__info__', 'statistic-builtins')
-setattr(bottom, '__info__', 'statistic-builtins')
-
-setattr(Fork, '__info__', 'statistic-combinators')
-setattr(MFork, '__info__', 'statistic-combinators')
-setattr(ForEach, '__info__', 'statistic-combinators')
-setattr(IfThenElse, '__info__', 'statistic-combinators')
-setattr(Keep, '__info__', 'statistic-combinators')
-setattr(MaybeMap, '__info__', 'statistic-combinators')
-setattr(And, '__info__', 'statistic-combinators')
-setattr(Or, '__info__', 'statistic-combinators')
-setattr(Not, '__info__', 'statistic-combinators')
-setattr(Xor, '__info__', 'statistic-combinators')
-setattr(All, '__info__', 'statistic-combinators')
-setattr(Any, '__info__', 'statistic-combinators')
+for obj in [
+    # Smart constructors and factory decorators
+    statistic, condition, scalar_statistic,
+    statistic_factory, condition_factory,
+    # Utilities
+    is_statistic, is_true, is_false,
+    tuple_safe, flexible_inputs, scalar_fn,
+    # Builtins: Tuple Functions
+    Id, Scalar, __, _x_, Count, Dim,
+    Sum, Product,
+    Ascending, Descending,
+    # Builtins: Arithmetic
+    Sqrt, Exp, Log, Log2, Log10,
+    Floor, Ceil,
+    # Builtins: Trigonometric
+    Sin, Cos, Tan, ACos, ASin, ATan2, Sinh, Cosh, Tanh,
+    FromDegrees, FromRadians,
+    # Builtins: Vector Operations
+    Norm, Dot, Abs, SumSq,
+    # Builtins: Special Functions
+    NormalCDF, Binomial,
+    # Builtins: Statistical Summaries
+    Max, Min, ArgMin, ArgMax, Diff,
+    Mean, StdDev, Variance,
+    Median, Quartiles, IQR,
+    Bag, Freqs,
+    # Statistic Factories
+    Proj, Constantly, Append, Prepend, Permute,
+    Get, Keep, MaybeMap,
+    IndexOf, Cases, ChiSquare,
+    # Statistic Combinators
+    Chain, Compose,
+    Diffs,
+    Fork, MFork, ForEach, IfThenElse,
+    # Conditions
+    Distinct, top, bottom,
+    # Condition Factories
+    Contains, ElementOf,
+    # Condition Combinators
+    And, Or, Not, Xor, All, Any,
+]:
+    setattr(obj, '__info__', INFO_AUTO)

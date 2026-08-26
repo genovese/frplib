@@ -49,7 +49,8 @@ FRPs:
     Builtin FRP Factories:
         shuffle: factories frp shuffle.md
     Custom FRP Factories: frps factories.md
-    FRP Procedures: frps procedures.md
+    FRP Procedures: procedures frp.md
+        given: procedures given.md
     FRP Combinators:
         Transform (^): combinators frp transform.md
         Independent Join (*): combinators frp ijoin.md
@@ -57,6 +58,12 @@ FRPs:
         Observations (|): combinators frp observations.md
         Conditioning (//): combinators frp conditioning.md
     Expectations: frps expectation.md
+    Distribution Operator: distribution-op.md
+    Utilities:
+        activate: frps activate.md
+        independent_join: computations independent_join.md
+        average_conditional_entropy: computations avg-cond-entropy.md
+        mutual_information: computations mutual-information.md
 Kinds:
     Overview: kinds overview.md
     Examining Properties: kinds properties.md
@@ -64,8 +71,8 @@ Kinds:
     Special Methods:
         Comparing Kinds:  kinds methods comparing.md
         Kernels: kinds kernels.md
-        Likelihoods: kinds kernels.md
-        Entropy: kinds kernels.md
+        Likelihoods: kinds likelihood.md
+        Entropy: kinds entropy.md
         Sampling: kinds sampling.md
         Serialization: kinds methods serialize.md
     The kind Function: kinds kind.md
@@ -87,16 +94,25 @@ Kinds:
         subsets: factories kind subsets.md
         permutations_of: factories kind permutations_of.md
         ordered_samples: factories kind ordered_samples.md
-        bin: factories kind bin.md
     Custom Kind Factories: kinds factories.md
-    Kind Procedures: kinds procedures.md
+    Kind Procedures: procedures kind.md
+        given: procedures given.md
     Kind Combinators:
-        Transform (^): combinators kinds transform.md
-        Independent Join (*): combinators kinds ijoin.md
-        General Join (>>): combinators kinds gjoin.md
-        Observations (|): combinators kinds observations.md
-        Conditioning (//): combinators kinds conditioning.md
+        Transform (^): combinators kind transform.md
+        Independent Join (*): combinator kind ijoin.md
+        General Join (>>): combinators kind gjoin.md
+        Observations (|): combinators kind observations.md
+        Conditioning (//): combinators kind conditioning.md
+        bayes: combinators kind bayes.md
+        bin: combinators kind bin.md
+        fast_join_pow: combinators kind fast_join_pow.md
     Expectations: kinds expectation.md
+    Distribution Operator: distribution-op.md
+    Utilities:
+        clean: actions clean.md
+        independent_join: computations avg-cond-entropy.md
+        average_conditional_entropy: computations avg-cond-entropy.md
+        mutual_information: computations mutual-information.md
 Statistics:
     Overview: statistics overview.md
     Builtin Constants: builtin-constants.md
@@ -104,8 +120,8 @@ Statistics:
         Tuple Functions:
             __: statistics builtins __.md
             Id: statistics builtins __.md
-            Scalar: statistics builtins scalar.md
-            _x_: statistics builtins scalar.md
+            Scalar: statistics builtins __.md
+            _x_: statistics builtins __.md
             Count: statistics builtins count.md
             Dim: statistics builtins count.md
             Sum: statistics builtins sum.md
@@ -134,8 +150,7 @@ Statistics:
             FromDegrees: statistics builtins from-degrees.md
             FromRadians: statistics builtins from-radians.md
         Vector Operations:
-            Norm: statistics builtins norm.md
-            Dot: statistics builtins dot.md
+            Dot: factories statistic dot.md
             Abs: statistics builtins abs.md
             SumSq: statistics builtins sumsq.md
         Special Functions:
@@ -155,29 +170,32 @@ Statistics:
             IQR: statistics builtins iqr.md
             Bag: statistics builtins bag.md
             Freqs: statistics builtins freqs.md
+        Conditions:
+            Distinct: statistics builtin distinct.md
     Builtin Statistic Factories: factories statistic.md
         Proj: factories statistic proj.md
         Constantly: factories statistic constantly.md
         Permute: factories statistic permute.md
         Append: factories statistic append.md
         Prepend: factories statistic prepend.md
+        Dot: factories statistic dot.md
         Get: factories statistic get.md
-        Keep: factories statistic keep.md
-        MaybeMap: factories statistic maybe-map.md
         IndexOf: factories statistic index-of.md
         Cases: factories statistic cases.md
         ChiSquare: factories statistic chisquare.md
     Builtin Condition Factories: factories condition.md
         Contains: factories condition contains.md
+        Distinct: factories condition distinct.md
         ElementOf: factories condition element-of.md
     Custom Statistic and Condition Factories: statistics custom-factories.md
     Statistic Combinators: combinators statistic.md
         Compose: combinators statistic compose.md
         Chain: combinators statistic chain.md
-        Fork: combinators statistic fork_.md
-        MFork_: combinators statistic fork.md
+        Fork: combinators statistic fork.md
         ForEach: combinators statistic foreach.md
         IfThenElse: combinators statistic ifthenelse.md
+        Keep: combinators statistic keep.md
+        MaybeMap: combinators statistic maybe-map.md
     Condition Combinators: combinators condition.md
         And: combinators condition and.md
         Or:  combinators condition or.md
@@ -202,7 +220,7 @@ Conditional FRPs:
     Tranforming Conditional FRPs: conditional-frps transforms.md
     Joining Conditional FRPs: conditional-frps joins.md
     Conditional Expectations: conditional-frps expectations.md
-    Conditional FRP Procedures: conditional-frps procedures.md
+    Conditional FRP Procedures: procedures conditional-frp.md
 Conditional Kinds:
     Overview: conditional-kinds overview.md
     Evaluation: conditional-kinds evaluations.md
@@ -211,18 +229,14 @@ Conditional Kinds:
     Tranforming Conditional Kinds: conditional-kinds transforms.md
     Joining Conditional Kinds: conditional-kinds joins.md
     Conditional Expectations: conditional-kinds expectations.md
-    Conditional Kind Procedures: conditional-kinds procedures.md
+    Conditional Kind Procedures: procedures conditional-kind.md
 The Big 3+1: big-3+1.md
-    Transforming with Statistics: big-3+1 transforms.md
-    Building with Joins: big-3+1 joins.md
-    Constraining with Observations: big-3+1 observations.md
-    Predicting with Expectations: big-3+1 expectations.md
 Factories: factories.md
-    FRP Factories: factories FRPs.md
-        frp: factories FRP frp.md
-        clone: factories FRP clone.md
-        shuffle: factories FRP shuffle.md
-    Kind Factories: factories Kinds.md
+    FRP Factories:
+        frp: frps frp-and-clone.md
+        clone: frps frp-and-clone.md
+        shuffle: factories frp shuffle.md
+    Kind Factories:
         kind: factories kind kind.md
         constant: factories kind constant.md
         binary: factories kind binary.md
@@ -241,8 +255,7 @@ Factories: factories.md
         subsets: factories kind subsets.md
         permutations_of: factories kind permutations_of.md
         ordered_samples: factories kind ordered_samples.md
-        bin: factories kind bin.md
-    Statistic Factories: factories Statistics.md
+    Statistic Factories:
         statistic: factories statistic constructors.md
         scalar_statistic: factories statistic constructors.md
         condition: factories statistic constructors.md
@@ -257,19 +270,42 @@ Factories: factories.md
         IndexOf: factories statistic index-of.md
         Cases: factories statistic cases.md
         ChiSquare: factories statistic chisquare.md
-        Condition Factories: factories condition.md
-            And: conditions factories and.md
-            Or: conditions factories or.md
-            Not: conditions factories not.md
-            Xor: conditions factories xor_.md
-            All: conditions factories all.md
-            Any: conditions factories any.md
     Custom Factories: factories custom.md
 Combinators: combinators.md
-    FRP Combinators: combinators frp.md
-    Kind Combinators: combinators kind.md
+    FRP Combinators:
+        Transform (^): combinators frp transform.md
+        Independent Join (*): combinators frp ijoin.md
+        General Join (>>): combinators frp gjoin.md
+        Observations (|): combinators frp observations.md
+        Conditioning (//): combinators frp conditioning.md
+    Kind Combinators:
+        Transform (^): combinators kind transform.md
+        Independent Join (*): combinator kind ijoin.md
+        General Join (>>): combinators kind gjoin.md
+        Observations (|): combinators kind observations.md
+        Conditioning (//): combinators kind conditioning.md
+        bayes: combinators kind bayes.md
+        bin: combinators kind bin.md
+        fast_join_pow: combinators kind fast_join_pow.md
     Statistic Combinators: combinators statistic.md
+        Compose: combinators statistic compose.md
+        Chain: combinators statistic chain.md
+        Fork: combinators statistic fork_.md
+        MFork_: combinators statistic fork.md
+        ForEach: combinators statistic foreach.md
+        IfThenElse: combinators statistic ifthenelse.md
+    Condition Combinators: combinators condition.md
+        And: combinators condition and.md
+        Or:  combinators condition or.md
+        Not: combinators condition not.md
+        Xor: combinators condition xor_.md
+        All: combinators condition all.md
+        Any: combinators condition any.md
+Procedures: procedures overview.md
+    given: procedures given.md
 Actions: actions.md
+    clean: actions clean.md
+    evolve: computations evolve.md
 Market Tools: market.md
 Values and Vector Tuples: vectuples.md
 Numeric Calculations: numerics.md
@@ -296,6 +332,8 @@ Utilities: utilities.md
         tup: utilities tup.md
         as_scalar: utilities as_scalar.md
         as_quantity: utilities as_quantity.md
+        is_quantity: utilities is_quantity.md
+        is_quantifiable: utilities is_quantifiable.md
     Sequence Helpers:
         irange: utilities irange.md
         index_of: utilities index_of.md
