@@ -32,6 +32,7 @@ from frplib.numeric    import (ScalarQ, Numeric, Nothing, nothing, as_real, nume
 from frplib.protocols  import Projection, Transformable
 from frplib.quantity   import as_quant_vec, as_quantity
 from frplib.symbolic   import Symbolic
+from frplib.unique     import INFO_AUTO
 from frplib.utils      import dim, frequencies, identity, is_interactive, is_tuple, scalarize
 from frplib.vec_tuples import (VecTuple, as_bool, as_scalar, as_scalar_strict, as_scalar_weak,
                                as_vec_tuple, is_vec_tuple, vec_tuple)
