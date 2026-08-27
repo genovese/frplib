@@ -307,7 +307,7 @@ Actions: actions.md
     clean: actions clean.md
     evolve: computations evolve.md
 Market Tools: market.md
-Values and Vector Tuples: vectuples.md
+Values and Vector Tuples: vec-tuples.md
 Numeric Calculations: numerics.md
     is_zero: numerics is_zero.md
     as_float: numerics as_float.md
@@ -357,8 +357,8 @@ Useful Programming Patterns:
     The Factory Trick: patterns factory-trick.md
     Scripts: patterns scripts.md
 Troubleshooting: troubleshooting.md
-Example Index: examples.md
-Module Index: modules.md
-Object Index: objects.md
+Example Index: example-index.md
+Module Index: module-index.md
+Object Index: object-index.md
 Resources: resources.md
 _Topics: topics.md
