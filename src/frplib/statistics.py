@@ -3038,7 +3038,7 @@ for obj in [
     # Builtins: Vector Operations
     Norm, Dot, Abs, SumSq,
     # Builtins: Special Functions
-    NormalCDF, Binomial,
+    NormalCDF, Binomial, Gamma, GammaLn,
     # Builtins: Statistical Summaries
     Max, Min, ArgMin, ArgMax, Diff,
     Mean, StdDev, Variance,
@@ -3047,7 +3047,7 @@ for obj in [
     # Statistic Factories
     Proj, Constantly, Append, Prepend, Permute,
     Get, Keep, MaybeMap,
-    IndexOf, Cases, ChiSquare,
+    IndexOf, Cases, ChiSquare, Round,
     # Statistic Combinators
     Chain, Compose,
     Diffs,
