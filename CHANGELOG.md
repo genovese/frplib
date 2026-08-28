@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.2 - 2026-08-??
+
+### Added
+
+- info database almost fully populated
+
+- Round stat factory, Gamma and GammaLn stats
+
+### Changed
+
+- weighted_by accepts extra argumets for function
+
+- small interface improvmements in subsets, without_replacement, branch
+
+### Fixed
+
+- arg_convert case in codim=1 statistics
+
+- domain checkig for numerical scalar functions
+
+- assorted numerical stat fixes/improvements
+
 ## 0.3.1 - 2026-08-24
 
 ### Changed
