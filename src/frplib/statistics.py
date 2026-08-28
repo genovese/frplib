@@ -3,7 +3,7 @@
 ATTN:fill in
 
 """
-# pylint: disable=too-many-lines, invalid-name, line-too-long
+# pylint: disable=too-many-lines, invalid-name, line-too-long, unnecessary-lambda-assignment
 
 from __future__ import annotations
 
@@ -22,8 +22,9 @@ from operator          import itemgetter
 from typing            import Callable, cast, Literal, Optional, overload, Union
 from typing_extensions import Self, TypeAlias, TypeGuard
 
+from frplib.env        import environment
 from frplib.exceptions import (OperationError, StatisticError, DomainDimensionError,
-                               InputError, MismatchedDomain)
+                               InputError, MismatchedDomain, FactoryError)
 from frplib.factories  import ConditionFactory, StatisticFactory, statlike_factory
 from frplib.numeric    import (ScalarQ, Numeric, Nothing, nothing, as_real, numeric_sqrt,
                                numeric_exp, numeric_ln, numeric_log10, numeric_log2,
@@ -31,7 +32,7 @@ from frplib.numeric    import (ScalarQ, Numeric, Nothing, nothing, as_real, nume
 
 from frplib.protocols  import Projection, Transformable
 from frplib.quantity   import as_quant_vec, as_quantity
-from frplib.symbolic   import Symbolic
+from frplib.symbolic   import Symbolic, is_symbolic
 from frplib.unique     import INFO_AUTO
 from frplib.utils      import dim, frequencies, identity, is_interactive, is_tuple, scalarize
 from frplib.vec_tuples import (VecTuple, as_bool, as_scalar, as_scalar_strict, as_scalar_weak,
@@ -1318,6 +1319,13 @@ def statistic(
         before applying the statistic.
 
     """
+    if arg_convert is not None and codim in (1, (1, 1)):  # args passed through as is
+        do_convert = arg_convert
+    elif arg_convert is not None:
+        do_convert = lambda v: map(arg_convert, v)
+    else:
+        do_convert = identity
+
     if maybe_fn is not None:
         if monoidal is None:
             s = Statistic(maybe_fn, codim, dim, name, description, strict=strict)
@@ -1325,7 +1333,7 @@ def statistic(
             s = MonoidalStatistic(maybe_fn, monoidal, codim, dim, name, description, strict=strict)
 
         if arg_convert is not None:
-            convert = Statistic(lambda v: map(arg_convert, v), codim=s.codim)
+            convert = Statistic(do_convert, codim=s.codim)
             s = compose2(s, convert)
         return s
 
@@ -1333,12 +1341,12 @@ def statistic(
         if monoidal is None:
             def decorator(fn: Callable) -> Statistic:     # Function to be converted to a statistic
                 s = Statistic(fn, codim, dim, name, description, strict=strict)
-                convert = Statistic(lambda v: map(arg_convert, v), codim=s.codim)
+                convert = Statistic(do_convert, codim=s.codim)
                 return compose2(s, convert)
         else:
             def decorator(fn: Callable) -> Statistic:     # Function to be converted to a statistic
                 s = MonoidalStatistic(fn, monoidal, codim, dim, name, description, strict=strict)
-                convert = Statistic(lambda v: map(arg_convert, v), codim=s.codim)
+                convert = Statistic(do_convert, codim=s.codim)
                 return compose2(s, convert)
     elif monoidal is None:
         def decorator(fn: Callable) -> Statistic:     # Function to be converted to a statistic
@@ -1674,24 +1682,71 @@ Max = MonoidalStatistic(max, unit=as_quantity('-infinity'), codim=0, dim=1, name
                         description='returns the maximum of all components of the given value')
 Min = MonoidalStatistic(min, unit=as_quantity('infinity'), codim=0, dim=1, name='Min',
                         description='returns the minimum of all components of the given value')
-Mean = Statistic(lambda x: sum(x) / as_real(len(x)), codim=0, dim=1, name='Mean',
+Mean = Statistic(lambda x: sum(x) / as_real(len(x)), codim=(1, infinity), dim=1, name='Mean',
                  description='returns the arithmetic mean of all components of the given value')
 Floor = Statistic(numeric_floor, codim=1, dim=1, name='Floor',
                   description='returns the greatest integer <= its argument')
 Ceil = Statistic(numeric_ceil, codim=1, dim=1, name='Ceil',
                  description='returns the least integer >= its argument')
 
-Sqrt = Statistic(numeric_sqrt, codim=1, dim=1, name='Sqrt', strict=True,
-                 description='returns the square root of a scalar argument')
-Exp = Statistic(numeric_exp, codim=1, dim=1, name='Exp', strict=True,
-                description='returns the exponential of a scalar argument')
-Log = Statistic(numeric_ln, codim=1, dim=1, name='Log', strict=True,
-                description='returns the natural logarithm of a positive scalar argument')
-Log2 = Statistic(numeric_log2, codim=1, dim=1, name='Log2', strict=True,
-                 description='returns the logarithm base 2 of a positive scalar argument')
-Log10 = Statistic(numeric_log10, codim=1, dim=1, name='Log10', strict=True,
-                  description='returns the logarithm base 10 of a positive scalar argument')
-# ATTN: Can use the decimal recipes for sin and cos
+# ATTN:Aug2026 this is not the best way, but it will do temporarily
+def scalar_numeric_stat(
+        fn: Callable,
+        name: str = '',
+        domain: tuple[float, float] | None = None,
+        complement=False,
+        doc: str = ''
+) -> Statistic:
+    fname = name or fn.__name__ or 'statistic'
+    frange_lo, frange_hi = (-infinity, infinity) if domain is None else domain
+
+    # Any finite endpoints in domain are closed, so for e.g., logs
+    # we need to complement them.
+    if complement:
+        @statistic(codim=1, dim=1, name=fname, strict=True, description=doc)
+        def _numeric_stat(x):
+            if x < frange_lo or x > frange_hi:
+                return fn(x)
+            raise StatisticError(f'argument {x} to scalar numeric {fname} '
+                                 f'in invalid range [{frange_lo}, {frange_hi}]')
+    elif domain is None:
+        @statistic(codim=1, dim=1, name=fname, strict=True, description=doc)
+        def _numeric_stat(x):
+            return fn(x)
+    else:
+        @statistic(codim=1, dim=1, name=fname, strict=True, description=doc)
+        def _numeric_stat(x):
+            if x < frange_lo or x > frange_hi:
+                raise StatisticError(f'argument {x} to scalar numeric {fname} '
+                                     f'out of range [{frange_lo}, {frange_hi}]')
+            return fn(x)
+
+    return _numeric_stat
+
+Sqrt = scalar_numeric_stat(numeric_sqrt, domain=(0, infinity), name='Sqrt',
+                           doc='returns the square root of a scalar argument')
+Exp = scalar_numeric_stat(numeric_exp, name='Exp',
+                          doc='returns the exponential of a scalar argument')
+Log = scalar_numeric_stat(numeric_ln, domain=(-infinity, 0), complement=True, name='Log',
+                          doc='returns the natural logarithm of a positive scalar argument')
+Log2 = scalar_numeric_stat(numeric_log2, domain=(-infinity, 0), complement=True, name='Log2',
+                          doc='returns the logarithm base 2 of a positive scalar argument')
+Log10 = scalar_numeric_stat(numeric_log10, domain=(-infinity, 0), complement=True, name='Log10',
+                          doc='returns the logarithm base 10 of a positive scalar argument')
+
+# Sqrt = Statistic(numeric_sqrt, codim=1, dim=1, name='Sqrt', strict=True,
+#                  description='returns the square root of a scalar argument')
+# Exp = Statistic(numeric_exp, codim=1, dim=1, name='Exp', strict=True,
+#                 description='returns the exponential of a scalar argument')
+# Log = Statistic(numeric_ln, codim=1, dim=1, name='Log', strict=True,
+#                 description='returns the natural logarithm of a positive scalar argument')
+# Log2 = Statistic(numeric_log2, codim=1, dim=1, name='Log2', strict=True,
+#                  description='returns the logarithm base 2 of a positive scalar argument')
+# Log10 = Statistic(numeric_log10, codim=1, dim=1, name='Log10', strict=True,
+#                   description='returns the logarithm base 10 of a positive scalar argument')
+
+# ATTN: the decimal package provides fast Taylor approx recipes for sin and cos
+# See also mpmath package as alternative; not sure about performance
 Sin = Statistic(math.sin, codim=1, dim=1, name='Sin', strict=True,
                 description='returns the sine of a scalar argument')
 Cos = Statistic(math.cos, codim=1, dim=1, name='Cos', strict=True,
@@ -1716,6 +1771,51 @@ def Abs(x):
     if len(x) == 1:
         return numeric_abs(x[0])
     return numeric_sqrt(sum(u * u for u in x))
+
+@scalar_statistic(codim=1)
+def Gamma(x):
+    """computes the Gamma function"""
+    return as_quantity(math.gamma(float(x)))
+
+@scalar_statistic(codim=1)
+def GammaLn(x):
+    """computes the natural log of the Gamma function"""
+    return as_quantity(math.lgamma(float(x)))
+
+@statistic_factory
+def Round(digits=0):
+    """rounds a number to a specified number of digits
+
+    If digits is positive, round numeric quantities to that
+    many places after the decimal point. If digits is negative,
+    round to the nearest -digits power of 10.
+
+    Symbolic quantities are passed through the statistic as is.
+
+    """
+    one = as_quantity('1.0')
+
+    if digits >= 0:
+        m = as_quantity(one * 10 ** digits)
+
+        @scalar_statistic(codim=1, name=f'Round({digits})', description=f'rounds a number to {digits} digits')
+        def round_it(x):
+            if isinstance(x, int) or is_symbolic(x):
+                return x
+            x_prime = as_quantity(x) * one   # ATTN:Aug2026 -- one no longer needed??
+            return x_prime.quantize(one / m, rounding=environment.numeric_out_params['rounding'])
+    else:
+        @scalar_statistic(codim=1, name=f'Round({digits})', description=f'rounds a number to {digits} digits')
+        def round_it(x):
+            if is_symbolic(x):
+                return x
+            m = 10 ** -digits
+            if isinstance(x, int):
+                return (x // m) * m
+            x_prime = as_quantity(x) * one / m
+            return m * x_prime.quantize(Decimal('1.0'), rounding=environment.numeric_out_params['rounding'])
+
+    return round_it
 
 @statistic_factory
 def Dot(*vec):
@@ -1768,7 +1868,7 @@ def Median(x):
 
 @statistic(codim=(4, infinity), dim=3)
 def Quartiles(x):
-    "returns the three quartiles of its inputs components."
+    "returns the three quartiles of its inputs components"
     n = len(x)
     sx = sorted(x)
     med = Median(x)
@@ -1808,7 +1908,9 @@ def Binomial(r, k):
     return c
 
 @scalar_statistic(name='atan2', codim=(1, 2), description='returns the sector correct arctangent')
-def ATan2(x, y=1):
+def ATan2(x_maybe_y):
+    x = x_maybe_y[0]
+    y = x_maybe_y[1] if len(x_maybe_y) > 1 else 1
     return as_quantity(math.atan2(x, y))
 
 @scalar_statistic(name='acos', codim=1, description='returns the arccosine of a number in [0_1]')
@@ -1824,12 +1926,12 @@ Pi = Decimal('3.1415926535897932384626433832795')
 @scalar_statistic(codim=1)
 def FromDegrees(degs):
     "converts a scalar in degrees to radians"
-    return Pi * degs / 180
+    return Pi * as_quantity(degs) / 180
 
 @scalar_statistic(codim=1)
 def FromRadians(rads):
     "converts a scalar in radians to degrees"
-    return 180 * rads / Pi
+    return 180 * as_quantity(rads) / Pi
 
 @scalar_statistic(name='Phi', codim=1, strict=True,
                   description='returns the cumulative distribution function of the standard Normal distribution')
@@ -2467,6 +2569,10 @@ setattr(Proj, '__name__', 'Proj')   # For info lookup
 def Cases(d, default=None):
     """represents a dictionary and optional default.
 
+    When the statistic is given a value that is a key in the
+    dictionary, the dictionary value is returned. Otherwise, the
+    default value is returned.
+
     The dictionary specifies the mapping from inputs to outputs. The
     statistic may have multiple codimensions, but all all outputs
     with the same input dimension must share a common dimension. If
@@ -2538,17 +2644,17 @@ def Cases(d, default=None):
     return g
 
 @statistic
-def Bag(v):
+def Bag(v_in):
     "returns a bag computed from input, encoded as alternating values and counts, with values in ascending order"
     counts: dict[int, int] = defaultdict(int)
-    for component in sorted(v):
+    for component in sorted(v_in):
         counts[component] += 1  # Note: keys kept in insertion order
     bag = []
-    for k, v in counts.items():
-        bag.extend([k, v])
+    for val, cnt in counts.items():
+        bag.extend([val, cnt])
     return bag
 
-@statistic
+@statistic(codim=(1, infinity))
 def Freqs(xs):
     """returns the counts of unique components in the input tuple in descending order
 
@@ -2679,7 +2785,7 @@ def Get(obj, key=identity, scalarize=True):
 
 @statistic_factory
 def Keep(predicate: Condition, pad=nothing) -> Statistic:
-    """keeps components of its input that satisfy a predicate.
+    """keeps components of its input that satisfy a specified predicate.
 
     The returned statistic applies the condition `predicate`
     to each component of the input tuple. Components for which
@@ -2897,7 +3003,12 @@ def Contains(*items):
 @flexible_inputs
 def ChiSquare(expected):
     """computes the Chi-square statistic on the input against the specified expected components"""
-    @statistic(codim=(1, infinity))
+
+    n = len(expected)
+    if n == 0:
+        raise FactoryError('ChiSquare requires an "expected" tuple of positive dimension')
+
+    @statistic(codim=(n, n))
     def chi_square_stat(observed):
         return sum( (observed - expected) * (observed - expected) / expected )
     return chi_square_stat
