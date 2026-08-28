@@ -33,7 +33,7 @@ from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
 from frplib.numeric    import (Numeric, ScalarQ, Nothing, is_nothing, as_nice_numeric, as_numeric, as_real,
-                               is_numeric, numeric_abs, numeric_floor, numeric_log2, numeric_ln)
+                               nothing, is_numeric, numeric_abs, numeric_floor, numeric_log2, numeric_ln)
 from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection, SupportsKindOf, SupportsConditionalKindOf, Kinded
 from frplib.quantity   import (as_quantity, as_nice_quantity, as_quant_vec, is_quantifiable,
@@ -1387,23 +1387,22 @@ def fast_join_pow(mstat: MonoidalStatistic, k: Kind, n: int) -> Kind:
         return mstat(kn2 * kn2)
     return mstat(k * mstat(kn2 * kn2))
 
-def branch(*maybe_ks, weights: list[Numeric] | None = None, values: list | None = None):
+def branch(*maybe_ks, values: list | None = None, weights: list[Numeric] | None = None):
     """Builds a multi-level Kind by joining the specified Kinds with the given weights.
 
     Parameters
     ----------
     maybe_ks -- one or more Kinds or quantities. Quantities will automatically
         be converted to constant Kinds
+    values --a list of values in the same order as the specified Kinds.
+        These are the values at the branching. If missing, they are
+        taken to be 1..n where n is the number of Kinds. Extra values are
+        ignored, and an error raised if an insufficient number is given.
 
     weights -- a list of positive or symbolic weights in the same order
         as the specified Kinds.  Extra weights are ignored. If the list
         is too short, the last weight in the list is repeated as needed.
         If empty or None, the weights are taken to be all 1.
-
-    values --a list of values in the same order as the specified Kinds.
-        These are the values at the branching. If missing, they are
-        taken to be 1..n where n is the number of Kinds. Extra values are
-        ignored, and an error raised if an insufficient number is given.
 
     Returns the joined Kind, marked as raw for display purposes.
 
@@ -1653,7 +1652,7 @@ def uniform(*xs: Numeric | Symbolic | Iterable[Numeric | Symbolic] | Literal[Ell
     return Kind([KindBranch.make(vs=x, p=1) for x in values])
 
 @kind_factory
-def symmetric(*xs, around=None, weight_by=lambda dist: 1 / dist if dist > 0 else 1) -> Kind:
+def symmetric(*xs, around=None, weight_by=lambda dist: 1 / dist if dist > 1 else 1) -> Kind:
     """a choice over the specified values with weights a symmetric function of the values.
 
     Specifically, the weights are determined by the distance of each value
@@ -1783,7 +1782,7 @@ def geometric(
     return Kind([KindBranch.make(vs=x, p=w) for x, w in zip(values, weights)])
 
 @kind_factory
-def weighted_by(*xs, weight_by: Callable) -> Kind:
+def weighted_by(*xs, weight_by: Callable, **extra) -> Kind:
     """a choice over the specified values weighted by a function of those values.
 
     Parameters
@@ -1827,7 +1826,7 @@ def weighted_by(*xs, weight_by: Callable) -> Kind:
         return Kind.empty
     branches = []
     for x in values:
-        w = as_quantity(weight_by(x))
+        w = as_quantity(weight_by(x, **extra))
         if not is_zero(w):
             branches.append(KindBranch.make(vs=as_quant_vec(x), p=w))
     return Kind(branches)
@@ -2098,13 +2097,13 @@ def without_replacement(n: int, *xs) -> Kind:
     return Kind([KindBranch.make(vs=as_quant_vec(comb), p=1) for comb in combinations(sample_from, n)])
 
 @kind_factory
-def subsets(xs: Collection, outside_element) -> Kind:
+def subsets(xs: Collection, outside_element=nothing) -> Kind:
     """a uniform choice over subsets of a specified collection.
 
     Because the dimension needs to be consistent, outside_element,
     a value not in the collection, should be supplied to pad
     out the values.  This value should be comparable to the
-    elements in the collection.
+    elements in the collection. It defaults to `nothing`.
 
     The padding elements are placed at the beginning of the tuples
     so that the Kind sorts nicely. This may be changed in the future.
