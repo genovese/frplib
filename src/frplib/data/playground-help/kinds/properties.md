@@ -1,13 +1,10 @@
 # Examining Properties of Kinds
 
-
-
-
-## Property Accessors
-
 These functions work with Kinds, FRPs, Conditional Kinds, and
 Conditional FRPs. The `dim` and `codim` functions also work with
 Statistics. We specialize the descriptions below to Kinds here.
+
+If `k` is a Kind, then we can query its various properties with several builtin functions.
 
 + `dim` :: `dim(k)` returns the dimension of `k`
 

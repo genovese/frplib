@@ -13,7 +13,11 @@ kind factories):
   e.g., `uniform(1, 2, ..., 10, 12, ... 20)`
   Note that the pattern a, b, ..., a will be taken as the singleton list [a]
   with b ignored, and the pattern a, b, ..., b produces [a, b].
-+ As an iterable, e.g., `uniform([1, 10, 20])` or `uniform(irange(1,52))`
++ As an iterable, e.g., `uniform([1, 10, 20])` or `uniform(irange(1,52))`.
+  This includes generator expressions, e.g., 
+  ```python
+      uniform((x, y) for x in range(-2, 3) for y in range(0, 5))
+  ```
 + With a combination of methods, e.g.,
      `uniform(1, 2, [4, 3, 5], 10, 12, ..., 16)`
   in which case all the values except explicit *tuples* will be
@@ -21,4 +25,5 @@ kind factories):
   should have the same dimension.)
 
 Values can be numbers, tuples, symbols, or strings. In the latter case they
-are converted to numbers or symbols as appropriate.
+are converted to numbers or symbols as appropriate. Tuples are converted
+to `frplib`'s vector tuples.

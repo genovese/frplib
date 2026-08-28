@@ -77,6 +77,7 @@ Kinds:
         Serialization: kinds methods serialize.md
     The kind Function: kinds kind.md
     Builtin Kind Factories:
+        kind: kinds kind.md
         constant: factories kind constant.md
         binary: factories kind binary.md
         choice: factories kind choice.md
@@ -104,6 +105,7 @@ Kinds:
         Observations (|): combinators kind observations.md
         Conditioning (//): combinators kind conditioning.md
         bayes: combinators kind bayes.md
+        branch: combintors kind branch.md
         bin: combinators kind bin.md
         fast_join_pow: combinators kind fast_join_pow.md
     Expectations: kinds expectation.md
@@ -183,11 +185,12 @@ Statistics:
         IndexOf: factories statistic index-of.md
         Cases: factories statistic cases.md
         ChiSquare: factories statistic chisquare.md
+        Round: factories statistic round.md
     Builtin Condition Factories: factories condition.md
         Contains: factories condition contains.md
         Distinct: factories condition distinct.md
         ElementOf: factories condition element-of.md
-    Custom Statistic and Condition Factories: statistics custom-factories.md
+    Custom Statistic and Condition Factories: statistics factories.md
     Statistic Combinators: combinators statistic.md
         Compose: combinators statistic compose.md
         Chain: combinators statistic chain.md
@@ -232,12 +235,13 @@ Conditional Kinds:
     Conditional Kind Procedures: procedures conditional-kind.md
 The Big 3+1: big-3+1.md
 Factories: factories.md
-    FRP Factories:
+    Custom Factories: factories custom.md
+    Builtin FRP Factories:
         frp: frps frp-and-clone.md
         clone: frps frp-and-clone.md
         shuffle: factories frp shuffle.md
-    Kind Factories:
-        kind: factories kind kind.md
+    Builtin Kind Factories:
+        kind: kinds kind.md
         constant: factories kind constant.md
         binary: factories kind binary.md
         choice: factories kind choice.md
@@ -255,7 +259,7 @@ Factories: factories.md
         subsets: factories kind subsets.md
         permutations_of: factories kind permutations_of.md
         ordered_samples: factories kind ordered_samples.md
-    Statistic Factories:
+    Builtin Statistic Factories:
         statistic: factories statistic constructors.md
         scalar_statistic: factories statistic constructors.md
         condition: factories statistic constructors.md
@@ -270,7 +274,7 @@ Factories: factories.md
         IndexOf: factories statistic index-of.md
         Cases: factories statistic cases.md
         ChiSquare: factories statistic chisquare.md
-    Custom Factories: factories custom.md
+        Round: factories statistic round.md
 Combinators: combinators.md
     FRP Combinators:
         Transform (^): combinators frp transform.md
@@ -285,6 +289,7 @@ Combinators: combinators.md
         Observations (|): combinators kind observations.md
         Conditioning (//): combinators kind conditioning.md
         bayes: combinators kind bayes.md
+        branch: combintors kind branch.md
         bin: combinators kind bin.md
         fast_join_pow: combinators kind fast_join_pow.md
     Statistic Combinators: combinators statistic.md
