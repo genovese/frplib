@@ -1,6 +1,35 @@
 # Changelog
 
-## 0.3.2 - 2026-08-??
+## 0.3.3 - 2026-08-29
+
+### Added
+
+- `ijoin_log_kernel` and `ijoin_log_likelihood`,
+
+- Many more info docs
+
+- Some new tests
+
+- A case insensitive dict internal utility
+
+### Changed
+
+- Info dialog now wraps around at top and bottom
+  with keyboard navigation
+
+### Fixed
+
+- info() with search string displays keys in original case
+
+- k.kernel() accepts a list or other collection as single arg
+
+- Typo in check step in Proj slice doc message
+
+- Typo in the welcome message (that's been there a while!)
+
+- Typo in the market help text
+
+## 0.3.2 - 2026-08-27
 
 ### Added
 
