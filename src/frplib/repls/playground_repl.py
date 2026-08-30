@@ -35,6 +35,7 @@ playground_imports: dict[str, list[str]] = {
         'kind', 'conditional_kind',
         'is_kind', 'kind_factory', 'given',
         'unfold', 'clean', 'fast_join_pow', 'bayes', 'branch',
+        'ijoin_log_kernel', 'ijoin_log_likelihood',
         'constant', 'uniform', 'choice', 'binary', 'either',  # DEPRECATED: either
         'symmetric', 'linear', 'geometric',
         'weighted_by', 'weighted_as', 'weighted_pairs',

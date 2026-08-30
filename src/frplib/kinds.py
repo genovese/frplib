@@ -38,8 +38,8 @@ from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection, SupportsKindOf, SupportsConditionalKindOf, Kinded
 from frplib.quantity   import (as_quantity, as_nice_quantity, as_quant_vec, is_quantifiable,
                                show_quantities, show_qtuples, tup)
-from frplib.statistics import (Condition, MonoidalStatistic, Statistic,
-                               analyze_domain, compose2, Proj, statistic, tuple_safe)
+from frplib.statistics import (Condition, MonoidalStatistic, Statistic, scalar_statistic, infinity,
+                               analyze_domain, compose2, Proj, statistic, tuple_safe, flexible_inputs)
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol, is_zero
 from frplib.unique     import INFO_AUTO
 from frplib.utils      import compose, const, dim, identity, is_interactive, is_tuple, lmap
@@ -665,13 +665,19 @@ class Kind:                 # pylint: disable=too-many-public-methods
         """
         if len(v) == 1 and is_tuple(v[0]):
             value = v[0]
+        elif len(v) == 1 and _is_sequence(v[0]):
+            value = as_quant_vec(v[0])
         else:
             value = v
         w = self.weights.get(as_quant_vec(value), 0)
         return float(w) if as_float and not is_symbolic(w) else w
 
+    # DEPRECATED in v0.3.3
     def log_likelihood(self, data: Iterable[tuple[ScalarQ | ValueType, ...] | ScalarQ]) -> QuantityType:
         """The log-likelihood function for independent observations from this Kind.
+
+        DEPRECATED in favor of ijoin_log_likelihood because this does not
+        emphasize the conceptual difference between likelihood and kernel.
 
         Accepts an iterable of n possible values of this Kind K, which are treated
         as an observation from (i.e., a possible value of) the Kind K ** n.
@@ -1455,6 +1461,73 @@ def branch(*maybe_ks, values: list | None = None, weights: list[Numeric] | None 
     })
 
     return source >> targets    # wrap in unfolded when available
+
+def ijoin_log_kernel(k, as_float=True):
+    """Returns the log kernel of the independent join Kind k ** n for any n.
+
+    The returned function takes a value whose dimension is a
+    multiple of dim(k) and returns the natural log of the
+    independent join kernel. If the input tuple has the wrong
+    dimension or the value is not a multiple of dim(k), this returns
+    -infinity. The function fails if the Kind `k` has symbolic
+    weights
+
+    If `as_float` is True, converts the result to a float, otherwise
+    it stays as a high precision quantity.
+
+    """
+    d = k.dim
+
+    @flexible_inputs
+    def log_kernel_at(x):
+        n = len(x)
+        if n % d != 0:  # Uneven # of chunks, cannot be from the ijoin
+            return -infinity if as_float else as_real('-Infinity')
+
+        lk = as_real()
+        for i in range(0, n, d):
+            w = k.kernel(x[i:(i + d)], as_float=False)
+            if is_symbolic(w):
+                raise KindError('ijoin_log_kernel requires a Kind with all numeric weights')
+            lk += numeric_ln(w)
+
+        return float(lk) if as_float else lk
+
+    return log_kernel_at
+
+@flexible_inputs
+def ijoin_log_likelihood(x, as_float=True):
+    """Returns the log likelihood at `x` as a function of the base Kind in an independent join.
+
+    Specifically, assumes `x` is data from an FRP with Kind of the form
+    k ** n for some n. This will work for any Kind whose dimension divides
+    the dimension of `x`. Though note that in practice we typically consider
+    only Kinds of a fixed dimension.  The log likelihood is computed
+    with a natural log.
+
+    The returned function fails if the Kind `k` has symbolic weights.
+
+    If `as_float` is True, converts the result to a float, otherwise
+    it stays as a high precision quantity.
+
+    """
+    n = len(x)
+
+    def log_likelihood_of(k: Kind):
+        d = k.dim
+        if n % d != 0:  # Uneven # of chunks, cannot be from the ijoin
+            return -infinity if as_float else as_real('-Infinity')
+
+        lk = as_real()
+        for i in range(0, n, d):
+            w = k.kernel(x[i:(i + d)], as_float=False)
+            if is_symbolic(w):
+                raise KindError('ijoin_log_kernel requires a Kind with all numeric weights')
+            lk += numeric_ln(w)
+
+        return float(lk) if as_float else lk
+
+    return log_likelihood_of
 
 
 #

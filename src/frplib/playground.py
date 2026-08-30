@@ -29,6 +29,7 @@ from frplib.kinds import (                                # pylint: disable=rede
     # Utilities
     is_kind, given,
     clean, fast_join_pow, bayes,
+    ijoin_log_kernel, ijoin_log_likelihood,
     # Display
     unfold,
     # Combinators
@@ -134,6 +135,7 @@ __all__ = [
     'Kind', 'ConditionalKind',
     'kind', 'conditional_kind', 'given',
     'is_kind', 'unfold', 'clean', 'fast_join_pow', 'bayes', 'branch',
+    'ijoin_log_kernel', 'ijoin_log_likelihood',
     'constant', 'uniform', 'choice', 'binary', 'either',   # DEPRECATED: either
     'symmetric', 'linear', 'geometric',
     'weighted_by', 'weighted_as', 'weighted_pairs',
