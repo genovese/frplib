@@ -31,6 +31,7 @@ from frplib.repls.help       import help                # pylint: disable=redefi
 from frplib.repls.info_types import InfoNode, InfoTree
 from frplib.repls.paging     import print_paged
 from frplib.unique           import INFO_AUTO
+from frplib.utils            import CaseInsensitiveDict
 
 if __name__ == '__main__':
     # Regenerating frplib/data/info_tree.py (see below) must not require
@@ -230,7 +231,7 @@ def menu_select_via_dialog(root_data: InfoTree, action: Callable | None, **kwds)
         # auto_up/auto_down that would otherwise swallow these keys.
         def _nav(delta: int) -> None:
             if menu_list.values:
-                idx = max(0, min(len(menu_list.values) - 1, menu_list._selected_index + delta))  # pylint: disable=protected-access
+                idx = (menu_list._selected_index + delta) % len(menu_list.values)  # pylint: disable=protected-access
                 menu_list._selected_index = idx   # pylint: disable=protected-access
                 menu_list.current_value = menu_list.values[idx][0]
                 get_app().invalidate()
@@ -422,7 +423,8 @@ def menu_select_via_completion(root_data: InfoTree, action: Callable, **kwds) ->
 def _flattened_menu(menu: InfoTree, *, key: str, path: list[str]) -> dict[str, InfoNode]:
     flattened = {}
     for k in menu:
-        kprime = key + '::' + k.lower() if key else k.lower()
+        # kprime = key + '::' + k.lower() if key else k.lower()
+        kprime = key + '::' + k if key else k
         path.append(k)
 
         subtree = menu[k]['subtopics']
@@ -451,7 +453,7 @@ def _menu_leaves(menu: InfoTree, *, files_of: dict | None = None, check=False) -
     return files_of
 
 
-info_tree_joined: dict[str, InfoNode] = _flattened_menu(info_tree, key='', path=[])
+info_tree_joined: dict[str, InfoNode] = CaseInsensitiveDict(_flattened_menu(info_tree, key='', path=[]))
 info_tree_leaves: dict[str, list[str]] = _menu_leaves(info_tree)   # somewhat profligate but fine
 
 def info_interactive(menu: InfoTree, pager=None):
@@ -478,7 +480,7 @@ def info_search(candidate: str, menu: InfoTree, pager=None, flattened=None):
     """
     # ATTN: preprocess info_tree on first use into joined key lookup
     if flattened is None:
-        flattened = _flattened_menu(menu, key='', path=[])
+        flattened = CaseInsensitiveDict(_flattened_menu(menu, key='', path=[]))
 
     search_key = candidate.lower()
     if search_key in flattened:
@@ -583,55 +585,6 @@ def display_info(docpath: list[str] | None = None, *, obj=None, pager=None) -> N
 
     print_paged(info_text, pager=pager)
 
-# def display_info(docpath: list[str] | None = None, *, obj=None, pager=None) -> None:
-#     """Displays an info topic document in the repl.
-#
-#     Parameters
-#     ----------
-#     docpath - if supplied, a list of file path components for the document resource
-#     obj - if supplied, an object whose __info__ attribute will be used to lookup
-#         the document. The attribute is a ::-separated string of Keys in the info tree.
-#     pager - if supplied, a Boolean indicating whether to use a pager. If not supplied,
-#         the environment setting will be used.
-#
-#     """
-#     if pager is None:
-#         pager = environment.info_params.get('pager', False)  # ATTN: Add to environment
-#
-#     if docpath is None and obj is None:
-#         docpath = ['_Topics.md']  # Summary of available topics, not typically needed
-#
-#     if obj is not None:
-#         if hasattr(obj, '__info__'):
-#             docpath = obj.__info__.split('::')
-#             if docpath:
-#                 docpath[-1] += '.md'  # Always a markdown file at the end
-#         else:
-#             help(obj)
-#             return
-#
-#     if TYPE_CHECKING:
-#         assert docpath is not None
-#
-#     topic_path = files('frplib.data') / 'playground-help'
-#     for d in docpath:
-#         topic_path = topic_path / d
-#
-#     if not topic_path.is_file():
-#         print_formatted_text(HTML('<violet>I could not find any guidance at the specified path. '
-#                                   'Try info() to interactively search the available topics.</violet>'))
-#         return
-#
-#     help_text = topic_path.read_text()
-#     # ATTN: Rich behaving oddly here
-#     code_theme = 'monokai' if environment.dark_mode else 'slate'
-#     info_text = Markdown(help_text, code_theme=code_theme)
-#     if pager:
-#         with environment.console.pager():
-#             environment.console.print(info_text)
-#     else:
-#         environment.console.print(info_text)
-
 
 #
 # Info system entry point.  This is the only user-facing function.
@@ -699,39 +652,6 @@ def info(obj_or_topic=None, pager=None) -> None:
 #
 # Development Utilities
 #
-
-# ATTN
-# Might want to make info_tree case insensitive, somewhat like the following:
-# If so, put this above and make InfoTree use this in the type.
-#
-#  class CaseInsensitiveDict(dict):
-#      def __init__(self, *args, **kwargs):
-#          super().__init__(*args, **kwargs)
-#          self._store = {k.lower(): k for k in self.keys()}
-#
-#      def __getitem__(self, key):
-#          return super().__getitem__(self._store[key.lower()])
-#
-#      # NOTE: ambiguous what x['Foo'] = 2; x['fOo'] = 3; x['foO'] = 4
-#        means: original version gives three keys with different values
-#               but gets only get the most recent value for all of them
-#               this version keeps the original key only, which must
-#               be deleted to change, and uses the most recent value
-#               for that key and all its iso-spells.
-#      def __setitem__(self, key, value):
-#          k = key.lower()
-#          if k in self._store:
-#              self[self._store[k]] = value
-#          else:
-#              self._store[key.lower()] = key
-#              super().__setitem__(key, value)
-#
-#      def get(self, key, default=None):
-#          k = key.lower()
-#          if k in self._store:
-#              return self[self._store[k]]
-#          return default
-
 
 def _make_info_dict():
     """Creates the info_tree data describing keys and resources for the info system.

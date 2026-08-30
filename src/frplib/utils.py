@@ -238,6 +238,35 @@ def frequencies(xs: Iterable[Hashable], counts_only=False) -> Union[dict[Hashabl
         return tuple(sorted(freqs.values(), reverse=True))
     return freqs
 
+class CaseInsensitiveDict(dict):
+    """A dict preserving original-case keys for iteration/display,
+    while supporting case-insensitive lookup (`in`, `[]`).
+
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._store = {k.lower(): k for k in super().keys()}
+
+    def __contains__(self, key):
+        return key.lower() in self._store
+
+    def __getitem__(self, key):
+        return super().__getitem__(self._store[key.lower()])
+
+    # NOTE: ambiguous what x['Foo'] = 2; x['fOo'] = 3; x['foO'] = 4
+    # means: original version gives three keys with different
+    # values but gets only get the most recent value for all of
+    # them this version keeps the original key only, which must be
+    # deleted to change, and uses the most recent value for that
+    # key and all its iso-spells.
+    def __setitem__(self, key, value):
+        k = key.lower()
+        if k in self._store:
+            super().__setitem__(self._store[k], value)
+        else:
+            self._store[k] = key
+            super().__setitem__(key, value)
+
 
 #
 # Higher-Order Functions
