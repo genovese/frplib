@@ -1161,7 +1161,7 @@ class ProjectionStatistic(Statistic, Projection):
                 raise StatisticError('Projection indices are 1-indexed and must be non-zero')
         elif isinstance(onto, slice):
             indices = onto
-            has_step = indices.step is None
+            has_step = indices.step is not None
             label = (f'{indices.start or ""}:{indices.stop or ""}{":" if has_step else ""}'
                      f'{indices.step if has_step else ""}')
             dim = _slice_dim(onto)  # slices with negatives still have dim None
@@ -1169,8 +1169,9 @@ class ProjectionStatistic(Statistic, Projection):
             # if indices.start == 0 or indices.stop == 0:
             #     raise StatisticError('Projection indices are 1-indexed and must be non-zero')
 
-        description = textwrap.wrap(f'''projects any value of dimension >= {codim or 1}
-                                        to extract the {dim} components with indices {label}''')
+        description = textwrap.wrap(f'projects any value of dimension >= {codim or 1}'
+                                    f' to extract the{" " if dim is not None else ""}{dim or ""}'
+                                    f' components with indices {label}')
         # ATTN: Just pass project here, don't take an fn arg!
         super().__init__(fn, codim, dim, name, '\n'.join(description))
         self._components = indices
