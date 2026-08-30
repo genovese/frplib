@@ -2,7 +2,7 @@
 
 The following modules can be imported and used within your code to
 access `frplib` functionality. You can also selectively import
-objects from any of these modules; see the topic `object-index` for
+objects from any of these modules; see the topic *Object Index* for
 the module containing commonly used `frplib` functions and objects.
 
 Importing an object from one of these modules looks like one of the 
@@ -33,6 +33,15 @@ automatically and many functions and objects
 from them, but you can use these import statements
 in the playground as well.
 
+For your scripts or homeworks, you can import the playground names
+into your module from the `frplib.playground` module.
+For instance for quick scripts,
+```
+    from frplib.playground import *
+```
+gives you the entire playground environment in your script.
+
+
 The principle `frplib` modules are:
 
 + `frplib.calculate` :: tools for specialized calculation, currently
@@ -45,6 +54,7 @@ The principle `frplib` modules are:
 + `frplib.kinds` :: Kind factories and combinators
 + `frplib.market` :: Market object gives market functionality in playground
 + `frplib.numeric` :: functions for numeric conversions and computations
++ `frplib.playground` :: all the names from the frp playground
 + `frplib.quantity` :: functions for creating the high-precision
     decimal quantities `frplib` uses for most calculations.
 + `frplib.statistics` :: a wide variety of built-in statistics,

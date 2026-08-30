@@ -295,8 +295,7 @@ Combinators: combinators.md
     Statistic Combinators: combinators statistic.md
         Compose: combinators statistic compose.md
         Chain: combinators statistic chain.md
-        Fork: combinators statistic fork_.md
-        MFork_: combinators statistic fork.md
+        Fork: combinators statistic fork.md
         ForEach: combinators statistic foreach.md
         IfThenElse: combinators statistic ifthenelse.md
     Condition Combinators: combinators condition.md
