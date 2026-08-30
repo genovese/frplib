@@ -13,7 +13,7 @@ There are four main commands in the market
       and `help kinds` for details on the input format.
 
 - demo :: activate batches of FRPs with a fixed kind
-      and see a summery of the results.
+      and see a summary of the results.
 
       See `help demo` for details.
 

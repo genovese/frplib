@@ -34,5 +34,5 @@ def market(ascii_only: bool, dark: bool):
 @click.option('--no-config', is_flag=True, show_default=True, default=False,
               help="Skip loading .frplib.toml; start with environment defaults.")
 def playground(ascii_only: bool, dark: bool, no_config: bool):
-    click.echo('This is the playground. Use "quit()" to end your session and "intro()" for help.')
+    click.echo('This is the playground. Use "quit()" to end your session and "info()" for help.')
     playground_repl(use_config=not no_config, ascii_only=ascii_only, dark=dark)
