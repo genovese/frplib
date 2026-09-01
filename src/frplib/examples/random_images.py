@@ -32,7 +32,7 @@ from frplib.exceptions   import IndexingError, OperationError
 from frplib.frps         import FRP, frp
 from frplib.kinds        import weighted_as
 from frplib.quantity     import as_quantity
-from frplib.statistics   import Statistic, statistic, Fork, Id
+from frplib.statistics   import Statistic, statistic, statistic_factory, Fork, Id
 from frplib.utils        import irange
 from frplib.vec_tuples   import VecTuple, as_vec_tuple, vec_tuple
 
@@ -243,8 +243,9 @@ def invert_image(image: Image) -> Image:
     inverted = cast(list[Literal[0, 1]], [1 - pixel for pixel in data])
     return as_image(inverted, wd, ht)
 
+@statistic_factory
 def crop(width, height, left=1, top=1):
-    """A statistic factory that crops an image inside a specified frame.
+    """crops an image inside a specified frame
 
     width  -- width of the cropping frame
     height -- height of the cropping frame
@@ -275,8 +276,9 @@ def crop(width, height, left=1, top=1):
 
     return do_crop
 
+@statistic_factory
 def expand(horizontal: int, vertical: int):
-    """A statistic factory that expands an image by a specified amount in each dimension.
+    """expands an image by a specified amount in each dimension
 
     Expansion repeats each pixel the specified number of times
     in the specified direction.
@@ -404,12 +406,13 @@ def component_sizes(image: Image) -> list[int]:
         return img_comps[1:(img_comps[0] + 1)]
     return []
 
+@statistic_factory
 def get_component(which: int) -> Statistic:
-    "Statistic factory for getting a component of an image as a binary image."
+    "gets a connected component of an image as a binary image"
 
-    @statistic
+    @statistic(name=f'get_component({which})',
+               description=f"extracts an image's connected component {which} into an image")
     def component_getter(image: Image):
-        "gets a selected connected component from an image"
         img_comps = image_components(image)
         wd, ht, *cdata = img_comps[(img_comps[0] + 1):]
 
@@ -450,10 +453,12 @@ def conway(image: Image):
 
     return as_image([step(ind) for ind in range(n)], width=wd, height=ht)
 
+@statistic_factory
 def median_smooth(d: int) -> Statistic:
-    """Statistic factory producing a median smoother for an image with given neighborhood size.
+    """median smooths an image with given neighborhood size.
 
-    ATTN
+    This replaces each pixel by the median
+    of the original pixel and its N-S-E-W neighbors.
 
     """
     if d <= 0:
@@ -461,9 +466,9 @@ def median_smooth(d: int) -> Statistic:
 
     thresh = ((2 * d + 1) ** 2) // 2
 
-    @statistic
+    @statistic(name=f'median_smooth({d})',
+               description=f"median smooths an image with nieghborhood size {d}")
     def smoother(image: Image):
-        "smooths an image, using the median of original pixel with N-S-E-W neighbors at each pixel"
         wd, ht, data = image_data(image)
         n = wd * ht
 

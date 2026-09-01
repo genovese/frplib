@@ -10,7 +10,7 @@ from frplib.exceptions   import IndexingError, KindError
 from frplib.frps         import frp
 from frplib.kinds        import Kind, uniform, weighted_pairs
 from frplib.numeric      import Numeric
-from frplib.statistics   import statistic
+from frplib.statistics   import statistic, statistic_factory
 
 ROULETTE_SPIN = uniform(-1, 0, ..., 36)
 
@@ -27,50 +27,51 @@ ALL_POCKETS = ROULETTE_SPIN.values
 
 @statistic(dim=1, codim=1)
 def _roulette_even(pocket):
-    "Play on all even pockets."
+    "gives the payoff for a $1 play on all even pockets"
     if pocket % 2 == 0 and 1 <= pocket <= 36:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_odd(pocket):
-    "Play on all odd pockets."
+    "gives the payoff for a $1 play on all odd pockets"
     if pocket % 2 == 1 and 1 <= pocket <= 36:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_red(pocket):
-    "represents a $1 play on all red pockets"
+    "gives the payoff for a $1 play on all red pockets"
     if pocket in RED_SQUARES and 1 <= pocket <= 36:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_black(pocket):
-    "Play on all black pockets."
+    "gives the payoff for a $1 play on all black pockets."
     if pocket not in RED_SQUARES and 1 <= pocket <= 36:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_first18(pocket):
-    "Play on first 18 consecutive pockets 1..18."
+    "gives the payoff for a $1 play on first 18 consecutive pockets 1..18."
     if 1 <= pocket <= 18:
         return 1
     return -1
 
 @statistic(dim=1, codim=1)
 def _roulette_second18(pocket):
-    "Play on second 18 consecutive pockets 19..36."
+    "gives the payoff for a $1 play on second 18 consecutive pockets 19..36."
     if 19 <= pocket <= 36:
         return 1
     return -1
 
 # 2-to-1 Plays
 
+@statistic_factory
 def _roulette_dozen(which):
-    "Dozen play on twelve consecutive pockets in 1..36, specified by 1, 2, or 3, first, second, third ...."
+    "gives the payoff for a $1 Dozen play on twelve consecutive pockets in 1..36, specified by 1, 2, or 3, first, second, third ...."
     if which in [1, 2, 3]:
         which_dozen = which - 1
     elif isinstance(which, str):
@@ -86,7 +87,8 @@ def _roulette_dozen(which):
     else:
         raise IndexingError(f'Invalid Dozen play specifier {which}. Try 1, 2, or 3 or first, second, or third.')
 
-    @statistic(dim=1, codim=1)
+    @statistic(dim=1, codim=1, name=f'Dozen({which})',
+               description=f'dozen play on dozen # {which_dozen + 1}')
     def dozen_play(pocket):
         if which_dozen * 12 < pocket <= (which_dozen + 1) * 12:
             return 2
@@ -94,8 +96,9 @@ def _roulette_dozen(which):
 
     return dozen_play
 
+@statistic_factory
 def _roulette_column(which):
-    "Column play on twelve pockets in one `column`, specified by 1, 2, or 3, first, second, third ...."
+    "gives the payoff for a $1 Column play on twelve pockets in one `column`, specified by 1, 2, or 3, first, second, third ...."
     if which == 3:
         which_column = 0
     elif which in {1, 2}:
@@ -113,7 +116,8 @@ def _roulette_column(which):
     else:
         raise IndexingError(f'Invalid Column play specifier {which}. Try 1, 2, or 3 or first, second, or third.')
 
-    @statistic(dim=1, codim=1)
+    @statistic(dim=1, codim=1, name=f'Column({which})',
+               description=f'column play on pockets > 0 and equal to {which_column} mod 3')
     def column_play(pocket):
         if 1 <= pocket <= 36 and pocket % 3 == which_column:
             return 2
@@ -123,12 +127,14 @@ def _roulette_column(which):
 
 # Line Plays
 
+@statistic_factory
 def _roulette_six_line(first_row):
-    "Six Line play on six pockets in two adjacent `rows`, specified by any pocket in smallest row."
+    "gives the payoff for a $1 Six Line play on six pockets in two adjacent `rows`, specified by any pocket in smallest row"
     if not isinstance(first_row, int) or first_row < 1 or first_row > 36:
         raise IndexingError(f'Invalid pocket {first_row} to specify Six Line play, should be in 1..36.')
 
-    @statistic(dim=1, codim=1)
+    @statistic(dim=1, codim=1, name=f'SixLine({first_row})',
+               description=f'gives the payoff for a $1 Six Line play on six pockets in two `rows` near to {first_row}')
     def six_line(pocket):
         start = 3 * ((first_row - 1) // 3)
         if start < pocket <= start + 6:
@@ -139,22 +145,24 @@ def _roulette_six_line(first_row):
 
 @statistic(dim=1, codim=1)
 def _roulette_top_line(pocket):
-    "represents a $1 play on pockets 00, 0, 1, 2, 3"
+    "gives the payoff for a $1 play on pockets 00, 0, 1, 2, 3"
     if pocket <= 3:
         return 6
     return -1
 
 # Other Plays
 
+@statistic_factory
 def _roulette_corner(smallest):
-    "Corner play specified by smallest square among four sharing a corner."
+    "gives the payoff for a $1 Corner play specified by smallest square among four sharing a corner."
     if not isinstance(smallest, int) or smallest < 1 or smallest > 36:
         raise IndexingError(f'Invalid pocket {smallest} to specify Corner play. '
                             f'It should be the smallest square in 1..36 among four that share a corner.')
 
     winners = set([smallest, smallest + 1, smallest + 3, smallest + 4])
 
-    @statistic(dim=1, codim=1)
+    @statistic(dim=1, codim=1, name=f'Corner({smallest})',
+               description=f'corner play for square starting at {smallest}')
     def corner(pocket):
         if pocket in winners:
             return 8
@@ -162,12 +170,14 @@ def _roulette_corner(smallest):
 
     return corner
 
+@statistic_factory
 def _roulette_street(first_row):
-    "Street play on three pockets in one `row` specified by any pocket in the row."
+    "gives the payoff for a $1 Street play on three pockets in one `row` specified by any pocket in the row."
     if not isinstance(first_row, int) or first_row < 1 or first_row > 36:
         raise IndexingError(f'Invalid pocket {first_row} to specify Six Line play, should be in 1..36.')
 
-    @statistic(dim=1, codim=1)
+    @statistic(dim=1, codim=1, name=f'Street({first_row})',
+               description=f'street play on row of pocket {first_row}')
     def street(pocket):
         start = 3 * ((first_row - 1) // 3)
         if start < pocket <= start + 3:
@@ -176,8 +186,9 @@ def _roulette_street(first_row):
 
     return street
 
+@statistic_factory
 def _roulette_split(first, second):
-    "Split play on two adjacent pockets in -1, 0, 1..36, the first smaller than the second."
+    "gives the payoff for a $1 Split play on two adjacent pockets in -1, 0, 1..36, the first smaller than the second."
     if first < second and (second - first == 1 or second - first == 3
                            or (first == -1 and second in [0, 2, 3])
                            or (first == 0 and second in [1, 2])):
@@ -185,7 +196,7 @@ def _roulette_split(first, second):
         @statistic(dim=1, codim=1, name=f'split_{first}_{second}',
                    description=f'represents a $1 play on adjacent pockets {first} and {second}')
         def split(pocket):
-            if pocket == first or pocket == second:
+            if pocket in (first, second):
                 return 17
             return -1
 
@@ -194,8 +205,9 @@ def _roulette_split(first, second):
     raise IndexingError(f'Invalid pair to specify a Split play {(first, second)}. '
                         f'they need to be adjacent with first < second.')
 
+@statistic_factory
 def _roulette_straight(wins):
-    "Straight play on the specified pocket in -1, 0, 1..36."
+    "gives the payoff for a $1 Straight play on the specified pocket in -1, 0, 1..36."
     if not isinstance(wins, int) or wins < -1 or wins > 36:
         raise IndexingError(f'Invalid pocket {wins} to specify a straight play, should be in -1, 0, 1..36.')
 

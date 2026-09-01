@@ -22,21 +22,23 @@ from tempfile          import mkstemp
 from typing            import cast, Union
 
 from frplib.exceptions import StatisticError
-from frplib.frps       import FRP, frp, is_frp
-from frplib.kinds      import Kind, fast_join_pow, weighted_as
+from frplib.frps       import FRP, frp, frp_factory, is_frp
+from frplib.kinds      import Kind, kind_factory, fast_join_pow, weighted_as
 from frplib.statistics import (Condition, Constantly, Id, Sum,
-                               condition, is_true, scalar_statistic, statistic)
+                               condition, is_true, scalar_statistic, statistic,
+                               condition_factory)
 from frplib.quantity   import as_quantity
 from frplib.utils      import frequencies
-from frplib.vec_tuples import VecTuple, as_scalar_strict, as_vec_tuple, is_vec_tuple, vec_tuple
+from frplib.vec_tuples import VecTuple, as_scalar_strict, as_vec_tuple, vec_tuple
 
 
 #
 # Kind/FRP Factories
 #
 
+@kind_factory
 def edge_kind(p='1/2') -> Kind:
-    """Returns the Kind of a single edge in a random graph.
+    """a single edge in a random graph.
 
     Parameters
     ----------
@@ -48,8 +50,9 @@ def edge_kind(p='1/2') -> Kind:
     p = as_quantity(p)
     return weighted_as(0, 1, weights=[1 - p, p])
 
+@frp_factory
 def random_graph(n, p='1/2') -> FRP:
-    """Returns an FRP representing an Erdos-Renyi random graph.
+    """represents an Erdos-Renyi random graph with a specified edge probability.
 
     This is always a simple, undirected graph without loops.
 
@@ -60,7 +63,7 @@ def random_graph(n, p='1/2') -> FRP:
 
     Parameters
     ----------
-    n - the number of nodes in the 
+    n - the number of nodes in the graph
     p - the probability of any particular edge being included
 
     Returns an FRP representing the graph. The values are
@@ -119,8 +122,9 @@ def edge_count(graph):
     "A statistic that returns the number of edges in an undirected, simple graph without loops."
     return Sum(graph)
 
+@condition_factory
 def has_edge(node_i: int, node_j: int) -> Condition:
-    """Returns a condition testing whether {node_i, node_j} is an edge in the given graph.
+    """tests whether {node_i, node_j} is an edge in the given graph
 
     node_i and node_j must be positive integers or a StatisticsError is raised.
 
@@ -148,7 +152,7 @@ def has_edge(node_i: int, node_j: int) -> Condition:
         ind = _row_index(n, i) + k
         return bool(graph[ind])
 
-    has_edge_ij.__doc__ = f'A condition that tests whether edge {{{i+1}, {j+1}}} belongs to an undirected, simple graph without loops.'
+    has_edge_ij.__doc__ = f'tests whether edge {{{i+1}, {j+1}}} belongs to an undirected, simple graph without loops'
 
     return Condition(has_edge_ij)
 
@@ -190,7 +194,6 @@ def is_tree(graph):
     """
     n = _node_count(graph)
     return sum(graph) == n - 1 and is_true(is_connected(graph))
-    pass
 
 @condition
 def is_acyclic(graph):
@@ -267,8 +270,9 @@ def connected_component_count(graph):
     """
     return max(connected_components(graph))
 
+@condition_factory
 def path_between(node_i, node_j):
-    """Returns a condition testing whether there is a path between node_i and node_j in the given graph.
+    """tests whether there is a path between node_i and node_j in the given graph
 
     node_i and node_j must be positive integers or a StatisticsError is raised.
 
@@ -306,10 +310,9 @@ def path_between(node_i, node_j):
             queue.extend(_neighbors(n, node, graph))
         return False
 
-    has_path_ij.__doc__ = f'A condition that tests whether a path from {i+1} to {j+1} exists in an undirected, simple graph without loops.'
+    has_path_ij.__doc__ = f'tests whether a path from {i+1} to {j+1} exists in an undirected, simple graph without loops'
 
     return Condition(has_path_ij)
-    pass
 
 @statistic
 def connected_component_sizes(comps):
@@ -440,16 +443,21 @@ def _svg_header(view_port: int) -> str:
 <svg viewBox="0 0 {view_port} {view_port}" xmlns="http://www.w3.org/2000/svg">
   <style type="text/css">
     .nodes {{
-      font: Arial 12px sans-serif;
-      fill: "#5B84B1";
-      stroke: "#5B84B1";
-      color: "#5B84B1";
-      dominant-baseline: "middle";
-      text-anchor: "middle";
+      font: Arial, sans-serif;
+      fill: #5B84B1;
+      stroke: #5B84B1;
+      color: #5B84B1;
+      dominant-baseline: middle;
+      text-anchor: middle;
+    }}
+    .small {{
+      font: Arial, sans-serif;
+      dominant-baseline: middle;
+      text-anchor: middle;
     }}
   </style>
 '''
-def _graph_svg(
+def _graph_svg(                                # pylint: disable=too-many-locals
         n: int,
         positions: list[tuple[float, float]],
         edges: dict[int, list[int]],
@@ -457,17 +465,42 @@ def _graph_svg(
 ) -> str:
     elements = [_svg_header(view_port)]
 
+    # Compute the scaling of the image
+    nn_dists = []
+    for x1, y1 in positions:
+        min_dist = 1e10
+        for x2, y2 in positions:
+            if x1 == x2 and y1 == y2:
+                continue
+            dist = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+            min_dist = min(dist, min_dist)
+        nn_dists.append(min_dist)
+    nn_len = len(nn_dists)
+    if nn_len % 2 == 0:  # Median nearest-neighbor distance
+        scaling_radius = (nn_dists[nn_len // 2] + nn_dists[(nn_len // 2) + 1]) / 2
+    else:
+        scaling_radius = nn_dists[nn_len // 2]
+    scaling_radius /= 5
+
+    font_size = 0.9 * scaling_radius
+    lab_w = 0.6 * font_size * math.log10(nn_len)
+    label_radius = 1 + math.sqrt(lab_w ** 2 + font_size ** 2)
+    radius = max(scaling_radius, label_radius)
+    radius = max(radius, 0.025 * view_port)
+    radius = min(radius, 0.15 * view_port)
+    sw = max(1, 0.15 * radius)
+
     for node, neighbors in edges.items():
         x1, y1 = positions[node]
         for adj in neighbors:
             x2, y2 = positions[adj]
-            edge = f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#FC766A" stroke-width="2" />'
+            edge = f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#FC766A" stroke-width="{sw}" />'
             elements.append(edge)
 
     for node in range(n):
         x, y = positions[node]
-        gnode = f'<circle cx="{x}" cy="{y}" r="25" fill="white" stroke="#5B84B1" stroke-width="3" />'
-        label = f'<text x="{x}" y="{y}" class="small" text-anchor="middle" dominant-baseline="middle">{node + 1}</text>'
+        gnode = f'<circle cx="{x}" cy="{y}" r="{radius}" fill="white" stroke="#5B84B1" stroke-width="{sw}" />'
+        label = f'<text x="{x}" y="{y}" class="small" font-size="{font_size}">{node + 1}</text>'
         elements.append(gnode)
         elements.append(label)
 
@@ -590,6 +623,7 @@ def show_graph(graph_spec: Union[Iterable, FRP]):
     svg = _graph_svg(n, positions, edges, view_port)
 
     fd, svg_file = mkstemp(suffix='.svg', prefix='graph-')
+    print(svg_file)
     with os.fdopen(fd, 'w') as f:
         f.write(svg)
     open_file_with_default_app(svg_file)
