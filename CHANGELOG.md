@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.3.4 - 2026-08-31
+
+### Added
+
+- Utility `add_to_search_path` to make it easy to
+  add to the import path from within the playground.
+
+### Changed
+
+- In random graphs example, `show_graph` now does a better
+  job of dynamically scaling the graph in the svg file.
+
+- Added factory markers in Roulette, Random Graphs,
+  and Random Images examples.
+
+- Moved hatch build script in preparation for a
+  github pages workflow
+
+### Fixed
+
+- Improved documentation strings in Roulette, Random Graphs,
+  and Random Images examples.
+
+
 ## 0.3.3 - 2026-08-29
 
 ### Added
