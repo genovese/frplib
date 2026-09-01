@@ -82,6 +82,7 @@ playground_imports: dict[str, list[str]] = {
         'identity', 'index_of', 'index_where', 'irange', 'iterate', 'iterates',
         'lmap', 'fold', 'fold1',
         'values', 'dim', 'codim', 'size', 'typeof', 'show', 'some',
+        'add_to_search_path',
     ],
     'vec_tuples': [
         'VecTuple',
@@ -323,7 +324,7 @@ class PlaygroundRepl(PythonRepl):
             except Exception as e:  # pylint: disable=broad-exception-caught
                 environment.console.print(f'Could not print result due to an error:\n  {str(e)}')
         else:
-            super()._show_result(result)    # type: ignore
+            super()._show_result(result)
 
     def _show_exception_trimmed(self, e: BaseException) -> None:
         """Runs ptpython's exception display but with leading internal frames removed.

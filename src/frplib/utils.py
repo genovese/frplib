@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pathlib
 import sys
 
 from collections       import defaultdict
@@ -500,6 +501,14 @@ def show(x, *, print_it=True, indent=0, render=True):
         environment.console.print(out)
         return
     return out
+
+def add_to_search_path(sdir, *more_dirs):
+    """Adds one or more directories to the playground search path for imports.
+
+    """
+    sys.path.append(str(pathlib.Path(sdir).absolute()))
+    for d in more_dirs:
+        sys.path.append(str(pathlib.Path(d).absolute()))
 
 
 #

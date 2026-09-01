@@ -115,6 +115,7 @@ from frplib.utils import (
     identity, index_of, index_where, irange, iterate, iterates,
     lmap, fold, fold1,
     values, dim, codim, size, typeof, show, some,
+    add_to_search_path,
 )
 
 from frplib.vec_tuples import (
@@ -186,6 +187,7 @@ __all__ = [
     'identity', 'index_of', 'index_where', 'irange', 'iterate', 'iterates',
     'lmap', 'fold', 'fold1',
     'values', 'dim', 'codim', 'size', 'typeof', 'show', 'some',
+    'add_to_search_path',
     # frplib.vec_tuples
     'VecTuple',
     'as_numeric_vec', 'as_scalar', 'as_vec_tuple', 'as_float', 'as_bool', 'as_numpy',
