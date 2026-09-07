@@ -893,6 +893,8 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
             self._joined_map: dict[ValueType, FRP] = {}
             self._target_map: dict[ValueType, FRP] = {}  # NB: Trading space for time by keeping these
             for k, v in mapping.items():
+                if is_kind(v):
+                    v = frp(v)
                 if not is_frp(v):
                     raise ConstructionError(f'Dictionary for a conditional FRP should map to FRPs,'
                                             f' but {v} is not an FRP')
