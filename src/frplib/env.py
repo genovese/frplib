@@ -22,6 +22,8 @@ from platformdirs import user_config_dir
 from rich.console import Console
 from rich.theme   import Theme
 
+from frplib.__about__ import __version__
+
 bright_theme = Theme({
     "markdown.h2": "#4f2c1d underline",
     "markdown.h3": "#4f2c1d bold",
@@ -133,6 +135,7 @@ class Environment:
     numeric_out_params: NumericOutParams = field(default_factory=default_numeric_out_params)
     frp_params: FrpParams = field(default_factory=default_frp_params)
     console: Console = Console(highlight=True, theme=bright_theme)
+    version: tuple[int, ...] = tuple(map(int, __version__.split('.')))  # Introduced in 0.3.5
 
     def on_ascii_only(self) -> None:
         "Require ASCII-only output, no rich text, unicode, or markdown."
