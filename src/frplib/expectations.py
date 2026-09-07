@@ -10,6 +10,7 @@ from frplib.output     import in_panel
 from frplib.protocols  import SupportsExpectation, SupportsApproxExpectation, SupportsForcedExpectation
 from frplib.quantity   import show_qtuple
 from frplib.statistics import Statistic, _codim_str, __, Proj
+from frplib.unique     import INFO_AUTO
 from frplib.utils      import codim, dim
 from frplib.vec_tuples import VecTuple, as_vec_tuple
 
@@ -163,5 +164,5 @@ def D_(X: FRP | Kind):
 # Info tags
 #
 
-setattr(E, '__info__', 'actions')
-setattr(D_, '__info__', 'actions')
+setattr(E, '__info__', INFO_AUTO)
+setattr(D_, '__info__', INFO_AUTO)
