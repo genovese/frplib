@@ -2431,6 +2431,24 @@ def activate(f: FRP) -> None:
     """Activates an FRP but does not reveal the value."""
     _ = FRP.activate(f)
 
+def force_unkinded(x: FRP) -> FRP:
+    """Ensures that an FRP is an unkinded expression.
+
+    The primary use case is for evolving systems where the sizes of
+    the Kinds grow quickly making the computation quite slow even
+    before it reaches the builtin complexity threshold that prevents
+    large enough Kinds from being computed when their FRPs are
+    formed.
+
+    If this is used at any stage in evolving a random system,
+    e.g., with evolve(), subsequent FRPs in that evolution
+    will also be unkinded.
+
+    """
+    exp = PureExpression(x)
+    exp._cached_kind = None
+    return frp(exp)
+
 @overload
 def independent_join(ks: Iterable[Kind]) -> Kind:
     ...
@@ -2668,7 +2686,7 @@ for obj in [
     frp, conditional_frp, is_frp,
     evolve,
     shuffle,
-    activate, independent_join,
+    activate, force_unkinded, independent_join,
     average_conditional_entropy, mutual_information,
 ]:
     setattr(obj, '__info__', INFO_AUTO)

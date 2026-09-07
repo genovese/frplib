@@ -69,7 +69,7 @@ playground_imports: dict[str, list[str]] = {
     'frps': [
         'FRP', 'frp', 'conditional_frp', 'is_frp', 'frp_factory', 'evolve',
         'average_conditional_entropy', 'mutual_information', 'shuffle',
-        'activate', 'independent_join',
+        'activate', 'force_unkinded', 'independent_join',
     ],
     'calculate': ['substitute', 'substitute_with', 'substitution'],
     'numeric': ['numeric_exp', 'numeric_ln', 'numeric_log10', 'numeric_log2',
@@ -438,6 +438,7 @@ class PlaygroundRepl(PythonRepl):
             "cheatsheet",
             "textbook",
             "explain_error",
+            "frplib_version",
             "_running_in_playground"
         ]
 
@@ -449,6 +450,7 @@ class PlaygroundRepl(PythonRepl):
         pgd_globals["cheatsheet"] = cheatsheet
         pgd_globals["textbook"] = textbook
         pgd_globals["explain_error"] = explain_error
+        pgd_globals["frplib_version"] = environment.version
         pgd_globals["_running_in_playground"] = True
         environment.interactive_mode()
         import_playground(pgd_globals)

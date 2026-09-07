@@ -95,7 +95,7 @@ from frplib.expectations import E, Var, D_
 from frplib.frps import (
     FRP, frp, conditional_frp, is_frp, frp_factory, evolve,
     average_conditional_entropy, mutual_information, shuffle,
-    activate, independent_join,
+    activate, force_unkinded, independent_join,
 )
 
 from frplib.calculate import substitute, substitute_with, substitution
@@ -171,7 +171,7 @@ __all__ = [
     # frplib.frps
     'FRP', 'frp', 'conditional_frp', 'is_frp', 'evolve',
     'average_conditional_entropy', 'mutual_information', 'shuffle',
-    'activate', 'independent_join',
+    'activate', 'force_unkinded', 'independent_join',
     # frplib.calculate
     'substitute', 'substitute_with', 'substitution',
     # frplib.numeric
