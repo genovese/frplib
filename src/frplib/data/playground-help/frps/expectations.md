@@ -29,7 +29,8 @@ To this end, we have for an FRP `X`:
       if the Kind appears hard to compute. See `X.forced_expectation`.
 
 + `E(X).raw` :: unwraps the expectation and returns it as a high-precision decimal
-      for use in calculations. Equivalent to `X.expectation`.
+      for use in calculations. Equivalent to `X.expectation`. You can
+      also get the expectation as a scalar vector tuple with `1 * E(X)`.
 
 + `X.forced_expectation` :: Like `X.expectation` but forces the computation of
       the Kind without raising a warning.

@@ -12,7 +12,8 @@ To this end, we have for a Kind `k`:
       for use in calculations. Equivalent to `E(k).raw`.
 
 + `E(k).raw` :: unwraps the expectation and returns it as a high-precision decimal
-      for use in calculations. Equivalent to `k.expectation`.
+      for use in calculations. Equivalent to `k.expectation`. You can
+      also get the expectation as a scalar vector tuple with `1 * E(k)`.
 
 + `D_` :: The distribution operator for a Kind or FRP.
 

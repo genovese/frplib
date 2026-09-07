@@ -60,7 +60,9 @@ FRPs:
     Expectations: frps expectation.md
     Distribution Operator: distribution-op.md
     Utilities:
+        is_frp: kinds is_frp.md
         activate: frps activate.md
+        force_unkinded: frps force_unkinded.md
         independent_join: computations independent_join.md
         average_conditional_entropy: computations avg-cond-entropy.md
         mutual_information: computations mutual-information.md
@@ -111,7 +113,10 @@ Kinds:
     Expectations: kinds expectation.md
     Distribution Operator: distribution-op.md
     Utilities:
+        is_kind: kinds is_kind.md
         clean: actions clean.md
+        E: computations E.md
+        D_: computations D.md
         independent_join: computations avg-cond-entropy.md
         average_conditional_entropy: computations avg-cond-entropy.md
         mutual_information: computations mutual-information.md
@@ -217,18 +222,18 @@ Statistics:
         tuple_safe: statistics utilities tuple_safe.md
 Conditional FRPs:
     Overview: conditional-frps overview.md
-    Evaluation: conditional-frps evaluations.md
     Constructing Conditional FRPs: conditional-frps construction.md
-    The conditional_kind Function: conditional-frps conditional_kind.md
+    Evaluating Conditional FRPs: conditional-frps evaluations.md
+    conditional_frp: conditional-frps conditional_frp.md
     Tranforming Conditional FRPs: conditional-frps transforms.md
     Joining Conditional FRPs: conditional-frps joins.md
     Conditional Expectations: conditional-frps expectations.md
     Conditional FRP Procedures: procedures conditional-frp.md
 Conditional Kinds:
     Overview: conditional-kinds overview.md
-    Evaluation: conditional-kinds evaluations.md
     Constructing Conditional Kinds: conditional-kinds construction.md
-    The conditional_kind Function: conditional-kinds conditional_kind.md
+    Evaluating Conditional Kinds: conditional-kinds evaluations.md
+    conditional_kind: conditional-kinds conditional_kind.md
     Tranforming Conditional Kinds: conditional-kinds transforms.md
     Joining Conditional Kinds: conditional-kinds joins.md
     Conditional Expectations: conditional-kinds expectations.md
@@ -354,8 +359,9 @@ Utilities: utilities.md
         iterate: utilities iterate.md
         iterates: utilities iterates.md
         frequencies: utilities frequencies.md
-    Output Helpers:
+    Input/Output Helpers:
         show: utilities show.md
+        add_to_search_path: utilities add_to_search_path.md
 Useful Programming Patterns:
     Decorators: patterns decorators.md
     The Factory Trick: patterns factory-trick.md
