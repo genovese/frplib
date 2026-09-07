@@ -524,6 +524,6 @@ for obj in [
     lmap, fold, fold1,
     frequencies,
     values, dim, codim, size, typeof,
-    show,
+    show, add_to_search_path,
 ]:
-    setattr(clone, '__info__', INFO_AUTO)
+    setattr(obj, '__info__', INFO_AUTO)
