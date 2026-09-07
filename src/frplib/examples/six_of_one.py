@@ -1,4 +1,17 @@
-# Six of One, Equilateral of the Other Example in Chapter 0 Sec 8
+""" Six of One (Example 8.4) in Chapter 8.3
+
+Exports
+  + vertices
+  + is_equilateral
+  + equilateral
+  + vertex_dists
+  + side_lengths
+  + heron
+  + Q_kind
+  + A_kind
+
+"""
+# pylint: disable=comparison-with-callable, invalid-name
 
 __all__ = ['vertices', 'is_equilateral', 'equilateral', 'vertex_dists',
            'side_lengths', 'heron', 'Q_kind', 'A_kind',]
