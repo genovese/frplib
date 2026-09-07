@@ -16,7 +16,7 @@ __all__ = [
     'conway', 'median_smooth',
     'atop', 'besides', 'overlay',
     'erode', 'dilate',
-    'image_distance', 'closest_image_to',
+    'image_distance', 'closest_image_to', 'distance_from',
     'reconstruct_image', 'max_likelihood_image', 'simulate_denoise',
 ]
 
@@ -989,6 +989,17 @@ def closest_image_to(image: Image, candidates: Iterable[Image]) -> Union[Image, 
             best = cand_img
 
     return best
+
+@statistic_factory
+def distance_from(target: Image):
+    "computes Hamming distance of an image from specified target image."
+
+    @statistic
+    def img_dist(image):
+        "computes Hamming distance from a target image"
+        return image_distance(image, target)
+
+    return img_dist
 
 
 #
