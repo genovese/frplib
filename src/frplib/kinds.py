@@ -2253,7 +2253,8 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
             codim: int | None = None,  # If set to 1, will pass a scalar not a tuple to fn (not dict)
             dim: int | None = None,    # If not supplied, this inferred in dict case
             domain: Iterable[Union[QuantityType, ValueType, tuple[QuantityType, ...]]] | Callable[[ValueType], bool] | None = None,
-            target_dim: int | None = None   # ATTN: domain type in scalar callable case, blech
+            target_dim: int | None = None,   # ATTN: domain type in scalar callable case, blech
+            doc: str | None = None
     ) -> None:
         has_domain_set = False
         if domain is not None:
@@ -2411,6 +2412,8 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
             self._joined_map = {}
             self._target_map = {}  # NB: Trading space for time by keeping these
             self._original_fn = mapping
+            if hasattr(mapping, '__doc__') and mapping.__doc__:
+                self.__doc__ = mapping.__doc__
 
             if codim is None:
                 domain_dims = set()
@@ -2532,6 +2535,9 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
             # self._fn = tfn
             self._target_fn = tfn
             self._joined_fn = jfn
+
+        if doc:
+            self.__doc__ = doc
 
     def __call__(self, *value) -> Kind:
         return self._target_fn(*value)

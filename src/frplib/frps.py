@@ -858,7 +858,8 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
             dim: int | None = None,
             domain: Iterable[Union[QuantityType, ValueType, tuple[QuantityType, ...]]] | Callable[[ValueType], bool] | None = None,
             target_dim: int | None = None,
-            auto_clone: bool = False
+            auto_clone: bool = False,
+            doc: str | None = None
     ) -> None:
         if isinstance(mapping, ConditionalKind):
             codim = mapping._codim if codim is None else codim
@@ -1036,6 +1037,8 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
             self._joined_map = {}  # Cache, if used
             self._target_map = {}  # NB: Trading space for time by keeping these
             self._original_fn = mapping
+            if hasattr(mapping, '__doc__') and mapping.__doc__:
+                self.__doc__ = mapping.__doc__
 
             if codim is None:
                 domain_dims = set()
@@ -1157,6 +1160,9 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
             # self._fn = fn
             self._target_fn = tfn
             self._joined_fn = jfn
+
+        if doc:
+            self.__doc__ = doc
 
     def __call__(self, *value) -> FRP:
         return self._target_fn(*value)
@@ -1594,6 +1600,9 @@ class ConditionalFRP:     # pylint: disable=too-many-instance-attributes
 #         auto_clone: bool = False   # If True, clone on every evaluation, e.g., in simulation
 # ) -> ConditionalFRP | Callable[..., ConditionalFRP]:
 
+# ATTN:Sep2026 -- want to handle tuple case for codim
+# add to type, but check the __init__ for consistency | tuple[int, int] | tuple[int, float] 
+
 @overload
 def conditional_frp(
         mapping: None = None,
@@ -1602,7 +1611,8 @@ def conditional_frp(
         dim: int | None = None,
         domain: Iterable[Union[QuantityType, ValueType, tuple[QuantityType, ...]]] | Callable[[ValueType], bool] | None = None,
         target_dim: int | None = None,
-        auto_clone: bool = False   # If True, clone on every evaluation, e.g., in simulation
+        auto_clone: bool = False,   # If True, clone on every evaluation, e.g., in simulation
+        doc: str | None = None
 ) -> Callable[..., ConditionalFRP]:
     ...
 
@@ -1614,7 +1624,8 @@ def conditional_frp(
         dim: int | None = None,
         domain: Iterable[Union[QuantityType, ValueType, tuple[QuantityType, ...]]] | Callable[[ValueType], bool] | None = None,
         target_dim: int | None = None,
-        auto_clone: bool = False   # If True, clone on every evaluation, e.g., in simulation
+        auto_clone: bool = False,   # If True, clone on every evaluation, e.g., in simulation
+        doc: str | None = None
 ) -> ConditionalFRP:
     ...
 
@@ -1625,7 +1636,8 @@ def conditional_frp(
         dim=None,
         domain=None,
         target_dim=None,
-        auto_clone=False
+        auto_clone=False,
+        doc=None
 ):
     """Converts a mapping from values to FRPs (or Kinds) to a conditional FRP.
 
@@ -1718,11 +1730,11 @@ def conditional_frp(
                 mapping = mapping.target
 
         return ConditionalFRP(mapping, codim=codim, dim=dim, target_dim=target_dim,
-                              domain=domain, auto_clone=auto_clone)
+                              domain=domain, auto_clone=auto_clone, doc=doc)
 
     def decorator(fn: Callable) -> ConditionalFRP:
         return ConditionalFRP(fn, codim=codim, dim=dim, target_dim=target_dim,
-                              domain=domain, auto_clone=auto_clone)
+                              domain=domain, auto_clone=auto_clone, doc=doc)
     return decorator
 
 
