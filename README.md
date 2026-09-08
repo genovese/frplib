@@ -93,7 +93,7 @@ for your use.
 To check what version of Python you have, if any, you will need to open
 a Terminal window (Mac), a Powershell window (Windows), or a xterm/terminal window (Linux)
 and invoke one of the following commands
-```
+```console
     python3 --version
     python --version
     py --version
@@ -123,7 +123,7 @@ the 3.10+ requirement on any currently supported release (Ubuntu 22.04+, Debian 
 you're on an older release whose system Python is too old, you can add a newer version
 via the deadsnakes PPA, e.g. for Python 3.12:
 
-```
+```console
 sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt update
 sudo apt install python3.12 python3.12-venv
@@ -145,31 +145,31 @@ We will use it to install the `frp` application easily,
 so it is worth installing on your system.
 
 On Mac with homebrew
-```
+```console
 brew install pipx
 pipx ensurepath
 ```
 or if you do not have homebrew, just with Python
-```
+```console
 python3 -m pip install --user pipx
 python3 -m pipx ensurepath
 ```
 If your Python is `python` instead of `python3`, use that instead.
 
 On Ubuntu or other Debian-based Linux:
-```
+```console
 sudo apt install pipx
 pipx ensurepath
 ```
 
 On Windows
-```
+```console
 py -m pip install --user pipx
 py -m pipx ensurepath
 ```
 unless you installed your Python from the Microsoft Store
 in which case you should do
-```
+```console
 python -m pip install --user pipx
 python -m pipx ensurepath
 ```
@@ -210,7 +210,7 @@ For Windows users, [jftuga/less-Windows](https://github.com/jftuga/less-Windows)
 is a standalone GNU version of the pager `less` that is compiled for
 Windows 10/11 with no dependencies, and which supports these
 capabilities. It's packaged for winget, so it can be installed with:
-```
+```console
   winget install jftuga.less
 ```
 
@@ -265,6 +265,14 @@ You should now be able to run:
 ```console
 frp --help
 ```
+If you also want to use `frplib`'s plotting functions in the playground
+(which need `matplotlib`), install with the `plots` extra feature
+instead:
+```console
+pipx install "frplib[plots]"
+```
+(Note the quotes here; this prevents some shells (e.g., zsh)
+from treating the unquoted `[]`s as a pattern.)
 
 ### Installing the library in a virtual environment
 
@@ -312,6 +320,20 @@ terminal to keep working with `frplib`.
 >
 > When working on larger projects, it is recommended to use a dedicated venv
 > for the project and all its dependencies to make your build and runs reproducible.
+
+If you also want to use `frplib`'s plotting functions (which need
+`matplotlib`), you can install with the `plots` extra feature by
+replacing step 3 above with:
+```console
+pip install "frplib[plots]"
+```
+(Note the quotes here; this prevents some shells (e.g., zsh) from
+treating the unquoted `[]`s as a pattern.)
+As an alternative for use in your programs, you can simply install
+`matplotlib` in the venv and use whichever backend is appropriate to
+your system. If you use the frplib plotting functions, it will set
+the backend for plotting in a particular way.
+
 
 ### Windows notes
 
@@ -365,7 +387,7 @@ menu, right-click, "Run as administrator").
 
 First, find where your Python packages are installed. Enter (using your `py`/`python`
 command):
-```
+```console
 py -m site
 ```
 This shows a couple of file paths, `USER_BASE` and `USER_SITE` — you want the former.
@@ -374,7 +396,7 @@ or `C:\Users\yourname\AppData\Python\Python312`.
 Whatever it is, you want the `Scripts` subfolder of that directory.
 
 A slightly less clean alternative is to enter
-```
+```console
 pip show frplib
 ```
 This will spit out some text; look for a line that starts with `Location:`,
@@ -385,7 +407,7 @@ which we will call your `USER_BASE` below.
 
 Next, check that the `Scripts` folder exists and has the
 `frp` script in it. Enter at the powershell prompt for instance
-```
+```console
 dir C:\Users\yourname\AppData\Python\Python312\Scripts
 ```
 using your `USER_BASE` instead. You should see an `frp` entry in the
@@ -398,17 +420,17 @@ Given that you see the `frp` script in that `dir` command, we will now
 add it to the path that powershell searches for programs.
 For this, it is important that you started powershell with Administrator privileges.
 As a check against any problems, we will print out the current path with
-```
+```console
 $env:Path
 ```
 for comparison later, so keep this in view.
 Next, enter the following, **being sure to include the `;` before the scripts path** as below
 *and* replacing `C:\...\Scripts` with **your actual path**:
-```
+```console
 [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\...\Scripts", "Machine")
 ```
 Finally, check the new path with
-```
+```console
 [Environment]::GetEnvironmentVariable("Path", "Machine")
 ```
 You should see the Scripts folder you just added at the end,
@@ -417,7 +439,7 @@ and the rest should look like what you had before.
 You have to restart your Powershell for the changes in your path
 to take effect. So start a new Powershell window and you should now
 be able to run `frp`. Try:
-```
+```console
 frp playground
 ```
 to check.
@@ -426,7 +448,7 @@ If you have any questions or troubles with this, do not hesitate to
 come in for help. Python itself also offers a tool to try, if all else fails.
 Once you have located the Python folder as described above, you can substitute
 that path for [python-folder] in the following command
-```
+```console
 python [python-folder]\Tools\scripts\win_add2path.py
 ```
 and restart your powershell/terminal. The scripts should now be available.
@@ -479,15 +501,25 @@ To upgrade an existing installation for a new version,
 there are two easy steps.
 
 First, upgrade the `frp` application with
-```
+```console
   pipx upgrade frplib
 ```
-You do not need to activate a venv to do this.
+You do not need to activate a venv to do this. 
 
 Second, activate the venv where you are using `frplib` and then do
-```
+```console
   pip install --upgrade frplib
 ```
+
+Note: if you installed `frplib` earlier *without* the `plots` extra feature 
+and now want to add plotting support in the playground, without reinstalling from
+scratch, then replace the first (`pipx upgrade frplib`) step with
+```console
+  pipx install --force "frplib[plots]"
+```
+The quotes should be included to prevent the []s from being interpreted
+as a pattern by some shells, e.g., zsh.
+
 
 ## Quick Start
 

@@ -227,3 +227,49 @@ A helpful use case for this is to open a script file to keep any
 code that you entered into the playground that you would like to
 keep to run later. You can grab it after you run it from the screen,
 from the history, or from the history file.
+
+## Plotting
+
+If you install `frplib` with the `plots` extra feature
+```console
+   pipx install "frplib[plots]"
+```
+you can use the `frplib.plotting` module to display
+plots from within the playground. The two key functions
+`get_pyplot` and `show_figure` are both loaded into
+the playground by default if the module is available.
+
+To use this, you should call the function `get_pyplot`
+before generating any figures. This sets up the
+backend for `matplotlib` to generate PNG files
+display them in your system's viewer as you
+make them. (You can also save figures to a file that
+you designate, for later use.)
+
+The basic usage of this looks like:
+```python
+   plt = get_pyplot()                  # called before generating any figures
+   fig, ax = plt.subplots()
+   ax.plot(...)                        # scatter, bar, or whatever
+   #... other changes to the figure
+   show_figure(fig)                    # display the figure
+```
+Between the `get_pyplot` and the `show_figure` you use standard
+`matplotlib` functions and methods. You **need not** import
+`matplotlib` into the playground to do this, and `get_pyplot`
+should be called before any other plotting actions, even
+importing `matplotlib` itself.
+
+You can use this facility in a virtual env as well (e.g., in your code),
+but the alternative to doing so is to install `matplotlib` into
+that virtual environment and just use that instead.  Both are fine;
+the choice is yours.
+
+If you have installed the `frp` application without the plots
+extra feature, you can add it without a complete reinstall
+by doing
+```console
+   pipx install --force "frplib[plots]"
+```
+The quotes are there to prevent unexpected expansion in some shells
+and so are recommended.

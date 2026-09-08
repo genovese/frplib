@@ -128,6 +128,8 @@ from frplib.market import Market
 
 from frplib.extras import components
 
+from frplib.plotting import get_pyplot, show_figure
+
 
 __all__ = [
     # decimal
@@ -196,4 +198,6 @@ __all__ = [
     'Market',
     # frplib.extras
     'components',
+    # frplib.plotting
+    'get_pyplot', 'show_figure',
 ]

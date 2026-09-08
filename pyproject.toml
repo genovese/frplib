@@ -41,6 +41,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["black", "ruff", "pytest", "hypothesis", "returns"]
+plots = ["matplotlib >= 3.8"]
 
 [project.urls]
 Homepage = "https://github.com/genovese/frplib"

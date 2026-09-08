@@ -95,6 +95,9 @@ playground_imports: dict[str, list[str]] = {
     'extras': [
         'components',
     ],
+    'plotting': [
+        'get_pyplot', 'show_figure',
+    ],
 }
 
 # TODO: Maybe don't load the modules into globals??
