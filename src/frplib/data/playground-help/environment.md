@@ -120,6 +120,10 @@ with a *positive* integer, will set the maximum denominator
 at which the playground will show a Kind weight as a fraction.
 The default is set to 50.  Other useful settings are 99 and 999.
 
+## Version
+
+You can read the currrent `frplib` version, as a tuple (Major, Minor, Patch),
+by looking at `environment.version`.
 
 ## Other Parameters
 
