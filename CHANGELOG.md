@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.3.5 - 2026-09-07
+
+### Added
+
+- An extra install feature `frplib[plots]` and two
+  built-in functions for using this facility.
+  `get_pyplot` and `show_figure`. The former should
+  be called before creating any figures, and it
+  is not necessary to import `matplotlib`.
+
+- A `doc` argument to `conditional_frp` and `conditional_kind`,
+  sets the docstring of the resulting object, accessed via
+  `help` or `info`. In the function case, a docstring
+  is taken from the function docstring if not overridden
+  by this argument.
+
+- `environment.version` now gives the current
+   frplib version as a tuple (Major, Minor, Patch).
+
+- `force_unkinded` utility for efficiently
+  evolving large random systems
+
+- New examples from the text: Dividing The Pizza
+  and the Drunken Sailor.
+
+- Most of the missing info docs
+
+### Changed
+
+- Updated the textbook
+
+- Conditional FRPs now auto-convert Kinds in dicts
+  to FRPs. This is consistent with the behavior
+  already in place for functions.
+
+- Updated several examples and added documentation.
+
+- Improved documentation for conditional Kinds
+  and FRPs
+
+### Fixed
+
+- info link for functions in utils now set properly
+
 ## 0.3.4 - 2026-08-31
 
 ### Added
