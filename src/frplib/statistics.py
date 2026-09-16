@@ -71,11 +71,15 @@ ANY_TUPLE: ArityType = (0, infinity)
 
 def is_true(v) -> bool:
     "Converts the value returned by a Condition to a boolean."
-    return (is_vec_tuple(v) and bool(v[0])) or bool(v)
+    if is_vec_tuple(v):
+        if len(v) > 1:
+            raise StatisticError(f'is_true expects a "Boolean" vector tuple of dimension 1, given dimension {len(v)}')
+        return bool(v[0])
+    return bool(v)
 
 def is_false(v) -> bool:
     "Converts the complement of the value returned by a Condition to a boolean."
-    return (is_vec_tuple(v) and not bool(v[0])) or not bool(v)
+    return not is_true(v)
 
 
 #
