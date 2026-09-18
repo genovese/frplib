@@ -49,7 +49,7 @@ def const(a: A) -> Callable[[Any], A]:
 # Kinds and FRPs and Such
 #
 
-def values(x, scalarize=False) -> set:
+def values(x, scalarize=False) -> set:               # pylint: disable=redefined-outer-name
     """Returns the set of values of a kind.
 
     Parameters:
@@ -65,22 +65,22 @@ def values(x, scalarize=False) -> set:
         if scalarize:
             return set(map(float, x.values))
         return x.values
-    except Exception:
-        raise OperationError(f'Object {str(x)} does not have a values property.')
+    except Exception as e:
+        raise OperationError(f'Object {str(x)} does not have a values property.') from e
 
 def dim(x):
     "Returns the dimension of its argument, which is typically a kind, FRP, or statistic."
     try:
         return x.dim
-    except Exception:
-        raise OperationError(f'Object {str(x)} does not have a dim property.')
+    except Exception as e:
+        raise OperationError(f'Object {str(x)} does not have a dim property.') from e
 
 def codim(x):
     "Returns the co-dimension of its argument, which is typically a kind, FRP, or statistic."
     try:
         return x.codim
-    except Exception:
-        raise OperationError(f'Object {str(x)} does not have a codim property.')
+    except Exception as e:
+        raise OperationError(f'Object {str(x)} does not have a codim property.') from e
 
 def typeof(x):
     "Returns the (str) type of its argument, which is typically a conditional kind or FRP, or a statistic."
@@ -106,7 +106,7 @@ def clone(x):
     try:
         return x.clone()
     except Exception as e:
-        raise OperationError(f'Could not clone object {x}:\n  {str(e)}')
+        raise OperationError(f'Could not clone object {x}:\n  {str(e)}') from e
 
 
 #
