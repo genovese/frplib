@@ -2197,12 +2197,12 @@ def _foreach_chunk_size(ell: int, a: int, b: int | float) -> int | None:
     return None
 
 def _foreach_chunk_size_loose(ell: int, a: int, b: int | float) -> int | None:
-    """Returns the smallest chunk size for `ell` with remainder in 0 or a..b, or None."""
+    """Returns the smallest chunk size in a..b with remainder on `ell` either 0 or in a..b, or None."""
     if ell == 0 or ell < a:
         return None
 
     chunk_size = a
-    while chunk_size <= ell:
+    while chunk_size <= min(ell, b):
         if ell % chunk_size == 0:
             return chunk_size
         q = ell // chunk_size

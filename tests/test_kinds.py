@@ -1,4 +1,4 @@
-# pylint: disable=pointless-statement, missing-function-docstring, too-many-locals, too-many-statements, invalid-name, too-many-function-args
+# pylint: disable=pointless-statement, missing-function-docstring, too-many-locals, too-many-statements, invalid-name, too-many-function-args, protected-access
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from frplib.kinds      import (Kind, ConditionalKind, QuantityType, ValueType, k
                                sequence_of_values,
                                fast_join_pow)
 from frplib.numeric    import as_numeric, numeric_log2
-from frplib.quantity   import as_quantity
+from frplib.quantity   import as_quantity, tup
 from frplib.statistics import __, Proj, Sum, Min, Max
 from frplib.symbolic   import symbol
 from frplib.utils      import codim, every, frequencies, irange, lmap, size
@@ -72,6 +72,10 @@ def test_kinds_factories():
     u = uniform(1, 2, 3).weights
     assert values_of(u) == {vec_tuple(1), vec_tuple(2), vec_tuple(3)}
     assert weights_of(u) == pytest.approx([as_quantity('1/3'), as_quantity('1/3'), as_quantity('1/3')])
+
+    u2 = uniform((i, i + 1) for i in irange(1, 4)).weights
+    assert values_of(u2) == {tup(1, 2), tup(2, 3), tup(3, 4), tup(4, 5)}
+    assert weights_of(u2) == pytest.approx([as_quantity('1/4'), as_quantity('1/4'), as_quantity('1/4'), as_quantity('1/4')])
 
     w = weighted_as(1, 2, 3, weights=[1, 2, 4]).weights
     assert values_of(w) == {vec_tuple(1), vec_tuple(2), vec_tuple(3)}
@@ -375,10 +379,10 @@ def test_conditional_kinds():
         conditional_kind(__)
 
     with pytest.raises(ConstructionError):
-        conditional_kind(2)
+        conditional_kind(2)    # type: ignore
 
     with pytest.raises(ConstructionError):
-        conditional_kind([])
+        conditional_kind([])   # type: ignore
 
     # Testing Issue 52: frp(cKind) and conditional_kind(cFRP) allowed
 
@@ -468,6 +472,13 @@ def test_kernel():
     assert k.kernel(4, as_float=False) == as_quantity('1/8')
     assert k.kernel(5, as_float=False) == as_quantity('0')
 
+    k2 = weighted_as((0, 1, 2), (3, 4, 5), (6, 7, 8), weights=[3, 4, 5])
+
+    assert k2.kernel(0, 1, 2) == 1 / 4
+    assert k2.kernel((3, 4, 5)) == 1 / 3
+    assert k2.kernel((6, 7, 8)) == 5 / 12
+    assert k2.kernel(0, 1, 1) == 0
+
 def test_ops():
     k = uniform(1, 2, ..., 6) ** 2
     kp = Proj[2] @ k | (Proj[1] == 2)
@@ -548,3 +559,4 @@ def test_ck_types():
     })
 
     assert codim(ck1) == 1
+    assert codim(ck2) == 2
