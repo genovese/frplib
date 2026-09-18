@@ -146,14 +146,14 @@ def as_nice_quantity(x: ScalarQ | Symbolic) -> Numeric | Symbolic | Nothing:
     """Like as_quantity but with an aesthetically gentler numeric conversion."""
     return as_quantity(x, convert_numeric=as_nice_numeric)
 
-def as_quant_vec(x, convert=as_quantity):
+def as_quant_vec(x, convert=as_quantity) -> VecTuple:
     "Converts an iterable or a value into a vector-style tuple with numerics or symbols."
     # ATTN: Consider using as_real for the convert_numeric in as_quantity
     if isinstance(x, Iterable) and not isinstance(x, str):
         return VecTuple(map(convert, x))
     return vec_tuple(convert(x))
 
-def tup(*xs, convert=as_quantity):
+def tup(*xs, convert=as_quantity) -> VecTuple:
     """Wraps its arguments in a quantitative vector.
 
     It accepts either a single iterable argument that should contain the
