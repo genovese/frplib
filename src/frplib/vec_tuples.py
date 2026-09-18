@@ -47,9 +47,6 @@ from __future__ import annotations
 
 import math
 
-import numpy
-import numpy.typing
-
 from collections.abc   import Iterable
 from decimal           import Decimal
 from fractions         import Fraction
@@ -58,6 +55,9 @@ from operator          import (add, mul, sub, truediv, floordiv, mod, pow,   # p
                                lt, gt, eq, le, ge)
 from typing            import cast, Callable, Type, TypeVar, Union
 from typing_extensions import Self, TypeGuard
+
+import numpy
+import numpy.typing
 
 from frplib.exceptions import (FrplibException, OperationError, NumericConversionError,
                                MismatchedDimensionError, MismatchedDomain)
@@ -586,6 +586,35 @@ class VecTuple(tuple[T, ...]):
         if to_len > 0:
             return cls(xs[:to_len])
         raise FrplibException(f'{cls}.pad_to requires a positive target length, given {to_len}')
+
+    @classmethod
+    def take_by_k(cls, k: int, xs: Iterable, *, exact=True, with_index=False):
+        """Generates successive subtuples of `xs` of size `k`.
+
+        If `exact` is true, a residual subtuple of size < k at the end
+        is dropped. Otherwise, that smaller subtuple is produced last.
+
+        If `with_index` is true, the chunk index (0-based) is prepended
+        to each subtuple.
+
+        Returns a generator.
+
+        """
+        # Assumes that n divides len(xs) as we have already checked
+        xs = cls(xs)
+        n = len(xs)
+        n_k = k * (n // k)
+
+        if with_index:
+            for i in range(0, n_k, k):
+                yield cls.join(i // k, xs[i:(i + k)])
+            if not exact and n > n_k:
+                yield cls.join(n_k // k, xs[n_k:])
+        else:
+            for i in range(0, n_k, k):
+                yield xs[i:(i + k)]    # Guaranteed to be a VecTuple
+            if not exact and n > n_k:
+                yield xs[n_k:]
 
 
 def vec_tuple(*a: T) -> VecTuple[T]:
