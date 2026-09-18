@@ -59,7 +59,7 @@ playground_imports: dict[str, list[str]] = {
         'SumSq', 'Norm', 'Dot',
         'ArgMin', 'ArgMax', 'Ascending', 'Descending', 'Distinct',
         'Diff', 'Diffs', 'Dim', 'Permute', 'ElementOf',
-        'Constantly', 'Fork', 'MFork', 'ForEach', 'IfThenElse',
+        'Constantly', 'Fork', 'MFork', 'ForEach', 'ForEachIndexed', 'IfThenElse',
         'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
         'All', 'Any', 'Cases', 'Bag', 'Append', 'Prepend',
         'Get', 'Keep', 'MaybeMap',

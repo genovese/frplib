@@ -3,7 +3,7 @@
 ATTN:fill in
 
 """
-# pylint: disable=too-many-lines, invalid-name, line-too-long, unnecessary-lambda-assignment
+# pylint: disable=too-many-lines, invalid-name, line-too-long, unnecessary-lambda-assignment, too-many-statements
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import inspect
 import math
 import re
 import textwrap
+import typing
 
 from collections       import defaultdict
 from collections.abc   import Iterable, Collection, Sequence
@@ -19,22 +20,22 @@ from fractions         import Fraction
 from functools         import wraps
 from math              import prod
 from operator          import itemgetter
-from typing            import Callable, cast, Literal, Optional, overload, Union
+from typing            import Callable, Protocol, cast, Literal, Optional, overload, Union
 from typing_extensions import Self, TypeAlias, TypeGuard
 
 from frplib.env        import environment
 from frplib.exceptions import (OperationError, StatisticError, DomainDimensionError,
                                InputError, MismatchedDomain, FactoryError)
-from frplib.factories  import ConditionFactory, StatisticFactory, statlike_factory
+from frplib.factories  import StatisticCombinator, ConditionFactory, StatisticFactory, statlike_factory
 from frplib.numeric    import (ScalarQ, Numeric, Nothing, nothing, as_real, numeric_sqrt,
                                numeric_exp, numeric_ln, numeric_log10, numeric_log2,
                                numeric_abs, numeric_floor, numeric_ceil)
 
 from frplib.protocols  import Projection, Transformable
-from frplib.quantity   import as_quant_vec, as_quantity
+from frplib.quantity   import as_quant_vec, as_quantity, tup
 from frplib.symbolic   import Symbolic, is_symbolic
 from frplib.unique     import INFO_AUTO
-from frplib.utils      import dim, frequencies, identity, is_interactive, is_tuple, scalarize
+from frplib.utils      import dim, frequencies, identity, index_where, irange, is_interactive, is_tuple
 from frplib.vec_tuples import (VecTuple, as_bool, as_scalar, as_scalar_strict, as_scalar_weak,
                                as_vec_tuple, is_vec_tuple, vec_tuple)
 
@@ -72,7 +73,7 @@ ANY_TUPLE: ArityType = (0, infinity)
 def is_true(v) -> bool:
     "Converts the value returned by a Condition to a boolean."
     if is_vec_tuple(v):
-        if len(v) > 1:
+        if len(v) != 1:
             raise StatisticError(f'is_true expects a "Boolean" vector tuple of dimension 1, given dimension {len(v)}')
         return bool(v[0])
     return bool(v)
@@ -99,8 +100,18 @@ def _codim_str(arity: ArityType) -> str:
         codim = f'{arity}'  # ATTN: this case should not happen
     return codim
 
-def _reconcile_codims(stat1: Statistic, stat2: Statistic, op_name: str = '') -> ArityType:
+class HasArity(Protocol):
+    """A tuple_safe callable that has a arity attribute."""
+    def __call__(self, *x: typing.Any) -> VecTuple:
+        ...
+    arity: ArityType
+
+def _reconcile_codims(stat1: HasArity, stat2: HasArity, op_name: str = '') -> ArityType:
     """Returns largest range of codimensions consistent with both statistics, or raise an error.
+
+    This accesses the codim property *directly* through the underlying .arity attribute.
+    While this breaks encapsulation somewhat, it ensures that this function can
+    be used with Statistics and with callables returned by `tuple_safe`.
 
     Parameter op_name is included in an error message to identify the
     source of any problem. It is intended to identify the combining
@@ -109,8 +120,8 @@ def _reconcile_codims(stat1: Statistic, stat2: Statistic, op_name: str = '') -> 
     See also `combine_arities`.
 
     """
-    codim1 = stat1.codim
-    codim2 = stat2.codim
+    codim1 = stat1.arity  # .codim
+    codim2 = stat2.arity  # .codim
 
     lo1, hi1 = codim1
     lo2, hi2 = codim2
@@ -121,22 +132,55 @@ def _reconcile_codims(stat1: Statistic, stat2: Statistic, op_name: str = '') -> 
         op = ''
 
     if hi1 < lo2 or hi2 < lo1:
-        raise StatisticError(f'Attempt to combine statistics{op} with incompatible '
+        raise StatisticError(f'Combining statistics{op} with incompatible '
                              f'codims {_codim_str(codim1)} and {_codim_str(codim2)}')
 
     return (max(lo1, lo2), min(hi1, hi2))
+
+def _reconcile_dims(dim_base: int | None, dim_ext: int | None, assume_extend=True, op_name: str = '') -> int | None:
+    """Find a compatible dimension between a base and a dimension to be combined with that base.
+
+    This is designed to be used with operations with a statistic as the base and a constant
+    or similarly fixed statistic as the extension. Here, we have to grapple with the extension
+    of scalars to be compatible with any dimension value. Thus, `assume_extend` defaults
+    to be true, and scalars for `dim_ext` will be assumed extensible in the combination.
+
+    Parameters
+    ----------
+    dim_base - the dimension of the base statistic
+    dim_ext - the fixed dimension of the other statistic, typically a constant
+    assume_extend - if True, assume that the combining operation extends scalars,
+        so a dim_ext of 1 will be compatible with bases of any dimension.
+    op_name - a word, typically capitalized and in gerund form, describing the operation,
+        e.g., Adding, Multiplying.
+
+    Returns the compatible dimension or raises a StatisticError if no compatible dimension
+    exists.
+
+    """
+    if dim_base is None:
+        if dim_ext == 1 and assume_extend:
+            return None   # Scalars extend and so assume will be compatible with the base value
+        return dim_ext
+
+    if (dim_ext == 1 and dim_base != 1 and not assume_extend) or (dim_ext not in (1, dim_base)):
+        raise StatisticError(f'{op_name} statistics of incompatible dimensions {dim_base} and {dim_ext}')
+
+    return dim_base   # Scalars extend, so we use dim_base if dim_ext == 1
 
 def as_scalar_stat(x: ScalarQ | Symbolic):
     "Returns a quantity guaranteed to be a scalar for use in statistical math operations."
     return as_quantity(as_scalar_strict(x))
 
 def stat_label(s: Statistic) -> str:
+    """Returns a label for a statistic in an error message or docstring."""
     name = s.name
     if '__' in name:  # name == '__':
         return name
     return f'{name}(__)'
 
 def compose2(after: 'Statistic', before: 'Statistic') -> 'Statistic':
+    """Returns the composition of two statistics (f, g) -> f after g."""
     lo, hi = after.codim
     if before.dim is None or (before.dim >= lo and before.dim <= hi):
         def composed(*x):
@@ -162,6 +206,22 @@ def combine_arities(has_arity, more) -> ArityType:
             arity_high = min(arity_high, s.arity[1])
 
     return (arity_low, arity_high)
+
+def divisors_of(n: int) -> list[int]:
+    """Returns the list of divisors of a natural number n, in sorted order."""
+    assert n >= 0, "divisors_of requires a non-negative integer"
+    divisors_n = set()
+    # Only loop up to the square root of n
+    for divisor in range(1, int(math.sqrt(n)) + 1):
+        if n % divisor == 0:
+            # divisors come in pairs, add both
+            divisors_n.add(divisor)
+            divisors_n.add(n // divisor)
+
+    return sorted(list(divisors_n))
+
+DIVISORS_UP_TO = 1024
+divisors = {n: divisors_of(n) for n in irange(0, DIVISORS_UP_TO)}
 
 
 #
@@ -204,7 +264,7 @@ def tuple_safe(
         strict=True,
         convert=as_quant_vec,
         prepare=as_quant_vec   # ATTN:Aug2026 Should this be VecTuple? Using identity restores old behavior.
-) -> Callable:
+) -> HasArity:
     """Returns a function that can accept a single tuple or multiple individual arguments.
 
     Ensures that the returned function has an `arity` attribute set
@@ -292,7 +352,7 @@ def tuple_safe(
                 return convert(fn(*x))
         setattr(f, 'arity', arities)
         setattr(f, 'strict_arity', strict)
-        return f
+        return cast(HasArity, f)
 
     if arities == (1, 1):
         # In this case, we accept multiple arguments so that
@@ -316,7 +376,7 @@ def tuple_safe(
             return convert(fn(arg))
         setattr(g, 'arity', arities)
         setattr(g, 'strict_arity', strict)
-        return g
+        return cast(HasArity, g)
 
     if arities[1] == infinity:
         if single_arg:
@@ -345,7 +405,7 @@ def tuple_safe(
                 return convert(fn(*args))
         setattr(h, 'arity', arities)
         setattr(h, 'strict_arity', strict)
-        return h
+        return cast(HasArity, h)
 
     if single_arg:
         @wraps(fn)
@@ -389,7 +449,7 @@ def tuple_safe(
             return convert(fn(*args[:take]))
     setattr(ff, 'arity', arities)
     setattr(ff, 'strict_arity', strict)
-    return ff
+    return cast(HasArity, ff)
 
 def flexible_inputs(fn):
     """A decorator that allows a tuple-accepting function to instead take multiple arguments.
@@ -423,7 +483,7 @@ class Statistic:
                                                       # (a, b) means fn accepts a <= n <= b args; a means (a, a)
                                                       # infinity allowed for b; None means infer by inspection
                                                       # 0 is taken as a shorthand for ANY_TUPLE
-            dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know
+            dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know # pylint: disable=redefined-outer-name
             name: Optional[str] = None,               # A user-facing name for the statistic
             description: Optional[str] = None,        # A description used as a __doc__ string for the Statistic
             strict=True                               # If False, implicitly project down onto allowed inputs
@@ -512,6 +572,7 @@ class Statistic:
 
     @property
     def name(self) -> str:
+        """A statistic's name"""
         return self.__name__
 
     @name.setter
@@ -529,17 +590,20 @@ class Statistic:
 
     @property
     def type(self):
+        """A statistic's type as a string."""
         codim = _codim_str(self.arity)
-        dim = f'{self.dim}' if self.dim is not None else '*'
+        dim = f'{self.dim}' if self.dim is not None else '*'    # pylint: disable=redefined-outer-name
 
         return f'{codim} -> {dim}'
 
     @property
     def description(self) -> str:
+        """A statistic's docstring."""
         return self.__doc__
 
     @property
     def doc(self) -> str:
+        """A statistic's docstring."""
         return self.__doc__
 
     @doc.setter
@@ -727,53 +791,63 @@ class Statistic:
 
     def __add__(self, other):
         codim: int | ArityType = 0
-        dim : int | None = None
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
         if isinstance(other, Statistic):
             if Statistic._unequal_dims(self, other):
                 # Dimensions are known to be incompatible
-                raise StatisticError(f'Invalid attempt to add statistics of incompatible dimensions {self.dim} and {other.dim}')
-
-            def a_plus_b(*x):
-                return self(*x) + other(*x)
+                raise StatisticError(f'Adding statistics of incompatible dimensions {self.dim} and {other.dim}')
             label = stat_label(other)
             codim = _reconcile_codims(self, other, '+')
             dim = self.dim
-        elif callable(other):
-            f = tuple_safe(other)
 
             def a_plus_b(*x):
-                return self(*x) + as_quant_vec(f(*x))
+                return self(*x) + other(*x)
+        elif callable(other):
+            f = tuple_safe(other)
             label = str(other)
-        else:
+            codim = _reconcile_codims(self, f, '+')
+
             def a_plus_b(*x):
-                return self(*x) + as_quant_vec(other)
-            label = str(other)
+                return self(*x) + f(*x)
+        else:
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
             codim = self.codim
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Adding')
+
+            def a_plus_b(*x):
+                return self(*x) + other_tup
 
         return Statistic(a_plus_b, dim=dim, codim=codim, name=f'{stat_label(self)} + {label}')
 
     def __radd__(self, other):
         codim = self.codim
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
+
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+            label = str(other)
+            codim = _reconcile_codims(self, f, '+')
 
             def a_plus_b(*x):
-                return f(*x) + as_quant_vec(self(*x))
-            label = str(other)
+                return f(*x) + self(*x)
         else:
-            def a_plus_b(*x):
-                return other + as_quant_vec(self(*x))
-            label = str(other)
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Adding')
 
-        return Statistic(a_plus_b, codim=codim, name=f'{label} + {stat_label(self)}')
+            def a_plus_b(*x):
+                return other_tup + self(*x)
+
+        return Statistic(a_plus_b, dim=dim, codim=codim, name=f'{label} + {stat_label(self)}')
 
     def __sub__(self, other):
         codim: int | ArityType = 0
-        dim : int | None = None
+        dim: int | None = None                            # pylint: disable=redefined-outer-name
         if isinstance(other, Statistic):
             if Statistic._unequal_dims(self, other):
                 # Dimensions are known to be incompatible
-                raise StatisticError(f'Invalid attempt to subtract statistics of incompatible dimensions {self.dim} and {other.dim}')
+                raise StatisticError(f'Subtracting statistics of incompatible dimensions {self.dim} and {other.dim}')
 
             def a_minus_b(*x):
                 return self(*x) - other(*x)
@@ -782,78 +856,104 @@ class Statistic:
             dim = self.dim
         elif callable(other):
             f = tuple_safe(other)
+            label = str(other)
+            codim = _reconcile_codims(self, f, '-')
 
             def a_minus_b(*x):
-                return self(*x) - as_quant_vec(f(*x))
-            label = str(other)
+                return self(*x) - f(*x)
         else:
-            def a_minus_b(*x):
-                return self(*x) - as_quant_vec(other)
-            label = str(other)
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
             codim = self.codim
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Subtracting')
+
+            def a_minus_b(*x):
+                return self(*x) - other_tup
 
         return Statistic(a_minus_b, dim=dim, codim=codim, name=f'{stat_label(self)} - {label}')
 
     def __rsub__(self, other):
         codim = self.codim
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
+
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+            label = str(other)
+            codim = _reconcile_codims(self, f, '-')
 
             def a_minus_b(*x):
-                return f(*x) - as_quant_vec(self(*x))
+                return f(*x) - self(*x)
         else:
-            def a_minus_b(*x):
-                return other - as_quant_vec(self(*x))
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Subtracting')
 
-        return Statistic(a_minus_b, codim=codim, name=f'{str(other)} - {stat_label(self)}')
+            def a_minus_b(*x):
+                return other_tup - self(*x)
+
+        return Statistic(a_minus_b, dim=dim, codim=codim, name=f'{label} - {stat_label(self)}')
 
     def __mul__(self, other):
         codim: int | ArityType = 0
-        dim : int | None = None
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
+
         if isinstance(other, Statistic):
             if Statistic._unequal_nonscalar_dims(self, other):
                 # Dimensions are known to be incompatible
-                raise StatisticError(f'Invalid attempt to multiply statistics of incompatible dimensions {self.dim} and {other.dim}')
-
-            def a_times_b(*x):
-                return self(*x) * other(*x)
+                raise StatisticError(f'Multiplying statistics of incompatible dimensions {self.dim} and {other.dim}')
             label = stat_label(other)
             codim = _reconcile_codims(self, other, '*')
             dim = Statistic._max_known_dim(self, other)
-        elif callable(other):
-            f = tuple_safe(other)
 
             def a_times_b(*x):
-                return self(*x) * as_scalar_stat(f(*x))
+                return self(*x) * other(*x)
+        elif callable(other):
+            f = tuple_safe(other)
             label = str(other)
+            codim = _reconcile_codims(self, f, '*')
+
+            def a_times_b(*x):
+                return self(*x) * f(*x)
         else:
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
+            codim = self.codim
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Multiplying')
+
             def a_times_b(*x):
                 return self(*x) * as_scalar_stat(other)  # ATTN!
-            label = str(other)
-            codim = self.codim
 
         return Statistic(a_times_b, dim=dim, codim=codim, name=f'{stat_label(self)} * {label}')
 
     def __rmul__(self, other):
         codim = self.codim
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
+
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+            label = str(other)
+            codim = _reconcile_codims(self, f, '*')
 
             def a_times_b(*x):
-                return f(*x) * as_scalar_stat(self(*x))
+                return f(*x) * self(*x)
         else:
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Multiplying')
+
             def a_times_b(*x):
                 return as_scalar_stat(other) * self(*x)
 
-        return Statistic(a_times_b, codim=codim, name=f'{str(other)} * {stat_label(self)}')
+        return Statistic(a_times_b, dim=dim, codim=codim, name=f'{label} * {stat_label(self)}')
 
     def __truediv__(self, other):
         codim: int | ArityType = 0
-        dim: int | None = None
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
+
         if isinstance(other, Statistic):
             if Statistic._unequal_nonscalar_dims(self, other):
                 # Dimensions are known to be incompatible
-                raise StatisticError(f'Invalid attempt to divide statistics of incompatible dimensions {self.dim} and {other.dim}')
+                raise StatisticError(f'Dividing statistics of incompatible dimensions {self.dim} and {other.dim}')
 
             def a_div_b(*x):
                 return self(*x) / other(*x)
@@ -862,31 +962,42 @@ class Statistic:
             dim = Statistic._max_known_dim(self, other)
         elif callable(other):
             f = tuple_safe(other)
+            label = str(other)
+            codim = _reconcile_codims(self, f, '/')
 
             def a_div_b(*x):
                 return self(*x) / f(*x)
-            label = str(other)
-        # ATTN! if other is a VecTuple, allow division by scalar or by tuple of same dimension.
         else:
-            def a_div_b(*x):
-                return self(*x) / as_real(as_scalar_strict(other))
-            label = str(other)
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
             codim = self.codim
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Dividing')
+
+            def a_div_b(*x):
+                return self(*x) / other_tup
 
         return Statistic(a_div_b, dim=dim, codim=codim, name=f'{stat_label(self)} / {label}')
 
     def __rtruediv__(self, other):
         codim = self.codim
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
+
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+            label = str(other)
+            codim = _reconcile_codims(self, f, '/')
 
             def a_div_b(*x):
-                return as_quantity(f(*x)) / self(*x)
+                return f(*x) / self(*x)
         else:
-            def a_div_b(*x):
-                return as_quantity(other) / as_quantity(as_scalar_strict(self(*x)))
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Dividing')
 
-        return Statistic(a_div_b, codim=codim, name=f'{str(other)} / {stat_label(self)}')
+            def a_div_b(*x):
+                return other_tup / self(*x)
+
+        return Statistic(a_div_b, dim=dim, codim=codim, name=f'{label} / {stat_label(self)}')
 
     def __floordiv__(self, other):
         # EXPERIMENTAL: Allow stat // kind for analogous averaging of conditioning operator
@@ -895,7 +1006,7 @@ class Statistic:
         from frplib.kinds import Kind
 
         codim = self.codim
-        dim: int | None = None
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
 
         # EXPERIMENTAL FEATURE: Nice that E(cK // k).raw == E(cK).raw // k
         # stat // kind === (kind ^ stat).expectation
@@ -917,95 +1028,108 @@ class Statistic:
         if isinstance(other, Statistic):
             if Statistic._unequal_nonscalar_dims(self, other):
                 # Dimensions are known to be incompatible
-                raise StatisticError(f'Invalid attempt to divide statistics '
-                                     f'of incompatible dimensions {self.dim} and {other.dim}')
-
-            def a_div_b(*x):
-                return self(*x) // other(*x)
+                raise StatisticError(f'Integer dividing statistics of incompatible dimensions '
+                                     f'{self.dim} and {other.dim}')
             label = stat_label(other)
             codim = _reconcile_codims(self, other, '//')
             dim = Statistic._max_known_dim(self, other)
-        elif callable(other):
-            f = tuple_safe(other)
 
             def a_div_b(*x):
-                return self(*x) // as_scalar_stat(f(*x))
+                return self(*x) // other(*x)
+        elif callable(other):
+            f = tuple_safe(other)
             label = str(other)
-        else:
+            codim = _reconcile_codims(self, f, '//')
+
             def a_div_b(*x):
-                return self(*x) // as_scalar_stat(other)
-            label = str(other)
+                return self(*x) // f(*x)
+        else:
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Integer dividing')
+
+            def a_div_b(*x):
+                return self(*x) // other_tup
 
         return Statistic(a_div_b, dim=dim, codim=codim, name=f'{stat_label(self)} // {label}')
 
     def __rfloordiv__(self, other):
         codim = self.codim
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
+
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+            label = str(other)
+            codim = _reconcile_codims(self, f, '//')
 
             def a_div_b(*x):
-                return f(*x) // as_scalar_stat(self(*x))
+                return f(*x) // self(*x)
         else:
-            def a_div_b(*x):
-                return other // as_scalar_stat(self(*x))
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Integer dividing')
 
-        return Statistic(a_div_b, codim=codim, name=f'{str(other)} // {stat_label(self)}')
+            def a_div_b(*x):
+                return other_tup // self(*x)
+
+        return Statistic(a_div_b, dim=dim, codim=codim, name=f'{label} // {stat_label(self)}')
 
     def __mod__(self, other):
         codim = self.codim
-        dim : int | None = None
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
+
         if isinstance(other, Statistic):
             if Statistic._unequal_nonscalar_dims(self, other):
                 # Dimensions are known to be incompatible
-                raise StatisticError(f'Invalid attempt to mod statistics of incompatible dimensions {self.dim} and {other.dim}')
-
-            def a_mod_b(*x):
-                return self(*x) % other(*x)
+                raise StatisticError(f'Modding statistics of incompatible dimensions {self.dim} and {other.dim}')
             label = stat_label(other)
             codim = _reconcile_codims(self, other, '%')
             dim = Statistic._max_known_dim(self, other)
-        elif callable(other):
-            f = tuple_safe(other)
 
             def a_mod_b(*x):
-                return self(*x) % as_scalar_stat(f(*x))
+                return self(*x) % other(*x)
+        elif callable(other):
+            f = tuple_safe(other)
             label = str(other)
-        elif self.dim == 1:
+            codim = _reconcile_codims(self, f, '%')
+
             def a_mod_b(*x):
-                try:
-                    return scalarize(self(*x)) % as_quantity(other)
-                except Exception as e:
-                    raise OperationError(f'Could not compute {self.name} % {other}:\n  {str(e)}')
-            label = str(other)
+                return self(*x) % f(*x)
         else:
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Modding')
+
             def a_mod_b(*x):
-                val = self(*x)
-                if len(val) != 1:
-                    raise OperationError(f'Statistic {self.name} is not a scalar but % requires it; '
-                                         'try using Proj or Scalar explicitly.')
-                try:
-                    return scalarize(self(*x)) % as_quantity(other)
-                except Exception as e:
-                    raise OperationError(f'Could not compute {self.name} % {other}:\n  {str(e)}')
-            label = str(other)
+                return self(*x) % other_tup
+
         return Statistic(a_mod_b, dim=dim, codim=codim, name=f'{stat_label(self)} % {label}')
 
     def __rmod__(self, other):
         codim = self.codim
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
+
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+            label = str(other)
+            codim = _reconcile_codims(self, f, '%')
 
             def a_mod_b(*x):
-                return as_quantity(f(*x)) % scalarize(self(*x))
+                return f(*x) % self(*x)
         else:
-            def a_mod_b(*x):
-                return as_quantity(other) % scalarize(self(*x))
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Integer dividing')
 
-        return Statistic(a_mod_b, codim=codim, name=f'{str(other)} % {stat_label(self)}')
+            def a_mod_b(*x):
+                return other_tup % self(*x)
+
+        return Statistic(a_mod_b, dim=dim, codim=codim, name=f'{label} % {stat_label(self)}')
 
     def __pow__(self, other):
         codim = self.codim
-        dim: int | None = None
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
+
         if isinstance(other, Statistic):
             if Statistic._unequal_nonscalar_dims(self, other):
                 # Dimensions are known to be incompatible
@@ -1019,29 +1143,41 @@ class Statistic:
             dim = Statistic._max_known_dim(self, other)
         elif callable(other):
             f = tuple_safe(other)
+            label = str(other)
+            codim = _reconcile_codims(self, f, '**')
 
             def a_pow_b(*x):
-                return self(*x) ** as_quantity(f(*x))
-            label = str(other)
+                return self(*x) ** f(*x)
         else:
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Exponentiating')
+
             def a_pow_b(*x):
-                return self(*x) ** as_quantity(other)
-            label = str(other)
+                return self(*x) ** other_tup
 
         return Statistic(a_pow_b, dim=dim, codim=codim, name=f'{stat_label(self)} ** {label}')
 
     def __rpow__(self, other):
         codim = self.codim
+        dim: int | None = None                             # pylint: disable=redefined-outer-name
+
         if callable(other):   # other cannot be a Statistic in __r*__
             f = tuple_safe(other)
+            label = str(other)
+            codim = _reconcile_codims(self, f, '**')
 
             def a_pow_b(*x):
-                return as_quantity(f(*x)) ** self(*x)
+                return f(*x) ** self(*x)
         else:
-            def a_pow_b(*x):
-                return as_quantity(other) ** self(*x)
+            other_tup = as_quant_vec(other)
+            label = str(other_tup)
+            dim = _reconcile_dims(self.dim, len(other_tup), op_name='Exponentiating')
 
-        return Statistic(a_pow_b, codim=codim, name=f'{str(other)} ** {stat_label(self)}')
+            def a_pow_b(*x):
+                return other_tup ** self(*x)
+
+        return Statistic(a_pow_b, dim=dim, codim=codim, name=f'{label} ** {stat_label(self)}')
 
     def __xor__(self, other):
         "Chained composition of two statistics, self then other"
@@ -1090,7 +1226,7 @@ class MonoidalStatistic(Statistic):
             unit,                                     # The unit of the monoid
             codim: Optional[int | ArityType] = None,  # (a, b) means fn accepts a <= n <= b args; a means (a, a)
                                                       # infinity allowed for b; None means infer by inspection
-            dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know
+            dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know # pylint: disable=redefined-outer-name
             name: Optional[str] = None,               # A user-facing name for the statistic
             description: Optional[str] = None,        # A description used as a __doc__ string for the Statistic
             strict=True                               # If true, then strictly enforce dim upper bound
@@ -1149,7 +1285,7 @@ class ProjectionStatistic(Statistic, Projection):
             name: Optional[str] = None           # A user-facing name for the statistic
     ) -> None:
         codim: Optional[int | ArityType] = 0
-        dim = None
+        dim = None                               # pylint: disable=redefined-outer-name
         label = '<...>'
         if isinstance(onto, ProjectionStatistic):
             indices: Iterable[int] | slice | 'ProjectionStatistic' = onto.subspace
@@ -1158,10 +1294,10 @@ class ProjectionStatistic(Statistic, Projection):
 
         if isinstance(onto, Iterable):
             indices = list(onto)
-            codim = (max(0, max(indices)), infinity)
+            codim = (max(0, *indices), infinity)
             dim = len(indices)
             label = ", ".join(map(str, indices))
-            if any([index == 0 for index in indices]):  # Negative from the end OK
+            if any(index == 0 for index in indices):  # Negative from the end OK
                 raise StatisticError('Projection indices are 1-indexed and must be non-zero')
         elif isinstance(onto, slice):
             indices = onto
@@ -1222,10 +1358,11 @@ class Condition(Statistic):
         # return as_vec_tuple(result).map(_ibool)
 
     def bool_eval(self, *args) -> bool:
+        """Evaluates a condition to a standard Python Boolean."""
         result = self(*args)
         if isinstance(result, tuple):
             return bool(result[0])
-        elif isinstance(result, (bool, int, Decimal, str)):
+        if isinstance(result, (bool, int, Decimal, str)):
             return bool(result)
         raise StatisticError(f'Attempt to check an unevaluated Condition/Statistic {result.name}')
 
@@ -1242,7 +1379,7 @@ def statistic(
         codim: Optional[int | ArityType] = None,  # Codimension (i.e., dimension of the domain)
                                                   # (a, b) means fn accepts a <= n <= b args; a means (a, a)
                                                   # infinity allowed for b; None means infer by inspection
-        dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know
+        dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know  # pylint: disable=redefined-outer-name
         description: Optional[str] = None,        # A description used as a __doc__ string for the Statistic
         monoidal=None,                            # If not None, the unit for a Monoidal Statistic
         strict=True,                              # If true, then strictly enforce codim upper bound
@@ -1258,28 +1395,13 @@ def statistic(
         codim: Optional[int | ArityType] = None,  # Codimension (i.e., dimension of the domain)
                                                   # (a, b) means fn accepts a <= n <= b args; a means (a, a)
                                                   # infinity allowed for b; None means infer by inspection
-        dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know
+        dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know  # pylint: disable=redefined-outer-name
         description: Optional[str] = None,        # A description used as a __doc__ string for the Statistic
         monoidal=None,                            # If not None, the unit for a Monoidal Statistic
         strict=True,                              # If true, then strictly enforce codim upper bound
         arg_convert: Optional[Callable] = None    # If not None, a function applies to every input component
 ) -> Statistic:
     ...
-
-# # Original
-# def statistic(
-#         maybe_fn: Optional[Callable] = None,  # If supplied, return Statistic, else a decorator
-#         *,
-#         name: Optional[str] = None,               # A user-facing name for the statistic
-#         codim: Optional[int | ArityType] = None,  # Codimension (i.e., dimension of the domain)
-#                                                   # (a, b) means fn accepts a <= n <= b args; a means (a, a)
-#                                                   # infinity allowed for b; None means infer by inspection
-#         dim: Optional[int] = None,                # Dimension (of the codomain); None means don't know
-#         description: Optional[str] = None,        # A description used as a __doc__ string for the Statistic
-#         monoidal=None,                            # If not None, the unit for a Monoidal Statistic
-#         strict=True,                              # If true, then strictly enforce codim upper bound
-#         arg_convert: Optional[Callable] = None    # If not None, a function applies to every input component
-# ) -> Statistic | Callable[[Callable], Statistic]:
 
 def statistic(
         maybe_fn=None,        # If supplied, return Statistic, else a decorator
@@ -1288,7 +1410,7 @@ def statistic(
         codim=None,           # Codimension (i.e., dimension of the domain)
                               # (a, b) means fn accepts a <= n <= b args; a means (a, a)
                               # infinity allowed for b; None means infer by inspection
-        dim=None,             # Dimension (of the codomain); None means don't know
+        dim=None,             # Dimension (of the codomain); None means don't know  # pylint: disable=redefined-outer-name
         description=None,     # A description used as a __doc__ string for the Statistic
         monoidal=None,        # If not None, the unit for a Monoidal Statistic
         strict=True,          # If true, then strictly enforce codim upper bound
@@ -1593,8 +1715,9 @@ def condition_factory(
 # Statistics Combinators
 #
 
+@StatisticCombinator
 def Chain(*statistics: Statistic) -> Statistic:
-    "Statistic combinator. Compose statistics in pipeline order: (f ; g)(x) = g(f(x)), read 'f then g'."
+    "composes statistics in pipeline order: (f ; g)(x) = g(f(x)), read 'f then g'."
     if len(statistics) == 0:
         return Id
     if len(statistics) == 1:
@@ -1618,11 +1741,12 @@ def Chain(*statistics: Statistic) -> Statistic:
     names = ", ".join([stat.name for stat in statistics])
     return Statistic(chained, arity, name=f'Chain({names})')
 
+@StatisticCombinator
 def Compose(*statistics: Statistic) -> Statistic:
-    "Statistic Combinator. Compose statistics in mathematical order: (f o g)(x) = f(g(x)), read 'f after g'."
+    "composes statistics in mathematical order: (f o g)(x) = f(g(x)), read 'f after g'."
     if len(statistics) == 0:
         return Id
-    elif len(statistics) == 1:
+    if len(statistics) == 1:
         return statistics[0]
 
     rev_statistics = list(statistics)
@@ -1650,7 +1774,12 @@ def Compose(*statistics: Statistic) -> Statistic:
 # Commonly Used Statistics
 #
 
-Id = MonoidalStatistic(identity, unit=vec_tuple(), codim=ANY_TUPLE, name='identity', description='returns the value given as is')
+Id = MonoidalStatistic(
+    identity, unit=vec_tuple(),
+    codim=ANY_TUPLE,
+    name='identity',
+    description='returns the value given as is'
+)
 Scalar = Statistic(lambda x: x[0] if is_tuple(x) else x, codim=1, dim=1, strict=True,
                    name='scalar', description='represents a scalar value')
 __ = Statistic(identity, codim=ANY_TUPLE, name='__', description='represents the value given to the statistic')
@@ -1694,7 +1823,6 @@ Floor = Statistic(numeric_floor, codim=1, dim=1, name='Floor',
 Ceil = Statistic(numeric_ceil, codim=1, dim=1, name='Ceil',
                  description='returns the least integer >= its argument')
 
-# ATTN:Aug2026 this is not the best way, but it will do temporarily
 def scalar_numeric_stat(
         fn: Callable,
         name: str = '',
@@ -1702,6 +1830,11 @@ def scalar_numeric_stat(
         complement=False,
         doc: str = ''
 ) -> Statistic:
+    """Convers a numeric function to a scalar statistic, with domain checks.
+
+    ATTN:Aug2026 this is not the best way, but it will do temporarily
+
+    """
     fname = name or fn.__name__ or 'statistic'
     frange_lo, frange_hi = (-infinity, infinity) if domain is None else domain
 
@@ -1735,9 +1868,9 @@ Exp = scalar_numeric_stat(numeric_exp, name='Exp',
 Log = scalar_numeric_stat(numeric_ln, domain=(-infinity, 0), complement=True, name='Log',
                           doc='returns the natural logarithm of a positive scalar argument')
 Log2 = scalar_numeric_stat(numeric_log2, domain=(-infinity, 0), complement=True, name='Log2',
-                          doc='returns the logarithm base 2 of a positive scalar argument')
+                           doc='returns the logarithm base 2 of a positive scalar argument')
 Log10 = scalar_numeric_stat(numeric_log10, domain=(-infinity, 0), complement=True, name='Log10',
-                          doc='returns the logarithm base 10 of a positive scalar argument')
+                            doc='returns the logarithm base 10 of a positive scalar argument')
 
 # Sqrt = Statistic(numeric_sqrt, codim=1, dim=1, name='Sqrt', strict=True,
 #                  description='returns the square root of a scalar argument')
@@ -1768,9 +1901,9 @@ Tanh = Statistic(math.tanh, codim=1, dim=1, name='Tanh', strict=True,
 # Make Abs act like Norm for larger dimensions
 # Abs = Statistic(numeric_abs, codim=1, dim=1, name='abs',
 #                 description='returns the absolute value of the given number')
-@statistic(codim=(1, infinity), dim=1, name='Abs',
-           description='returns the absolute value of the given number or the modulus of a tuple')
+@statistic(codim=(1, infinity), dim=1, name='Abs')
 def Abs(x):
+    """returns the absolute value of the given number or the modulus of a tuple"""
     # ATTN: if x has symbolic components, it would be nice to handle this
     #       need representation of functions in symbolic.py
     if len(x) == 1:
@@ -1912,18 +2045,21 @@ def Binomial(r, k):
             c *= as_real(r - j) / (k - j)    # type: ignore
     return c
 
-@scalar_statistic(name='atan2', codim=(1, 2), description='returns the sector correct arctangent')
+@scalar_statistic(name='atan2', codim=(1, 2))
 def ATan2(x_maybe_y):
+    """returns the sector correct arctangent"""
     x = x_maybe_y[0]
     y = x_maybe_y[1] if len(x_maybe_y) > 1 else 1
     return as_quantity(math.atan2(x, y))
 
-@scalar_statistic(name='acos', codim=1, description='returns the arccosine of a number in [0_1]')
+@scalar_statistic(name='acos', codim=1)
 def ACos(x):
+    """returns the arccosine of a number in [0_1]"""
     return as_quantity(math.acos(x))
 
-@scalar_statistic(name='acos', codim=1, description='returns the arcsine of a number in [0_1]')
+@scalar_statistic(name='acos', codim=1)
 def ASin(x):
+    """returns the arcsine of a number in [0_1]"""
     return as_quantity(math.asin(x))
 
 Pi = Decimal('3.1415926535897932384626433832795')
@@ -1944,17 +2080,19 @@ def NormalCDF(x):
     'Cumulative distribution function for the standard normal distribution'
     return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
 
-@statistic(name='sumsq', monoidal=0, description='returns the sum of squares of components')
+@statistic(name='sumsq', monoidal=0)
 def SumSq(value):
+    """returns the sum of squares of components"""
     return sum(v * v for v in value)
 
-@scalar_statistic(name='norm', codim=(1, infinity), description='returns the Euclidean norm of its argument')
+@scalar_statistic(name='norm', codim=(1, infinity))
 def Norm(value):
+    """returns the Euclidean norm of its argument"""
     return numeric_sqrt(sum(v * v for v in value))
 
-@scalar_statistic(name='sd', codim=(1, infinity),
-                  description='returns the sample standard deviation of the values components')
+@scalar_statistic(name='sd', codim=(1, infinity))
 def StdDev(value):
+    """returns the sample standard deviation of the values components"""
     n = len(value)
     if n == 1:
         return 0
@@ -2038,46 +2176,332 @@ def _convert_to_statistic(const_or_func: Statistic | Callable | ScalarQ | Nothin
     if not isinstance(const_or_func, Statistic):
         if callable(const_or_func):
             return statistic(const_or_func)
-        if isinstance(const_or_func, Iterable):
+        if isinstance(const_or_func, Iterable) and not isinstance(const_or_func, str):
             return Constantly(*[as_quantity(c) for c in const_or_func])
         if isinstance(const_or_func, Nothing):
             return Constantly(nothing)
         return Constantly(as_quantity(const_or_func))
     return const_or_func
 
-def ForEach(s: Statistic | Callable | ScalarQ | tuple ) -> Statistic:
-    """Statistics combinator. Returns a statistic that applies a statistic to each component of its input.
+def _foreach_chunk_size(ell: int, a: int, b: int | float) -> int | None:
+    """Returns the smallest divisor of `ell` in the range a..b, or None."""
+    if ell <= DIVISORS_UP_TO:
+        divs = divisors[ell]
+    else:
+        divs = divisors_of(ell)
+        divisors[ell] = divs
 
-    This is typically applied to scalar statistics, where each
-    application corresponds to one component, but it accepts higher
-    dim statistics. In this case, the tuples produced by the
-    statistics are concatenated in the result tuple.
+    ind = index_where(lambda n: a <= n <= b, divs, None)
+    if ind is not None:
+        return divs[ind]
+    return None
 
-    Constant arguments are converted to Constantly statistics, and
-    callable arguments that are not statistics are wrapped in
-    statistic. It is recommended to use actual statistics except
-    in simple cases like idetity.
+def _foreach_chunk_size_loose(ell: int, a: int, b: int | float) -> int | None:
+    """Returns the smallest chunk size for `ell` with remainder in 0 or a..b, or None."""
+    if ell == 0 or ell < a:
+        return None
+
+    chunk_size = a
+    while chunk_size <= ell:
+        if ell % chunk_size == 0:
+            return chunk_size
+        q = ell // chunk_size
+
+        # The largest chunk_size that yields the same quotient q
+        same_q_size = ell // q
+
+        # Bound the valid chunk sizes consistent with this quotient q
+        if ell < b:  # rule out b == infinity, in fact b > ell makes this trivial
+            min_chunk_size_allowed = a
+        else:
+            assert isinstance(b, int)
+            min_chunk_size_allowed = (ell - b + q - 1) // q  # == ceil((ell-b)/q)
+        max_chunk_size_allowed = (ell - a) // q              # == floor((ell-a)/q)
+
+        # If the two ranges intersect, we have a valid choice,
+        # and we return the smallest valid chunk_size in that range.
+        lower_bound = max(chunk_size, min_chunk_size_allowed)
+        upper_bound = min(same_q_size, max_chunk_size_allowed)
+
+        if lower_bound <= upper_bound:
+            return lower_bound
+
+        chunk_size = same_q_size + 1
+
+    return None  # No valid chunk_size exists
+
+# ATTN:Sep2026 moved to classmethod in VecTuple, remove this
+def take_by_k(k: int, xs: Iterable, *, exact=True, with_index=False):
+    """Generates successive subtuples of `xs` of size `k`.
+
+    If `exact` is true, a residual subtuple of size < k at the end
+    is dropped. Otherwise, that smaller subtuple is produced last.
+
+    If `with_index` is true, the chunk index (0-based) is prepended
+    to each subtuple.
+
+    Returns a generator.
+
+    """
+    # Assumes that n divides len(xs) as we have already checked
+    xs = tup(xs)
+    n = len(xs)
+    n_k = k * (n // k)
+
+    if with_index:
+        for i in range(0, n_k, k):
+            yield VecTuple.join(i // k, xs[i:(i + k)])
+        if not exact and n > n_k:
+            yield VecTuple.join(n_k // k, xs[n_k:])
+    else:
+        for i in range(0, n_k, k):
+            yield xs[i:(i + k)]    # Guaranteed to be a VecTuple
+        if not exact and n > n_k:
+            yield xs[n_k:]
+
+@StatisticCombinator
+def ForEach(
+        s: Statistic | Callable | ScalarQ | tuple,
+        by: int | None = None,
+        strict=True
+) -> Statistic:
+    """applies a statistic to successive, non-overlapping chunks of the input.
+
+    The returned tuples from all applications of the statistic are
+    joined into a single larger tuple.
+
+    The chunk size is determined by the `by` argument, if supplied,
+    the codimension of the statistic `s`, and the length of the
+    input.
+
+    If `by` is supplied, it should be a positive integer that is
+    compatible with the codimension of the statistic `s`, meaning
+    that `s` should accept tuples of dimension `by`. If `strict` is
+    true (the default), then `by` should also evenly divide the
+    input tuple's dimension, as this requires the input to be
+    partitioned into equal-size chunks. If `strict` is not true,
+    chunks of size `by` are used up to possibly the last chunk. Any
+    residual chunk at the end must be compatible with the
+    codimension of `s`. If `s` or the input are incompatible with
+    `by`, an error is raised.
+
+    If `by` is not supplied, the chunk size is the smallest number
+    that is consistent with the the codimension of the statistic `s`
+    and the length of the input. If `strict` is true, the chunk size
+    is chosen to evenly divide the input tuple's dimension. If
+    `strict` is not true, then the chunk size is chosen so the
+    residual chunk at the end is compatible with the codimension of
+    `s`. If no such chunk size can be found, an error is raised.
+
+    So if `s` is a statistic that accepts scalar inputs and `by` is
+    1 or not supplied, then `ForEach(s)` applies `s` to each
+    component of its input tuple, mapping `<v1, v2, ..., vn>` to
+    `<s(v1), s(v2), ..., s(vn)>`, where the results of the
+    statistics are concatenated into a single tuple.
+
+    Otherwise, if the chunk size is k > 1 and `strict` is true, then
+    `ForEach(s)` maps `<v1, v2, ..., v_nk>` to
+    `<s(v_1,...,v_k), s(v_k+1,...,v_2k), ..., s(v_n(k-1)+1, ..., v_nk)>`.
+    If `strict` is not true, then `ForEach(s)` maps
+    `<v1, v2, ..., v_nk, v_nk+1, ..., v_nk+d>` to
+    `<s(v_1,...,v_k), ..., s(v_n(k-1)+1, ..., v_nk), s(v_nk+1,...,v_nk+d)>`.
+
+    If `s` is a non-statistic callable, it is converted to a statistic.
+    If `s` is a constant, it is converted to a statistic by applying
+    Constantly.
 
     Examples:
+    + tup(-10, 20, -3) ^ ForEach(Abs) => <10, 20, 3>
+    + tup() ^ ForEach(s) => <>
     + ForEach(__ ** 2)(1, 2, 3) == <1, 4, 9>
     + ForEach(__ + 3)(1, 2, 3) == <4, 5, 6>
     + ForEach(1)(1, 2, 3, 4) == <1, 1, 1, 1>
     + ForEach((1, 2, 3))(10, 11, 12) == <1, 2, 3, 1, 2, 3, 1, 2, 3>
+    + tup(irange(1, 8)) ^ ForEach(Proj[4]) == <4, 8>
+    + tup(irange(1, 8)) ^ ForEach(Proj[1], by=4) == <1, 5>
+    + tup(irange(1, 8)) ^ ForEach(Proj[2], by=4) == <2, 6>
+    + tup(irange(1, 8)) ^ ForEach(Proj[3], by=4) == <3, 7>
+    + tup(irange(1, 12)) ^ ForEach(Permute(3, 1, 2)) == <3, 1, 2, 6, 4, 5, 9, 7, 8, 12, 10, 11>
+    + tup(irange(1, 8)) ^ ForEach(swap) == <2, 1, 4, 3, 6, 5, 8, 7>
+      where
+          swap = statistic(lambda x, y: (y, x), dim=2, description='swaps two components of a pair')
+    + tup(-1, 0, 1, 2, -3, 0, 0, 1, 1) ^ ForEach(Sum, by=3) == <0, -1, 2>
 
     """
     stat = _convert_to_statistic(s)
+    lo, hi = stat.codim
 
-    def foreach(*x):
-        if len(x) > 0 and is_tuple(x[0]):
-            x = x[0]
-        result = []
-        for xi in x:
-            result.extend(stat(xi))
-        return as_quant_vec(result)
-    return Statistic(foreach, codim=ANY_TUPLE, name=f'applies {stat.name} to every component of input value')
+    if by is not None:
+        if by < 1:
+            raise StatisticError('The by argument to ForEach must be a positive integer when supplied')
+        if by == 1 and (lo > 1 or hi < 1):
+            raise StatisticError('The statistic given to ForEach does not accept scalars but by == 1')
+        if by < lo or by > hi:
+            raise StatisticError('The statistic given to ForEach has codim incompatible with by == {by}')
 
-def Fork(stat: Statistic | Callable | ScalarQ | tuple, *other_stats: Statistic | Callable | ScalarQ | tuple) -> Statistic:
-    """Statistics combinator. Produces a statistic that combines the values of other statistics into a tuple.
+    if (by is not None and by == 1) or (by is None and lo <= 1 <= hi):  # Apply to every component
+        doc = f'applies {stat.name} to every component of its input'
+
+        def foreach(*x):
+            if len(x) > 0 and is_tuple(x[0]):
+                x = x[0]
+            result = []
+            for xi in x:
+                result.extend(stat(xi))
+            return as_quant_vec(result)
+    elif by is not None:  # chunk size fixed
+        doc = f'applies {stat.name} to successive chunks of its input of size {by}'
+
+        def foreach(*x):
+            if len(x) == 0:
+                return tup()
+            if len(x) > 0 and is_tuple(x[0]):
+                x = x[0]
+            n = len(x)
+            resid = n % by
+
+            if (strict and resid > 0) or (not strict and (resid < lo or resid > hi)):
+                raise StatisticError(f'ForEach(stat) applied to tuple (dim {n}) incompatible '
+                                     f'with codim(stat) ({lo}, {hi}) and chunk size {by}')
+
+            return VecTuple.join(map(stat, take_by_k(by, x, exact=strict)))
+    else:  # chunk size dynamically determined
+        doc = f'applies {stat.name} to successive chunks of its input'
+
+        def foreach(*x):
+            if len(x) == 0:
+                return tup()
+            if len(x) > 0 and is_tuple(x[0]):
+                x = x[0]
+            n = len(x)
+
+            # The strict=False does nothing for us here unless we find a chunk_size
+            # that makes the residual bigger than lo and no bigger than hi.
+            if strict:
+                chunk_size = _foreach_chunk_size(n, lo, hi)
+            else:
+                chunk_size = _foreach_chunk_size_loose(n, lo, hi)
+
+            if chunk_size is None:
+                raise StatisticError(f'ForEach(stat) applied to tuple (dim {n}) '
+                                     f'incompatible with codim(stat) ({lo}, {hi})')
+
+            return VecTuple.join(map(stat, take_by_k(chunk_size, x, exact=strict)))
+
+    return Statistic(
+        foreach,
+        codim=ANY_TUPLE,
+        name=f'ForEach({stat.name})',
+        description=doc
+    )
+
+@StatisticCombinator
+def ForEachIndexed(
+        s: Statistic | Callable | ScalarQ | tuple,
+        by: int | None = None,
+        strict=True
+) -> Statistic:
+    """applies a statistic to non-overlapping, indexed chunks of its input.
+
+    The chunk size is the smallest positive size that is consistent
+    with the given statistic's codimension. So, a statistic that
+    accepts scalars will always be applied to every component. If
+    there is no chunk size that evenly divides the input dimension,
+    an error is raised. In other words, the chunk size must
+    partition the input evenly.
+
+    The tuple passed to the statistic has the index of the *chunk*
+    in the first component and the chunk in the remaining components.
+
+    The returned tuples from all applications of the statistic
+    are joined into a single larger tuple.
+
+    Constant arguments are converted to Constantly statistics, and
+    callable arguments that are not statistics are wrapped in
+    statistic. It is recommended to use actual statistics except
+    in simple cases like identity.
+
+    Examples:
+    + ForEachIndexed(__ ** 2)(1, 2, 3) == <0, 1, 1, 4, 4, 9>
+    + ForEachIndexed(__ + 3)(1, 2, 3) == <3, 4, 4, 5, 5, 6>
+    + ForEachIndexed(1)(1, 2, 3, 4) == <1, 1, 1, 1>
+    + ForEachIndexed(swap)(11, 21, 31, 41) == <11, 0, 21, 1, 31, 2, 41, 3>
+
+    """
+    stat = _convert_to_statistic(s)
+    lo, hi = stat.codim
+
+    if hi <= 1:
+        raise StatisticError('ForEachIndexed(stat) requires stat have codim at least 2')
+
+    if by is not None:
+        if by < 1:
+            raise StatisticError('The by argument to ForEachIndexed must be a positive integer when supplied')
+        if by == 1 and (lo > 2 or hi < 2):
+            raise StatisticError('The statistic given to ForEachIndexed does not accept pairs but by == 1')
+        if by < lo - 1 or by > hi - 1:
+            raise StatisticError('The statistic given to ForEachIndexed has codim incompatible with by == {by}')
+
+    if (by is not None and by == 1) or (by is None and lo <= 2 <= hi):  # Apply to every component, account for index
+        doc = f'applies {stat.name} to every component of its input'
+
+        def foreach(*x):
+            if len(x) > 0 and is_tuple(x[0]):
+                x = x[0]
+            result = []
+            for ind, xi in enumerate(x):
+                result.extend(stat(ind, xi))
+            return as_quant_vec(result)
+    elif by is not None:  # chunk size fixed
+        doc = f'applies {stat.name} to successive chunks of its input of size {by}'
+
+        def foreach(*x):
+            if len(x) == 0:
+                return tup()
+            if len(x) > 0 and is_tuple(x[0]):
+                x = x[0]
+            n = len(x)
+            resid = n % by
+
+            if (strict and resid > 0) or (not strict and (resid < lo - 1 or resid > hi - 1)):
+                raise StatisticError(f'ForEachIndexed(stat) applied to tuple (dim {n}) incompatible '
+                                     f'with codim(stat) ({lo}, {hi}) and chunk size {by}')
+
+            return VecTuple.join(map(stat, take_by_k(by, x, with_index=True, exact=strict)))
+    else:  # chunk size dynamically determined
+        doc = f'applies {stat.name} to successive chunks of its input'
+
+        def foreach(*x):
+            if len(x) == 0:
+                return tup()
+            if len(x) > 0 and is_tuple(x[0]):
+                x = x[0]
+            n = len(x)
+
+            if strict:
+                chunk_size = _foreach_chunk_size(n, lo - 1, hi - 1)
+            else:
+                chunk_size = _foreach_chunk_size_loose(n, lo - 1, hi - 1)
+
+            if chunk_size is None:
+                raise StatisticError(f'ForEachIndexed(stat) applied to tuple (dim {n}) '
+                                     f'incompatible with codim(stat) ({lo}, {hi})')
+
+            return VecTuple.join(map(stat, take_by_k(chunk_size, x, with_index=True, exact=strict)))
+
+    return Statistic(
+        foreach,
+        codim=ANY_TUPLE,
+        name=f'ForEach({stat.name})',
+        description=doc
+    )
+
+@StatisticCombinator
+def Fork(
+        stat: Statistic | Callable | ScalarQ | tuple,
+        *other_stats: Statistic | Callable | ScalarQ | tuple
+) -> Statistic:
+    """applies the given statistics to the same input and joins their outputs into a tuple.
 
     If a statistic has dim > 1, the results are spliced into the tuple resulting from Fork.
     Specifically, given input v, the statistic returned by Fork(s1, s2, ..., sn)
@@ -2120,7 +2544,7 @@ def Fork(stat: Statistic | Callable | ScalarQ | tuple, *other_stats: Statistic |
         raise DomainDimensionError(f'Fork must be called on statistics of consistent codimension,'
                                    f' found min {arity_lo} > max {arity_hi}.')
     codim = (arity_lo, arity_hi)
-    dim: Optional[int] = 0
+    dim: Optional[int] = 0         # pylint: disable=redefined-outer-name
     if stat.dim is not None and stat.dim > 0 and all(s.dim is not None and s.dim > 0 for s in more_stats):
         dim = stat.dim + sum(s.dim for s in more_stats)  # type: ignore
     if dim == 0:
@@ -2229,13 +2653,14 @@ def Permute(*p: int | tuple[int, ...], cycle=True):
 
     if cycle:
         cycles = _find_cycles(p_realized)
+
         @statistic(name='permute', codim=(n, infinity))
         def permute(value):
             permuted = list(value)
             for c in cycles:  # c has len > 1
                 n_c = len(c)
                 for i in range(1, n_c):
-                    permuted[c[i]] = value[c[i-1]]
+                    permuted[c[i]] = value[c[i - 1]]
                 permuted[c[0]] = value[c[n_c - 1]]
             return VecTuple(permuted)
         return permute
@@ -2272,12 +2697,13 @@ def Permute(*p: int | tuple[int, ...], cycle=True):
         return VecTuple(value[perm[i]] if i < n else value[i] for i in range(m))
     return permute_direct
 
+@StatisticCombinator
 def IfThenElse(
         cond: Statistic,
         t: Statistic | Callable | ScalarQ | tuple | Nothing,
         f: Statistic | Callable | ScalarQ | tuple | Nothing,
 ) -> Statistic:
-    """Statistics combinator. Produces a statistic that uses one statistic to choose which other statistic to apply.
+    """uses one statistic to choose which other statistic to apply.
 
     Parameters
     ----------
@@ -2314,8 +2740,9 @@ def IfThenElse(
     return Statistic(ifelse, codim=cond.arity, dim=t.dim,
                      name=f'returns {t.name} if {cond.name} is true else returns {f.name}')
 
+@StatisticCombinator
 def Not(s: Statistic) -> Condition:
-    """Statistics combinator. Resulting statistic takes the logical Not of the given statistic.
+    """produces the logical-not of the given statistic.
 
     Returns a Condition which produces a 0 or 1 for False or True.
 
@@ -2326,8 +2753,9 @@ def Not(s: Statistic) -> Condition:
     return Condition(lambda *x: 1 - s(*x), codim=s.arity, name=f'not({s.name})',
                      description=f'returns the logical not of {s.name}')
 
+@StatisticCombinator
 def And(*stats: Statistic) -> Condition:
-    """Statistic combinator. Resulting statistic takes the (short-circuiting) logical And of all the given statistics.
+    """produces the (short-circuiting) logical-and of all the given statistics.
 
     Returns a Condition which produces a 0 or 1 for False or True.
 
@@ -2350,8 +2778,9 @@ def And(*stats: Statistic) -> Condition:
                      name=f'({" and ".join(labels)})',
                      description=f'returns the logical and of {", ".join(labels)}')
 
+@StatisticCombinator
 def Or(*stats: Statistic) -> Condition:
-    """Statistic combinator. Resulting statistic takes the (short-circuiting) logical Or of all the given statistics.
+    """produces the (short-circuiting) logical-or of all the given statistics.
 
     Returns a Condition which produces a 0 or 1 for False or True.
 
@@ -2374,8 +2803,9 @@ def Or(*stats: Statistic) -> Condition:
                      name=f'({" or ".join(labels)})',
                      description=f'returns the logical or of {", ".join(labels)}')
 
+@StatisticCombinator
 def Xor(*stats: Statistic) -> Condition:
-    """Statistic combinator. Logical exclusive or of one or more statistics.
+    """produces the logical-exclusive-or of one or more statistics.
 
     Returns a Condition which produces a 0 or 1 for False or True.
 
@@ -2393,18 +2823,20 @@ def Xor(*stats: Statistic) -> Condition:
     def xor_of(*x):
         val = False
         for s in stats:
-            result = bool(as_scalar_stat(s(*x)))
+            result = is_true(s(*x))  # bool(as_scalar_stat(s(*x)))
             if val and result:
                 return False
-            val = result
+            if result:
+                val = True
         return val
     labels = ["'" + s.name + "'" for s in stats]
     return Condition(xor_of, codim=(arity_lo, arity_hi),
                      name=f'({" xor ".join(labels)})',
                      description=f'returns the logical exclusieve-or of {", ".join(labels)}')
 
+@StatisticCombinator
 def All(cond: Condition) -> Condition:
-    """Do all components of the input satisfy a given condition?
+    """tests whether all components of the input satisfy the given condition.
 
     Returns a condition applies a condition to all components of the input and
     returns True only if all return True.  As usual for a condition, True
@@ -2418,8 +2850,9 @@ def All(cond: Condition) -> Condition:
     return Condition(all_comps, codim=ANY_TUPLE,
                      name=f'tests if {cond.name} is true for every component of input value')
 
+@StatisticCombinator
 def Any(cond: Condition) -> Condition:
-    """Do any components of the input satisfy a given condition?
+    """tests whether any components of the input satisfy the given condition.
 
     Returns a condition applies a condition to all components of the input and
     returns True only if at least one returns True.  As usual for a condition, True
@@ -2571,7 +3004,7 @@ setattr(Proj, '__name__', 'Proj')   # For info lookup
 #
 
 @statistic_factory
-def Cases(d, default=None):
+def Cases(d, default=None):                         # pylint: disable=too-many-locals
     """represents a dictionary and optional default.
 
     When the statistic is given a value that is a key in the
@@ -2752,7 +3185,7 @@ def ElementOf(*v):
     return element_of
 
 @statistic_factory
-def Get(obj, key=identity, scalarize=True):
+def Get(obj, key=identity, scalarize=True):       # pylint: disable=redefined-outer-name
     """accesses a python object with [] with the input as index.
 
     Parameters
@@ -3056,7 +3489,7 @@ for obj in [
     # Statistic Combinators
     Chain, Compose,
     Diffs,
-    Fork, MFork, ForEach, IfThenElse,
+    Fork, MFork, ForEach, ForEachIndexed, IfThenElse,
     # Conditions
     Distinct, top, bottom,
     # Condition Factories
