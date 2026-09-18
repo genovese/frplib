@@ -185,25 +185,26 @@ Statistics:
         Permute: factories statistic permute.md
         Append: factories statistic append.md
         Prepend: factories statistic prepend.md
-        Dot: factories statistic dot.md
+        Cases: factories statistic cases.md
         Get: factories statistic get.md
         IndexOf: factories statistic index-of.md
-        Cases: factories statistic cases.md
-        ChiSquare: factories statistic chisquare.md
+        Keep: factories statistic keep.md
+        MaybeMap: factories statistic maybe-map.md
         Round: factories statistic round.md
+        Dot: factories statistic dot.md
+        ChiSquare: factories statistic chisquare.md
     Builtin Condition Factories: factories condition.md
         Contains: factories condition contains.md
         Distinct: factories condition distinct.md
         ElementOf: factories condition element-of.md
     Custom Statistic and Condition Factories: statistics factories.md
     Statistic Combinators: combinators statistic.md
-        Compose: combinators statistic compose.md
         Chain: combinators statistic chain.md
-        Fork: combinators statistic fork.md
+        Compose: combinators statistic compose.md
         ForEach: combinators statistic foreach.md
+        ForEachIndexed: combinators statistic foreachindexed.md
+        Fork: combinators statistic fork.md
         IfThenElse: combinators statistic ifthenelse.md
-        Keep: combinators statistic keep.md
-        MaybeMap: combinators statistic maybe-map.md
     Condition Combinators: combinators condition.md
         And: combinators condition and.md
         Or:  combinators condition or.md
@@ -273,13 +274,14 @@ Factories: factories.md
         Permute: factories statistic permute.md
         Append: factories statistic append.md
         Prepend: factories statistic prepend.md
+        Cases: factories statistic cases.md
         Get: factories statistic get.md
+        IndexOf: factories statistic index-of.md
         Keep: factories statistic keep.md
         MaybeMap: factories statistic maybe-map.md
-        IndexOf: factories statistic index-of.md
-        Cases: factories statistic cases.md
-        ChiSquare: factories statistic chisquare.md
         Round: factories statistic round.md
+        Dot: factories statistic dot.md
+        ChiSquare: factories statistic chisquare.md
 Combinators: combinators.md
     FRP Combinators:
         Transform (^): combinators frp transform.md
@@ -298,10 +300,11 @@ Combinators: combinators.md
         bin: combinators kind bin.md
         fast_join_pow: combinators kind fast_join_pow.md
     Statistic Combinators: combinators statistic.md
-        Compose: combinators statistic compose.md
         Chain: combinators statistic chain.md
-        Fork: combinators statistic fork.md
+        Compose: combinators statistic compose.md
         ForEach: combinators statistic foreach.md
+        ForEachIndexed: combinators statistic foreachindexed.md
+        Fork: combinators statistic fork.md
         IfThenElse: combinators statistic ifthenelse.md
     Condition Combinators: combinators condition.md
         And: combinators condition and.md
