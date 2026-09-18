@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.3.6 - 2026-09-18
+
+### Added
+
+- The statistic combinator `ForEachIndexed` that is like
+  `ForEach` but inserts the (chunk) index as the first
+  element of the input to the given statistic.
+
+- `VecTuple.take_by_k` class method
+
+- The few missing info documents have been filled in.
+
+### Changed
+
+- The statistic combinator `ForEach` now works with statistics of
+  codimension > 1. The chunk size can be specified explicitly or
+  chosen automatically. In the latter case, it chooses the smallest
+  codimension that *evenly divides* the length of the input tuple
+  and applies the given statistic to successive, non-overlapping
+  chunks of the input of that size. The `strict` option allows
+  extending this to a residual chunk smaller than the others but
+  valid for the statistic. This substantially increases the
+  flexibility of what can be done with `ForEach`.
+
+- Statistic combinators `Chain`, `Compose`, `Fork`, `ForEach`,
+  `ForEachIndexed`, `IfThenElse`, `Not`, `And`, `Or`, `Xor`, `All`,
+  and `Any` are now self-documenting when printed at the repl,
+  analogously to factories.
+
+- Statistic combinators from arithmetic operators (e.g., `%`)
+  now all accept non-scalar statistics (and other operands).
+
+### Fixed
+
+- bug in `is_true` for testing condition output as Booleans
+
+- bug in `Xor` condition combinator
+
+- improved dim inference for statistics built from expressions
+  with standard operators, e.g., `dim(__ % tup(1, 2, 3))`
+  is now properly 3 instead of None.
+
+- improved codim inference for statistics built from expressions
+  with standard operators combined with general callables
+
+- bad link in info manifest
+
+- `tuple_safe` return type protocol records `arity` attribute
+
+- `tup` return type annotation now more accurate
+
 ## 0.3.5 - 2026-09-07
 
 ### Added
