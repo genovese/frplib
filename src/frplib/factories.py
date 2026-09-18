@@ -210,6 +210,13 @@ class StatisticFactory(Factory[S]):
             return 'A statistic factory'
         return 'A factory producing a statistic that '
 
+class StatisticCombinator(Factory[S]):
+    """Wrapper class for a statistic combinator."""
+    def _default_prefix(self, s):
+        if not s:
+            return 'A statistic combinator'
+        return 'A combinator that '
+
 class ConditionFactory(StatisticFactory['Condition']):
     """Wrapper class for a condition factory.
 
