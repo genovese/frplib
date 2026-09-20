@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.3.7 - 2026-09-19
+
+### Added
+
+- Script to document and partially automate the process of
+  checking the internal ptpython changes in frplib for
+  compatibility with a new version (when it appears).
+
+- A debug flag to the environment that is *not* persisted
+  to the pyproject.toml file. This is used for debugging
+  playground internals. For the moment, only the
+  docstring patch uses it, but that can change.
+  The debug can be set manually in the playground or
+  initially by setting FRPLIB_DEBUG to 1, yes, or true,
+  with any case.
+
+### Changed
+
+- Patched the ShowDocString panel in the playground to give the
+  proper name and signature in the popup for wrapped objects like
+  Factory's.
+
+- Built-in help changed to use the wrapped object's docstring,
+  name, and signature. This is distinct from the info doc,
+  a more "developer"-oriented view. Some of the factory
+  docstrings are a bit terse as they are modified by the
+  Factory constructor. But this gives us the right signature
+  and name which is more important; the help doc was somewhat
+  malformed in the original way.
+
+### Fixed
+
+- Documented the specific dependence in the playground repl
+  on ptpython internals to ease updates in the version of
+  the latter, which is currently pinned.
+
+- Minor fixes to info docs.
+
 ## 0.3.6 - 2026-09-18
 
 ### Added
