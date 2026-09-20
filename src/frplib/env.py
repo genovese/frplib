@@ -117,6 +117,11 @@ def default_numeric_out_params() -> NumericOutParams:
     }
 
 
+def _debug_default() -> bool:
+    "Default for Environment.debug: on if the FRPLIB_DEBUG env var is set to a truthy value."
+    return os.environ.get('FRPLIB_DEBUG', '').strip().lower() in ('1', 'true', 'yes', 'on')
+
+
 @dataclass
 class Environment:
     """Options governing interactive sessions, globally available.
@@ -136,6 +141,7 @@ class Environment:
     frp_params: FrpParams = field(default_factory=default_frp_params)
     console: Console = Console(highlight=True, theme=bright_theme)
     version: tuple[int, ...] = tuple(map(int, __version__.split('.')))  # Introduced in 0.3.5
+    debug: bool = field(default_factory=_debug_default)
 
     def on_ascii_only(self) -> None:
         "Require ASCII-only output, no rich text, unicode, or markdown."
@@ -154,6 +160,14 @@ class Environment:
         "Text color default suited for light colored terminals"
         self.dark_mode = False
         self.console.push_theme(bright_theme)
+
+    def on_debug(self) -> None:
+        "Enables diagnostic/debug output (e.g. for troubleshooting playground internals)."
+        self.debug = True
+
+    def off_debug(self) -> None:
+        "Disables diagnostic/debug output."
+        self.debug = False
 
     def on_command_number_in_prompt(self) -> None:
         "Show current command number in the prompt instead of the title bar"

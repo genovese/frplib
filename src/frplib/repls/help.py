@@ -84,7 +84,7 @@ def help(obj=None, builtin=False, *, invoked_by=None) -> None:    # pylint: disa
     if obj is None:
         paged_help(_builtin_help)
     elif builtin:
-        paged_help(_builtin_help, obj)
+        paged_help(_builtin_help, inspect.unwrap(obj))
     elif hasattr(obj, '__frplib_help__'):
         fh = obj.__frplib_help__
         if callable(fh):
@@ -92,7 +92,7 @@ def help(obj=None, builtin=False, *, invoked_by=None) -> None:    # pylint: disa
             if help_doc is not None:
                 print_paged(help_doc)
             else:
-                paged_help(_builtin_help, obj)
+                paged_help(_builtin_help, inspect.unwrap(obj))
         elif isinstance(fh, str):
             print_paged(Markdown(fh))
         else:
@@ -104,7 +104,7 @@ def help(obj=None, builtin=False, *, invoked_by=None) -> None:    # pylint: disa
     elif getattr(obj, '__doc__', None):  # ATTN:Aug2026 Not sure if this branch is a good idea
         print_paged(inspect.cleandoc(obj.__doc__))
     else:
-        paged_help(_builtin_help, obj)
+        paged_help(_builtin_help, inspect.unwrap(obj))
 
 # ATTN:Aug2026 The following are provisional and experimental
 # Considering how users can annotate objects to make notes

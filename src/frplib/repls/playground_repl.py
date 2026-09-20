@@ -292,7 +292,29 @@ def _is_explain_error_call(tb) -> bool:
 #
 
 class PlaygroundRepl(PythonRepl):
-    """Customized playground-specific ptpython repl manager. """
+    """Customized playground-specific ptpython repl manager.
+
+    Note that this overrides six protected methods of the
+    super-class. This provides meaningful benefits to the
+    user experience, but it also makes this strongly coupled
+    to the ptpython version, which is why that version
+    is pinned in the project toml file. Changes to the ptpython
+    version should confirm compatibility with these methods.
+
+    The protected methods are:
+
+      _compile_with_flags          full replacement, no super() call
+      _show_result                 calls super() for the non-Renderable branch
+      _handle_exception            super() called in _show_exception_trimmed
+      _handle_keyboard_interrupt   full replacement, no super() call
+      _add_to_namespace            full replacement, no super() call
+      _remove_from_namespace       full replacement, no super() call
+
+    See the script scripts/check_ptpython_compat.py that both documents
+    the full procedure and does automated checking of these particular
+    methods in two separate venvs/installs.
+
+    """
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -348,9 +370,16 @@ class PlaygroundRepl(PythonRepl):
         if _is_explain_error_call(trimmed):
             trimmed = trimmed.tb_next
 
-        # Temporarily setting e.__traceback__ to that point so display_exception shows only user frames.
-        # Then restore the original. As such pdb.pm() is unaffected because
-        # sys.last_traceback is set from sys.exc_info() at the original catch site.
+        # Temporarily setting e.__traceback__ to that point so
+        # display_exception shows only user frames. Then restore the
+        # original. As such pdb.pm() is unaffected because
+        # sys.last_traceback is set from sys.exc_info() at the
+        # original catch site.
+        #
+        # ATTN: This *assumes* the super() method checks
+        # __traceback__ rather than using e.g., sys.exc_info, so
+        # this is something to check with compatibility of new
+        # versions.
         original = e.__traceback__
         e.__traceback__ = trimmed
         try:

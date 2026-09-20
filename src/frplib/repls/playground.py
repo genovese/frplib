@@ -15,6 +15,7 @@ from frplib.env                    import environment
 from frplib.repls.info             import html_escape
 from frplib.repls.playground_repl  import PlaygroundRepl
 from frplib.repls.ptembed          import embed
+from frplib.repls.ptpython_patches import apply_signature_display_patch
 
 
 def style_prompt_bright(text):
@@ -70,6 +71,10 @@ def configure(repl):
         return HTML(f'<style fg="#0099ff"><b>FRP Playground</b></style> [{ n }] ')
 
     repl.title = playground_title
+
+    patched = apply_signature_display_patch()
+    if environment.debug:
+        environment.console.print(f'Signature patch {"" if patched else "NOT "}applied.')
 
 def main(use_config: bool = True, ascii_only: bool = False, dark: bool = False) -> None:
     if use_config:

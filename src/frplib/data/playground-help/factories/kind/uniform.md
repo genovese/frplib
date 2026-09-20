@@ -1,9 +1,9 @@
 # uniform
 
-`uniform` produces kinds on an arbitrary sequence of values with equal weights.
+`uniform(values)` produces a Kinds with equal weights on the given sequence of values.
 
 The values can be specified in several ways (and similarly with many other
-kind factories):
+Kind factories):
 
 + As explicit arguments, e.g.,  `uniform(1, 2, 3, 4)`
 + As an implied sequence, e.g., `uniform(1, 2, ..., 10)`
