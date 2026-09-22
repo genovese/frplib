@@ -1,4 +1,37 @@
-# Tournament Example from Chapter 0 Section 8
+"""Tournament Example (8.5) from Chapter 8 Section 3
+
+An elimination tournament where ranked players compete
+and the outcome of each match is random -- but dependent
+on the relative ranks.
+
+Exports
+
+  + first_round - initial tournament state
+  + next_round - conditional Kind representing the transition
+        from one round to the next
+  + next_round_alt1, next_round_alt2 -- alternative
+        formulations of next_round
+  + second_round - the Kind of the second round state
+  + third_round - the Kind of the third round state
+  + winner - the Kind of the final state (the winner)
+  + E_winner - expectation of the winner
+  + E_bottom_half - probability of a winner in the bottom
+        half of the rankings
+
+"""
+
+__all__ = [
+    'first_round',
+    'next_round',
+    'second_round',
+    'third_round',
+    'winner',
+    'next_round_alt1',
+    'next_round_alt2',
+    'E_winner',
+    'E_bottom_half',
+]
+
 
 from frplib.expectations import E
 from frplib.frps         import independent_join
