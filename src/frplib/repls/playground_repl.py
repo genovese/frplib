@@ -18,6 +18,7 @@ from frplib.protocols        import Renderable
 from frplib.repls.help       import help              # pylint: disable=[redefined-builtin]
 from frplib.repls.info       import info
 from frplib.repls.resources  import cookbook, cheatsheet, textbook
+from frplib.repls.source     import source
 from frplib.vec_tuples       import VecTuple
 
 
@@ -469,6 +470,7 @@ class PlaygroundRepl(PythonRepl):
             "cookbook",
             "cheatsheet",
             "textbook",
+            "source",
             "explain_error",
             "frplib_version",
             "_running_in_playground"
@@ -481,6 +483,7 @@ class PlaygroundRepl(PythonRepl):
         pgd_globals["cookbook"] = cookbook
         pgd_globals["cheatsheet"] = cheatsheet
         pgd_globals["textbook"] = textbook
+        pgd_globals["source"] = source
         pgd_globals["explain_error"] = explain_error
         pgd_globals["frplib_version"] = environment.version
         pgd_globals["_running_in_playground"] = True
