@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.8 - 2026-09-21
+
+### Added
+
+- The `source` function allows one to inspect
+  the source of many frplib and user-defined functions
+  *in the playground* with nice formatting and syntax
+  highlighting.
+
+### Changed
+
+- Updated several example modules, including
+  tournament and aces
+
+- Updated textbook to v3.0.3
+
+
 ## 0.3.7 - 2026-09-19
 
 ### Added
