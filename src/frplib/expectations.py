@@ -25,6 +25,9 @@ class Expectation(VecTuple):
     def __frplib_repr__(self):
         return in_panel(str(self), title=self.label or None)
 
+    def map(self, fn) -> VecTuple:
+        return VecTuple(map(fn, self))
+
     # ATTN: needed?
     @property
     def raw(self):

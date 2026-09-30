@@ -10,7 +10,7 @@ from frplib.exceptions   import MismatchedDomain
 from frplib.expectations import E, Var
 from frplib.frps         import conditional_frp, frp, average_conditional_entropy, mutual_information
 from frplib.kinds        import conditional_kind, constant, either, uniform, weighted_as
-from frplib.quantity     import as_quantity
+from frplib.quantity     import as_quantity, tup
 from frplib.statistics   import Statistic
 from frplib.symbolic     import simplify, symbol
 
@@ -67,3 +67,10 @@ def test_variance():
 
     with pytest.raises(MismatchedDomain):
         g(3)
+
+def test_ops_give_vectuple():
+    e = E(uniform((-1, 1), (0, 0), (1, -1), (2, 2)))
+
+    assert -e == tup('-1/2', '-1/2')
+    assert +e == e
+    assert 2 * e == tup(1, 1)
