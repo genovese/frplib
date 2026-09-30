@@ -1,7 +1,7 @@
 # Contains
 
 The condition factory `Contains` returns a condition that tests if a
-specified tuple is within its input tuple, or -1 if none.
+specified tuple is within its input tuple.
 
 Accepts a single sequence or multiple arguments that are combined into a sequence.
 

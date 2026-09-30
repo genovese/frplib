@@ -1,11 +1,11 @@
 # ElementOf
 
-The condition factory `ElementOf` returns a condition
-that tests for membership in a collection of values.
+The condition factory `ElementOf` returns a condition that tests for
+membership in a collection of values.
 
-Values are specified with a single iterable argument containing
-the values, or with more than one arguments. In both cases, all
-individual values are converted to vec_tuples.
+Values are specified with a single iterable argument containing the
+values, or with multiple arguments. In both cases, all individual
+values are converted to vec_tuples.
 
 Examples:
 + `ElementOf(1, 2, 3)` returns true for 1, 2, or 3 as scalars or tuples.

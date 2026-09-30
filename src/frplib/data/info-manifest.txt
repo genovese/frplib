@@ -144,6 +144,7 @@ Statistics:
             Log10: statistics builtins logs.md
             Floor: statistics builtins floor-and-ceiling.md
             Ceiling: statistics builtins floor-and-ceiling.md
+            Negate: statistics builtins negate.md
         Trigonometric Functions:
             Sin: statistics builtins trig-fns.md
             Cos: statistics builtins trig-fns.md
@@ -178,7 +179,7 @@ Statistics:
             Bag: statistics builtins bag.md
             Freqs: statistics builtins freqs.md
         Conditions:
-            Distinct: statistics builtin distinct.md
+            Distinct: statistics builtins distinct.md
     Builtin Statistic Factories: factories statistic.md
         Proj: factories statistic proj.md
         Constantly: factories statistic constantly.md
@@ -194,8 +195,8 @@ Statistics:
         Dot: factories statistic dot.md
         ChiSquare: factories statistic chisquare.md
     Builtin Condition Factories: factories condition.md
+        Between: factories condition between.md
         Contains: factories condition contains.md
-        Distinct: factories condition distinct.md
         ElementOf: factories condition element-of.md
     Custom Statistic and Condition Factories: statistics factories.md
     Statistic Combinators: combinators statistic.md
