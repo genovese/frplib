@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.3.9 - 2026-09-30
+
+### Added
+
+- `Get` now accepts a `default` argument that if supplied
+   is used if the index is not valid
+
+- `Between` statistic factory as a convenience
+
+- `Negate` statistic for use in composition chains
+
+- `as_quant_vec` is now in playground by default
+
+- `from_numpy` to extract a `VecTuple` from a `numpy`
+   1-d array.
+
+- New info theory example, `alice_bob_chatting`
+
+### Changed
+
+- `VecTuple` now supports unary - and +
+
+- Updated info docs and filled out a few sparse nodes.
+
+- Comparison ops for VecTuples return NotImplemented in new cases.
+  The implication of this is that `tup(1, 2) == Stat` and `Stat ==
+  tup(1, 2)` now both work and produce Conditions, whereas before
+  the former raised an error.
+
+- `nothing` is now falsy
+
+- `nothing` now supports unary - and +
+
+- `Expectation.map` now returns `VecTuple` not `Expectation`
+
+- Several functions (e.g., `frequencies`, `tuple_safe`) have overloads
+  to give more accurate types
+
+- Bumped requirement on typing_extensions to 4.12+ because we need
+  TypeVar's with defaults.
+
+### Fixed
+
+- typing for VecTuples now uses a bound rather than a constraint
+  and is consequently more flexible and accurate.
+
+- bug with conversion of unusual values returned from
+  conditions (e.g., '')
+
+- bug in `sequence_of_values` end condiion
+
+- bug in `show_qtuple` with strings in `FrpDemoSummary`
+
 ## 0.3.8 - 2026-09-21
 
 ### Added
