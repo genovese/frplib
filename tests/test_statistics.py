@@ -27,7 +27,7 @@ from frplib.statistics import (Condition, is_statistic, statistic,
                                And, Or, Not, Xor, All, Any, top, bottom,
                                Cases,
                                Median, Quartiles, IQR, Binomial, Distinct,
-                               Get, ElementOf, Keep, MaybeMap,
+                               Get, ElementOf, Contains, Between, Keep, MaybeMap,
                                Prepend, Append, Bag,
                                )
 from frplib.quantity   import as_quantity, tup
@@ -245,13 +245,6 @@ def test_more_factories():
     assert g('b') == tup(0)
     assert g('c') == tup(0)
 
-    s = ElementOf(43, 93, 103)
-    assert s(43) == tup(1)
-    assert s(93) == tup(1)
-    assert s(103) == tup(1)
-    for k in irange(1, 110, exclude={43, 93, 103}):
-        assert s(k) == tup(0)
-
     assert Prepend(1, 2, 3)(10, 20, 30) == tup(1, 2, 3, 10, 20, 30)
     assert Prepend(1, 2)(10, 20, 30) == tup(1, 2, 10, 20, 30)
     assert Prepend(1)(10, 20, 30) == tup(1, 10, 20, 30)
@@ -302,6 +295,46 @@ def test_more_factories():
     assert MaybeMap(repeat3)(1, 4, 10) == tup(1, 1, 1, 4, 4, 4, 10, 10, 10)
     assert MaybeMap(repeat3)(1, -4, 4, 0, 10) == tup(1, 1, 1, 4, 4, 4, 10, 10, 10, nothing, nothing, nothing, nothing, nothing, nothing)
     assert MaybeMap(repeat3, pad=None)(1, -4, 4, 0, 10) == tup(1, 1, 1, 4, 4, 4, 10, 10, 10)
+
+def test_condition_factories():
+    s = ElementOf(43, 93, 103)
+    assert s(43) == tup(1)
+    assert s(93) == tup(1)
+    assert s(103) == tup(1)
+    for k in irange(1, 110, exclude={43, 93, 103}):
+        assert s(k) == tup(0)
+
+    s2 = ElementOf((1, 2), (3, 4), (5, 6))
+    assert is_true(s2(1, 2))
+    assert is_true(s2(3, 4))
+    assert is_true(tup(5, 6) ^ s2)
+    assert is_false(s2(3, 3))
+    assert is_false(s2(0))
+    assert is_false(s2(()))
+    assert is_false(s2())     # pylint: disable=no-value-for-parameter
+
+    s3 = ElementOf([(1, 2), (3, 4), (5, 6)])
+    assert is_true(s3(1, 2))
+    assert is_true(s3(3, 4))
+    assert is_true(tup(5, 6) ^ s3)
+    assert is_false(s3(3, 3))
+    assert is_false(s3(0))
+    assert is_false(s3(()))
+    assert is_false(s3())     # pylint: disable=no-value-for-parameter
+
+    assert is_true(tup(0, 1, 2, 3, 4, 5, 6) ^ Contains(4, 5))
+    assert is_false(tup(0, 1, 2, 3, 4, 5, 6) ^ Contains(4, 7))
+    assert is_true(tup(0, 1, 2, 3, 4, 5, 6) ^ Contains(2))
+    assert is_false(tup(0, 1, 2, 3, 4, 5, 6) ^ Contains(9))
+
+    assert is_true(tup(4, 5, 6, 7, 9) ^ Between(4, 10))
+    assert is_true(tup(4, 5, 6, 7, 10) ^ Between(4, 10))
+    assert is_false(tup(10, 10, 10, 10, 10) ^ Between(4, 10))
+    assert is_true(tup(10, 10, 10, 10, 10) ^ Between(4, 10, True))
+    assert is_false(Between(4, 10)(3))
+    assert is_true(Between(4, 10)(4))
+    assert is_false(Between(4, 10)(10))
+    assert is_true(Between(4, 10, True)(10))
 
 def test_statistic_combinators():
     assert tup(-1, -10, 1, 2) ^ Chain(Sum, Abs) == tup(8)

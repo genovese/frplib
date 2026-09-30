@@ -51,7 +51,7 @@ playground_imports: dict[str, list[str]] = {
         'Chain', 'Compose', 'scalar_fn',
         'Id', 'Scalar', '__', 'Proj', '_x_',
         'Sum', 'Product', 'Count', 'Max', 'Min', 'Abs',
-        'Sqrt', 'Floor', 'Ceil', 'NormalCDF', 'Binomial', 'Gamma', 'GammaLn',
+        'Sqrt', 'Floor', 'Ceil', 'Negate', 'NormalCDF', 'Binomial', 'Gamma', 'GammaLn',
         'Exp', 'Log', 'Log2', 'Log10',
         'Sin', 'Cos', 'Tan', 'ACos', 'ASin', 'ATan2', 'Sinh', 'Cosh', 'Tanh',
         'Pi', 'FromDegrees', 'FromRadians',
@@ -64,7 +64,7 @@ playground_imports: dict[str, list[str]] = {
         'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
         'All', 'Any', 'Cases', 'Bag', 'Append', 'Prepend',
         'Get', 'Keep', 'MaybeMap',
-        'Freqs', 'IndexOf', 'Contains', 'ChiSquare', 'Round',
+        'Freqs', 'IndexOf', 'Contains', 'Between', 'ChiSquare', 'Round',
     ],
     'expectations': ['E', 'Var', 'D_'],
     'frps': [

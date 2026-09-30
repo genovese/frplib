@@ -1899,6 +1899,10 @@ Log2 = scalar_numeric_stat(numeric_log2, domain=(-infinity, 0), complement=True,
 Log10 = scalar_numeric_stat(numeric_log10, domain=(-infinity, 0), complement=True, name='Log10',
                             doc='returns the logarithm base 10 of a positive scalar argument')
 
+# This is useful in composition chains for readability,
+# though we can always do (-1 * __).
+Negate = statistic(lambda x: -x, description='negates its input', name='Negate')
+
 # Sqrt = Statistic(numeric_sqrt, codim=1, dim=1, name='Sqrt', strict=True,
 #                  description='returns the square root of a scalar argument')
 # Exp = Statistic(numeric_exp, codim=1, dim=1, name='Exp', strict=True,
@@ -1949,7 +1953,7 @@ def GammaLn(x):
 
 @statistic_factory
 def Round(digits=0):
-    """rounds a number to a specified number of digits
+    """rounds a number to a specified number of digits.
 
     If digits is positive, round numeric quantities to that
     many places after the decimal point. If digits is negative,
@@ -2017,7 +2021,7 @@ def Descending(v):
 
 @condition
 def Distinct(v):
-    "tests if all components are distinct."
+    "tests if all components are distinct"
     return len(v) == len(frozenset(v))
 
 @statistic(codim=(1, infinity), dim=1)
@@ -2599,6 +2603,29 @@ def MFork(stat: MonoidalStatistic | ScalarQ, *other_stats: MonoidalStatistic | S
     """
     return cast(MonoidalStatistic, Fork(stat, *other_stats))
 
+# This is a temporary placeholder. We want to generalize in several ways
+@StatisticCombinator
+def Tensor(f, g, by: int | Sequence[int] | None = None):
+    """TODO: Generalize and fill in"""
+    if is_tuple(f):
+        f, n_f = f
+    elif by is not None:
+        n_f = by[0] if isinstance(by, Sequence) else by
+    else:
+        n_f = max(min(f.codim), 1)
+    if is_tuple(g):
+        g, n_g = g
+    elif by is not None:
+        n_g = by[1] if isinstance(by, Sequence) else by
+    else:
+        n_g = max(min(g.codim), 1)
+
+    @statistic(codim=n_f + n_g, dim=dim(f) + dim(g) if dim(f) is not None and dim(g) is not None else None)
+    def tensor(x):
+        return VecTuple.join(f(x[:n_f]), g(x[n_f:]))
+
+    return tensor
+
 # ATTN: fix up (cycle notation and straight) but keeping it simple for now
 def _find_cycles(inds: list[int], drop_singletons=True) -> list[list[int]]:
     """Find a list of cycles in 0-based index list by cycle convention
@@ -2777,7 +2804,7 @@ def Not(s: Statistic) -> Condition:
     if s.dim is not None and s.dim != 1:
         raise DomainDimensionError(f'Not should be applied only to a scalar statistic or condition,'
                                    f' given a statistic of dimension {s.dim}.')
-    return Condition(lambda *x: 1 - s(*x), codim=s.arity, name=f'not({s.name})',
+    return Condition(lambda *x: 1 - s(*x), codim=s.arity, name=f'Not({s.name})',
                      description=f'returns the logical not of {s.name}')
 
 @StatisticCombinator
@@ -3473,7 +3500,7 @@ def IndexOf(*items):
 
 @condition_factory
 def Contains(*items):
-    """tests if a specified tuple is within its input tuple, or -1 if none.
+    """tests if a specified tuple is within its input tuple as a contiguous subsequence.
 
     Accepts a single sequence or multiple arguments that are combined into a sequence.
 
@@ -3492,10 +3519,46 @@ def Contains(*items):
     """
     return IndexOf(*items) >= 0     # pylint: disable=comparison-with-callable
 
+@condition_factory(auto_name=False)
+def Between(a, b, inclusive=False):
+    """tests if input v lies between two specified bounds, optionally including the upper bound.
+
+    `a` and `b` should be scalars or tuples matching the input dimension.
+
+    If `inclusive` is False (the default), tests a <= v < b for input v.
+    If `inclusive` is True, tests a <= v <= b for input v.
+
+    Note that for values of dimension bigger than 1, the test `v < b`
+    is true if *some component* of `v` is less than the
+    corresponding component of `b` and *all components` of `v` are
+    less than or equal to their corresponding component of `b`.
+
+    Examples
+    + `tup(4, 5, 6, 7, 9) ^ Between(4, 10)` is true.
+    + `tup(4, 5, 6, 7, 10) ^ Between(4, 10)` is true.
+    + `tup(10, 10, 10, 10, 10) ^ Between(4, 10)` is false.
+    + `tup(10, 10, 10, 10, 10) ^ Between(4, 10, True)` is true.
+    + `Between(4, 10)(3)` is false.
+    + `Between(4, 10)(4)` is true.
+    + `Between(4, 10)(10)` is false.
+    + `Between(4, 10, True)(10)` is true.
+
+    """
+    if not inclusive:
+        between = And(__ >= a, __ < b)
+        between.name = f'Between[{a}, {b})'
+        between.doc = f'tests if input v satisfies {a} <= v < {b}'
+    else:
+        between = And(__ >= a, __ <= b)
+        between.name = f'Between[{a}, {b}]'
+        between.doc = f'tests if input v satisfies {a} <= v <= {b}'
+
+    return between
+
 @statistic_factory
 @flexible_inputs
 def ChiSquare(expected):
-    """computes the Chi-square statistic on the input against the specified expected components"""
+    """computes the Chi-square statistic on the input against the specified expected components."""
 
     n = len(expected)
     if n == 0:
@@ -3524,7 +3587,7 @@ for obj in [
     Ascending, Descending,
     # Builtins: Arithmetic
     Sqrt, Exp, Log, Log2, Log10,
-    Floor, Ceil,
+    Floor, Ceil, Negate,
     # Builtins: Trigonometric
     Sin, Cos, Tan, ACos, ASin, ATan2, Sinh, Cosh, Tanh,
     FromDegrees, FromRadians,
@@ -3548,7 +3611,7 @@ for obj in [
     # Conditions
     Distinct, top, bottom,
     # Condition Factories
-    Contains, ElementOf,
+    Contains, ElementOf, Between,
     # Condition Combinators
     And, Or, Not, Xor, All, Any,
 ]:

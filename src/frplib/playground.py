@@ -61,7 +61,7 @@ from frplib.statistics import (
     Ascending, Descending,
     # Builtins: Arithmetic
     Sqrt, Exp, Log, Log2, Log10,
-    Floor, Ceil,
+    Floor, Ceil, Negate,
     # Builtins: Trigonometric
     Sin, Cos, Tan, ACos, ASin, ATan2, Sinh, Cosh, Tanh,
     FromDegrees, FromRadians,
@@ -85,7 +85,7 @@ from frplib.statistics import (
     # Conditions
     Distinct, top, bottom,
     # Condition Factories
-    Contains, ElementOf,
+    Contains, ElementOf, Between,
     # Condition Combinators
     And, Or, Not, Xor, All, Any,
 )
@@ -151,7 +151,7 @@ __all__ = [
     'Chain', 'Compose', 'scalar_fn',
     'Id', 'Scalar', '__', 'Proj', '_x_',
     'Sum', 'Product', 'Count', 'Max', 'Min', 'Abs', 'SumSq',
-    'Sqrt', 'Floor', 'Ceil', 'NormalCDF', 'Binomial', 'Gamma', 'GammaLn',
+    'Sqrt', 'Floor', 'Ceil', 'Negate', 'NormalCDF', 'Binomial', 'Gamma', 'GammaLn',
     'Exp', 'Log', 'Log2', 'Log10',
     'Sin', 'Cos', 'Tan', 'ACos', 'ASin', 'ATan2', 'Sinh', 'Cosh', 'Tanh',
     'Pi', 'FromDegrees', 'FromRadians',
@@ -164,7 +164,7 @@ __all__ = [
     'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
     'All', 'Any', 'Cases', 'Bag', 'Append', 'Prepend',
     'Get', 'Keep', 'MaybeMap',
-    'Freqs', 'IndexOf', 'Contains', 'ChiSquare', 'Round',
+    'Freqs', 'IndexOf', 'Contains', 'Between', 'ChiSquare', 'Round',
     # frplib.expectations
     'E', 'Var', 'D_',
     # frplib.factories
