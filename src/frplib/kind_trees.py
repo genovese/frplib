@@ -204,7 +204,7 @@ def unfold_tree(canonical: list[KindBranch]) -> list | None:  # ATTN: give this 
         # Partition branches at this level into groups with common value prefix
         for branch in S:
             weight, subtree = branch
-            prefix = subtree[0:-1] if isinstance(subtree, tuple) else subtree[0][0:-1]
+            prefix = subtree[0:-1] if isinstance(subtree, VecTuple) else subtree[0][0:-1]
             partition[prefix].append(branch)
             weights[prefix] += weight        # Sum will be weight to new parent node
 
