@@ -24,6 +24,11 @@ from fractions         import Fraction
 from itertools         import zip_longest
 from typing            import Callable, TypeGuard, overload
 
+import numpy
+import numpy.typing
+
+import frplib.vec_tuples as vec
+
 from frplib.exceptions import NumericConversionError
 from frplib.numeric    import (Numeric, NumericQ, NumericQuantity, ScalarQ, nothing, Nothing,
                                as_nice_numeric, as_numeric, as_real, is_scalar_q,
@@ -202,6 +207,8 @@ def show_quantities(xs: Iterable[Numeric | Nothing | Symbolic]) -> list[str]:
 
     n = 0
     for i, x in enumerate(xs):
+        if isinstance(x, str):
+            x = as_quantity(x)
         if isinstance(x, Symbolic):
             symbols.append(str(x))
             place_at.append((i, False))
@@ -261,6 +268,9 @@ def show_qtuple(
     components = [show_quantity(x) for x in tupl]
     return f'<{", ".join(components)}>'
 
+def from_numpy(x: numpy.typing.NDArray) -> VecTuple:
+    """Like vec_tuples.from_numpy but converts the components to quantities."""
+    return vec.from_numpy(x, convert=as_quant_vec)
 
 #
 # Info tags

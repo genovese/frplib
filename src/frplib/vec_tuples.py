@@ -326,6 +326,28 @@ def as_numpy(x, missing=numpy.nan) -> numpy.typing.NDArray:
 
     return numpy.array(converted)
 
+# Include version of this in quantity that does as_quant_vec to this
+def from_numpy(x: numpy.typing.NDArray, convert=None) -> VecTuple:
+    """Converts a numpy scalar or array (with dim or codim 1) to a vector tuple.
+
+    The components of the returned tuple are native types. See the
+    version of this function in quantity that converts components to
+    quantities.
+
+    However, if `convert` is supplied, a more general conversion can
+    be done. It should be a function that takes an iterable and
+    returns a vector tuple.
+
+    """
+    if convert is None:        # ATTN: Move function below so we can make as_vec_tuple the default
+        convert = as_vec_tuple
+
+    arr = numpy.asarray(x)
+    if arr.ndim > 2 or (arr.ndim == 2 and 1 not in arr.shape):
+        raise FrplibException('from_numpy expects a 1-dim or 1 x n or n x 1 numpy array.')
+
+    return convert(arr.flatten().tolist())
+
 
 #
 # Numeric/Quantified VecTuples
