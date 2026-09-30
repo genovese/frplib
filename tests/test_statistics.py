@@ -11,7 +11,7 @@ from hypothesis.strategies  import integers, lists, floats
 from frplib.exceptions import DomainDimensionError, InputError, MismatchedDomain, StatisticError
 from frplib.kinds      import Kind, choice
 from frplib.numeric    import nothing
-from frplib.statistics import (is_statistic, statistic,
+from frplib.statistics import (Condition, is_statistic, statistic,
                                tuple_safe, infinity, is_true, is_false, scalar_fn,
                                Id, Scalar, __,
                                Sum, Count, Product, Max, Min, Mean, Abs,
@@ -410,6 +410,13 @@ def test_statistic_expressions():
     assert (2 ** __)(1, 2, 3) == tup(2, 4, 8)
     assert (__ ** 2)(1, 2, 3) == tup(1, 4, 9)
     assert (__ % 2 == 0)(4) == tup(1)
+
+    assert isinstance(tup(1, 2) == Id, Condition)
+    assert isinstance(Id == tup(1, 2), Condition)
+    assert tup(1, 2) ^ (tup(1, 2) == Id) == tup(1)
+    assert tup(1, 3) ^ (tup(1, 2) == Id) == tup(0)
+    assert tup(1, 2) ^ (Id == tup(1, 2)) == tup(1)
+    assert tup(1, 3) ^ (Id == tup(1, 2)) == tup(0)
 
 def test_tuple_safe():
     def sc_fn(x):

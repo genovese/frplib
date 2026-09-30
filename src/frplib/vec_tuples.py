@@ -469,8 +469,10 @@ class VecTuple(tuple[T, ...]):
     def __eq__(self, other):
         try:
             return extended_all_cmp(eq, self, other)
-        except (OperationError, MismatchedDimensionError):
+        except MismatchedDimensionError:
             return False
+        except OperationError:
+            return NotImplemented
         except TypeError as e:
             raise OperationError(f'Could not test for == with {other}:\n  {str(e)}') from e
         # other = from_scalar(other)   # Allow scalar equality of VecTuples, no invariants changed
@@ -485,8 +487,10 @@ class VecTuple(tuple[T, ...]):
     def __ne__(self, other):
         try:
             return not extended_all_cmp(eq, self, other)  # *any* ne means True
-        except (OperationError, MismatchedDimensionError):
+        except MismatchedDimensionError:
             return True
+        except OperationError:
+            return NotImplemented
         except TypeError as e:
             raise OperationError(f'Could not test for != with {other}:\n  {str(e)}') from e
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
