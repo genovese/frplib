@@ -33,12 +33,12 @@ from frplib.kind_trees import (KindBranch,
                                canonical_from_sexp, canonical_from_tree,
                                unfold_tree, unfolded_labels, unfold_scan, unfolded_str)
 from frplib.numeric    import (Numeric, ScalarQ, Nothing, is_nothing, as_nice_numeric, as_numeric, as_real,
-                               nothing, is_numeric, numeric_abs, numeric_floor, numeric_log2, numeric_ln)
+                               nothing, is_numeric, numeric_abs, numeric_ceil, numeric_log2, numeric_ln)
 from frplib.output     import RichReal, RichString
 from frplib.protocols  import Projection, SupportsKindOf, SupportsConditionalKindOf, Kinded
 from frplib.quantity   import (as_quantity, as_nice_quantity, as_quant_vec, is_quantifiable,
                                show_quantities, show_qtuples, tup)
-from frplib.statistics import (Condition, MonoidalStatistic, Statistic, scalar_statistic, infinity,
+from frplib.statistics import (Condition, HasArity, MonoidalStatistic, Statistic, infinity,
                                analyze_domain, compose2, Proj, statistic, tuple_safe, flexible_inputs)
 from frplib.symbolic   import Symbolic, gen_symbol, is_symbolic, symbol, is_zero
 from frplib.unique     import INFO_AUTO
@@ -1600,7 +1600,7 @@ def sequence_of_values(    # pylint: disable=too-many-branches
                                 f"I'm guessing this is a mistake.")
             else:
                 values.extend([transform(b + k * (b - a))
-                               for k in range(1, int(numeric_floor(as_real(c - b) / (b - a))))])
+                               for k in range(1, int(numeric_ceil(as_real(c - b) / (b - a))))])
         else:
             values.append(transform(value))
 

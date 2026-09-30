@@ -33,7 +33,9 @@ def test_simple_seq():
     assert (sequence_of_values('1.2', '2.4', ..., '10',
                                pre_transform=numeric) ==
             [Decimal('1.2'), Decimal('2.4'), Decimal('3.6'), Decimal('4.8'),
-             Decimal('6.0'), Decimal('7.2'), Decimal('8.4'), 10])
+             Decimal('6.0'), Decimal('7.2'), Decimal('8.4'), Decimal('9.6'), 10])
+    assert sequence_of_values(3, 11, ..., 99) == list(range(3, 100, 8))
+    assert sequence_of_values(3, 11, ..., 99, 100) == (list(range(3, 100, 8)) + [100])
 
 def test_symbol_seq():
     a = symbol('a')
