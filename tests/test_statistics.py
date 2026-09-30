@@ -8,7 +8,8 @@ import pytest
 from hypothesis             import given
 from hypothesis.strategies  import integers, lists, floats
 
-from frplib.exceptions import DomainDimensionError, InputError, MismatchedDomain, StatisticError
+from frplib.exceptions import (DomainDimensionError, InputError, MismatchedDimensionError,
+                               MismatchedDomain, StatisticError)
 from frplib.kinds      import Kind, choice
 from frplib.numeric    import nothing
 from frplib.statistics import (Condition, is_statistic, statistic,
@@ -432,6 +433,36 @@ def test_statistic_expressions():
     assert tup(1, 3) ^ (tup(1, 2) == Id) == tup(0)
     assert tup(1, 2) ^ (Id == tup(1, 2)) == tup(1)
     assert tup(1, 3) ^ (Id == tup(1, 2)) == tup(0)
+
+    assert isinstance(tup(1, 2) != Id, Condition)
+    assert tup(1, 3) ^ (tup(1, 2) != Id) == tup(1)
+    assert tup(1, 2) ^ (tup(1, 2) != Id) == tup(0)
+
+    assert (tup(1, 2) == None) is False  # noqa: E711
+    assert (tup(1, 2) != None) is True   # noqa: E711
+
+    # Orderings of a VecTuple with a Statistic reflect to Conditions
+    for cond in [tup(1, 2) <= __, tup(1, 2) < Id, tup(1, 2) > __, tup(1, 2) >= Id]:
+        assert isinstance(cond, Condition)
+
+    assert tup(1, 3) ^ (tup(1, 2) <= __) == tup(1)
+    assert tup(0, 3) ^ (tup(1, 2) <= __) == tup(0)
+    assert tup(1, 3) ^ (tup(1, 2) < __) == tup(1)
+    assert tup(1, 2) ^ (tup(1, 2) < __) == tup(0)
+    assert tup(0, 1) ^ (tup(1, 2) >= __) == tup(1)
+    assert tup(1, 3) ^ (tup(1, 2) >= __) == tup(0)
+    assert tup(0, 2) ^ (tup(1, 2) > __) == tup(1)
+    assert tup(1, 2) ^ (tup(1, 2) > __) == tup(0)
+
+    assert tup(1, 2) <= tup(1, 3)
+    assert not (tup(1, 2) < tup(1, 2))
+
+    with pytest.raises(TypeError):
+        tup(1, 2) <= None
+    with pytest.raises(TypeError):
+        tup(1, 2) < object()
+    with pytest.raises(MismatchedDimensionError):
+        tup(1, 2) <= [1, 2, 3]
 
 def test_tuple_safe():
     def sc_fn(x):

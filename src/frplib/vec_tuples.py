@@ -510,6 +510,8 @@ class VecTuple(tuple[T, ...]):
     def __lt__(self, other):
         try:
             return extended_all_cmp(le, self, other) and extended_some_cmp(lt, self, other)
+        except OperationError:
+            return NotImplemented
         except TypeError as e:
             raise OperationError(f'Could not test for < with {other}:\n  {str(e)}') from e
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
@@ -521,6 +523,8 @@ class VecTuple(tuple[T, ...]):
     def __le__(self, other):
         try:
             return extended_all_cmp(le, self, other)
+        except OperationError:
+            return NotImplemented
         except TypeError as e:
             raise OperationError(f'Could not test for <= with {other}:\n  {str(e)}') from e
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
@@ -532,6 +536,8 @@ class VecTuple(tuple[T, ...]):
     def __gt__(self, other):
         try:
             return extended_all_cmp(ge, self, other) and extended_some_cmp(gt, self, other)
+        except OperationError:
+            return NotImplemented
         except TypeError as e:
             raise OperationError(f'Could not test for > with {other}:\n  {str(e)}') from e
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
@@ -543,6 +549,8 @@ class VecTuple(tuple[T, ...]):
     def __ge__(self, other):
         try:
             return extended_all_cmp(ge, self, other)
+        except OperationError:
+            return NotImplemented
         except TypeError as e:
             raise OperationError(f'Could not test for >= with {other}:\n  {str(e)}') from e
         # other = from_scalar(other)   # Allow scalar comparison of VecTuples
