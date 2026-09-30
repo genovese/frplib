@@ -21,7 +21,7 @@ from functools         import wraps
 from math              import prod
 from operator          import itemgetter
 from typing            import Callable, Protocol, cast, Literal, Optional, overload, Union
-from typing_extensions import Self, TypeAlias, TypeGuard
+from typing_extensions import Self, TypeAlias, TypeGuard, TypeVar
 
 from frplib.env        import environment
 from frplib.exceptions import (OperationError, StatisticError, DomainDimensionError,
@@ -100,9 +100,15 @@ def _codim_str(arity: ArityType) -> str:
         codim = f'{arity}'  # ATTN: this case should not happen
     return codim
 
-class HasArity(Protocol):
-    """A tuple_safe callable that has a arity attribute."""
-    def __call__(self, *x: typing.Any) -> VecTuple:
+R_co = TypeVar('R_co', covariant=True, default=VecTuple)
+R = TypeVar('R')
+
+class HasArity(Protocol[R_co]):
+    """A tuple_safe callable that has a arity attribute.
+
+    Parameterized by the callable's return type, which is VecTuple by default.
+    """
+    def __call__(self, *x: typing.Any) -> R_co:
         ...
     arity: ArityType
 
@@ -257,6 +263,27 @@ def analyze_domain(fn: Callable) -> ArityType:
             raise MismatchedDomain('Custom statistic signature has keyword-only arguments without a default')
     return (requires, requires + accepts)
 
+@overload
+def tuple_safe(
+        fn: Callable,
+        *,
+        arities: Optional[int | ArityType] = ...,
+        strict: bool = ...,
+        prepare: Callable = ...
+) -> HasArity[VecTuple]:
+    ...
+
+@overload
+def tuple_safe(
+        fn: Callable,
+        *,
+        arities: Optional[int | ArityType] = ...,
+        strict: bool = ...,
+        convert: Callable[[typing.Any], R],
+        prepare: Callable = ...
+) -> HasArity[R]:
+    ...
+
 def tuple_safe(
         fn: Callable,
         *,
@@ -264,7 +291,7 @@ def tuple_safe(
         strict=True,
         convert=as_quant_vec,
         prepare=as_quant_vec   # ATTN:Aug2026 Should this be VecTuple? Using identity restores old behavior.
-) -> HasArity:
+) -> HasArity[typing.Any]:
     """Returns a function that can accept a single tuple or multiple individual arguments.
 
     Ensures that the returned function has an `arity` attribute set

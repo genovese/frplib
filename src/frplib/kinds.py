@@ -2431,8 +2431,8 @@ class ConditionalKind:           # pylint: disable=too-many-instance-attributes
 
             # Make the wrapped function accept flexible arguments of specified number
             # ATTN: need to set codim=1 explicitly to get scalar unwrapping?
-            mapping_t = tuple_safe(mapping, arities=_codim, convert=kind)
-            arities = getattr(mapping_t, 'arity')
+            mapping_t: HasArity[Kind] = tuple_safe(mapping, arities=_codim, convert=kind)
+            arities = mapping_t.arity
 
             # Recheck codim from inspection when it was not yet specified
             if _codim is None and arities[0] == arities[1]:
