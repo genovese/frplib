@@ -237,7 +237,7 @@ def kind_gen(d, s):
     values = lists(
         decimals(min_value=-5000, max_value=5000, allow_nan=False, allow_infinity=False),
         min_size=d, max_size=d
-    ).map(as_vec_tuple)   # type: ignore
+    ).map(as_vec_tuple)
     kinds = dictionaries(values, weights, min_size=s, max_size=s).map(weighted_as)
     return kinds
 

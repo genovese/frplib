@@ -6,7 +6,7 @@ import sys
 from collections       import defaultdict
 from collections.abc   import Iterable, Hashable
 from functools         import reduce
-from typing            import Callable, Generator, TypeVar, Union
+from typing            import Callable, Generator, Literal, TypeVar, Union, overload
 from typing_extensions import Any, Concatenate, ParamSpec, TypeGuard
 
 from frplib.env        import environment
@@ -221,7 +221,21 @@ def index_where(predicate, xs, not_found=-1, *, start=0, stop=sys.maxsize):
             return i
     return not_found
 
-def frequencies(xs: Iterable[Hashable], counts_only=False) -> Union[dict[Hashable, int], tuple[int, ...]]:
+H = TypeVar('H', bound=Hashable)
+
+@overload
+def frequencies(xs: Iterable[H], counts_only: Literal[False] = ...) -> dict[H, int]:
+    ...
+
+@overload
+def frequencies(xs: Iterable[H], counts_only: Literal[True]) -> tuple[int, ...]:
+    ...
+
+@overload
+def frequencies(xs: Iterable[H], counts_only: bool) -> Union[dict[H, int], tuple[int, ...]]:
+    ...
+
+def frequencies(xs: Iterable[H], counts_only: bool = False) -> Union[dict[H, int], tuple[int, ...]]:
     """Computes frequencies of the values in some iterable collection.
 
     If counts_only is False, returns a dictionary mapping the values to their counts.
@@ -230,7 +244,7 @@ def frequencies(xs: Iterable[Hashable], counts_only=False) -> Union[dict[Hashabl
     The items in the collection should be hashable.
 
     """
-    freqs: dict[Hashable, int] = defaultdict(int)
+    freqs: dict[H, int] = defaultdict(int)
 
     for x in xs:
         freqs[x] += 1

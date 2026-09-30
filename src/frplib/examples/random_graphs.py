@@ -325,7 +325,7 @@ def connected_component_sizes(comps):
 
     """
     n = len(comps)
-    v = cast(tuple[int, ...], frequencies(comps, counts_only=True))
+    v = frequencies(comps, counts_only=True)
     return v + (0,) * (n - len(v))
 
 @statistic

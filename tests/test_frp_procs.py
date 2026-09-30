@@ -142,7 +142,7 @@ def test_frp_procs_obs():
         if B0.value[0] > 0:
             assert B0.value == B.value
 
-        if C0.value[0] % 2 == 0:
+        if C0.value[0] % 2 == 0:  # type: ignore[operator]
             assert C0.value == C.value
 
 def test_frp_proc_errors():

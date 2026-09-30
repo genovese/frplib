@@ -22,7 +22,7 @@ def wait_for_2heads(remaining_flips, q=symbol('q')):
     prefix = weighted_as(0, 2, 3, weights=[q, q * (1 - q), (1 - q) * (1 - q)])
 
     # the kind of the total number of flips given the current flip
-    flips_given_current = conditional_kind({  # type: ignore
+    flips_given_current = conditional_kind({
         0: remaining_flips ^ (__ + 1),
         2: remaining_flips ^ (__ + 2),
         3: constant(2)

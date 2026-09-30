@@ -9,7 +9,7 @@ def time_to_base(t):
     Here, t is the *kind* of the remaining time *after the step*.
 
     """
-    base = conditional_kind({1: constant(3),   # type: ignore
+    base = conditional_kind({1: constant(3),
                              2: t ^ (__ + 5),
                              3: t ^ (__ + 7)})
     channel = uniform(1, 2, 3)

@@ -9,7 +9,7 @@ n = symbol('n')
 p = symbol('p')
 
 has_disease = weighted_as(0, 1, weights=[1 - d, d])
-test_by_status = conditional_kind({             # type: ignore
+test_by_status = conditional_kind({
     0: weighted_as(0, 1, weights=[n, 1 - n]),
     1: weighted_as(0, 1, weights=[1 - p, p])
 })

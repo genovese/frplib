@@ -53,7 +53,7 @@ from fractions         import Fraction
 from functools         import reduce
 from operator          import (add, mul, sub, truediv, floordiv, mod, pow,   # pylint: disable=redefined-builtin
                                lt, gt, eq, le, ge)
-from typing            import cast, Callable, Type, TypeVar, Union
+from typing            import cast, overload, Callable, SupportsIndex, Type, TypeVar, Union
 from typing_extensions import Self, TypeGuard
 
 import numpy
@@ -459,6 +459,14 @@ class VecTuple(tuple[T, ...]):
 
     def __pos__(self) -> 'VecTuple[T]':
         return self
+
+    @overload
+    def __getitem__(self, key: SupportsIndex) -> T:
+        ...
+
+    @overload
+    def __getitem__(self, key: slice) -> 'VecTuple[T]':
+        ...
 
     def __getitem__(self, key):
         x = super().__getitem__(key)

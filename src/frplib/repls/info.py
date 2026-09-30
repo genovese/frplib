@@ -268,7 +268,7 @@ def menu_select_via_dialog(root_data: InfoTree, action: Callable | None, **kwds)
 
         def run_custom_dialog():
             layout = Layout(HSplit([header, search_field, menu_list], height=D()))
-            dialog_app = Application(layout=layout, key_bindings=kb, full_screen=True)  # type: ignore
+            dialog_app = Application(layout=layout, key_bindings=kb, full_screen=True)
             return dialog_app.run(in_thread=True)
 
         choice = run_custom_dialog()

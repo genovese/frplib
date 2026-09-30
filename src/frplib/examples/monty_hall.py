@@ -21,7 +21,7 @@ def got_prize_door_initially(outcome):
     monty, you = outcome
     return monty == you
 
-didnt_get_prize_door_initially = Not(got_prize_door_initially)    # type: ignore
+didnt_get_prize_door_initially = Not(got_prize_door_initially)
 
 
 # The game outcome kind up to but not including the choice of whether to switch

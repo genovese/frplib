@@ -121,7 +121,7 @@ def conform_image(image: Image, width=32, height=32) -> Image:
     if wd == width and ht == height:
         return image
 
-    data: ImageData = image[2:]   # type: ignore
+    data: ImageData = image[2:]
 
     if wd == width:
         if ht > height:
@@ -156,7 +156,7 @@ def ensure_same_dims(image1: Image, image2: Image) -> tuple[int, int]:
 def image_data(image: Image) -> tuple[int, int, ImageData]:
     "Decomposes an encoded image into dimensions and binary image data."
     wd, ht = image[:2]
-    data = cast(ImageData, image[2:])
+    data = image[2:]
     return (wd, ht, data)
 
 def add_base(base: Image) -> Statistic:
@@ -403,7 +403,7 @@ def component_sizes(image: Image) -> list[int]:
     "Returns sorted connected component sizes"
     img_comps = image_components(image)
     if img_comps[0] > 0:
-        return img_comps[1:(img_comps[0] + 1)]
+        return list(img_comps[1:(img_comps[0] + 1)])
     return []
 
 @statistic_factory
@@ -977,14 +977,14 @@ def image_distance(image1: Image, image2: Image) -> int:
     "Returns the Hamming distance between two binary images of the same dimensions."
     wd, ht = ensure_same_dims(image1, image2)
     n = wd * ht
-    return sum(image1[2 + i] ^ image2[2 + i] for i in range(n))  # type: ignore
+    return sum(image1[2 + i] ^ image2[2 + i] for i in range(n))
 
 def closest_image_to(image: Image, candidates: Iterable[Image]) -> Union[Image, None]:
     best, min_dist = None, None
 
     for cand_img in candidates:
         dist = image_distance(image, cand_img)
-        if (min_dist is None) or (dist < min_dist):   # type: ignore
+        if (min_dist is None) or (dist < min_dist):
             min_dist = dist
             best = cand_img
 
@@ -1191,7 +1191,7 @@ def show_image(image_in: Union[Image, FRP], border=30, return_pil_image=False):
 def mvg_image(image: Image) -> str:
     "Returns mvg format description of an image."
     wd, ht = image[:2]
-    data = cast(ImageData, image[2:])
+    data = image[2:]
 
     points = [f'push graphic-context\n  viewbox 0 0 {wd} {ht}']
     for i, px in enumerate(data):

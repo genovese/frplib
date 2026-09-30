@@ -59,7 +59,7 @@ def circle_points(
 
     x_kind = weighted_by(-r_lo, -r_lo + 1, ..., r_lo, weight_by=num_y_points)
 
-    @conditional_kind(domain=irange(-r_lo, r_lo), target_dim=1)   # type: ignore
+    @conditional_kind(domain=irange(-r_lo, r_lo), target_dim=1)
     def y_kind(x):
         return uniform(y_points(x))
 
