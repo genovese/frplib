@@ -153,6 +153,9 @@ class _Nothing:
     def __pos__(self):
         return self
 
+    def __bool__(self):
+        return False
+
 Nothing: TypeAlias = _Nothing
 nothing = _Nothing()  # This is a singleton!
 _nothing_str = str(nothing)  # To simplify conversions
