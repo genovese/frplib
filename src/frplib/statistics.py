@@ -3212,7 +3212,7 @@ def ElementOf(*v):
     return element_of
 
 @statistic_factory
-def Get(obj, key=identity, scalarize=True):       # pylint: disable=redefined-outer-name
+def Get(obj, key=identity, default=None, scalarize=True):       # pylint: disable=redefined-outer-name
     """accesses a python object with [] with the input as index.
 
     Parameters
@@ -3220,8 +3220,12 @@ def Get(obj, key=identity, scalarize=True):       # pylint: disable=redefined-ou
     obj - a Python object that can be indexed with []
     key - a function applied to the input value before
        using it to index the object
+    default - a value that, if is not None, is returned
+       if the given index has no associated value.
+       If this is None (the default), then an Index error
+       will be raised.
     scalarize [=True] - if True, 1-dimensional inputs are
-       converted to scalars automatically before applying
+       converted to numbers/scalars automatically before applying
        the key function; if False, they are left as tuples.
 
     Examples:
@@ -3234,17 +3238,41 @@ def Get(obj, key=identity, scalarize=True):       # pylint: disable=redefined-ou
 
     + Get([1, 2, 3])(2) == <3>
 
+    + Get([1, 2, 3])(4) raises IndexError
+
+    + Get([1, 2, 3], default=0)(4) == <0>
+
     + Get([1, 2, 3], key=lambda n: n // 100)(200) == <3>
 
     + Get({'r1': (1, 2), 'r2': (11, 12), 'r3': (100, 200)},
           key=lambda n: f'r{n}')(2) == <11, 12>
+
+    Note that string inputs to statistics are automatically
+    to symbols (as these are quantities that can be acted on).
+    So if you are using dictionary with string keys with Get
+    and want to access it directly (unlike in the last example),
+    you should use the key argument to get the symbols *name*.
+    For instance:
+
+    + f = Get({'a': 1, 'b': 2}, default=0, key=str)
+
+      f('a'), f('b'), f('c') return <1>, <2>, and <0> respectively.
+
+      But with g = Get({'a': 1, 'b': 2}, default=0)
+
+      g('a'), g('b'), g('c') return <0>, <0>, and <0> respectively.
 
     """
     make_key = as_scalar_weak if scalarize else identity
 
     @statistic
     def get_obj(v):
-        return obj[key(make_key(v))]
+        try:
+            return obj[key(make_key(v))]
+        except (IndexError, KeyError) as e:
+            if default is not None:
+                return default
+            raise e
 
     return get_obj
 

@@ -229,6 +229,21 @@ def test_more_factories():
         assert Get(a_dict)(k) == tup(2 * k - 100)
         assert Get(b_dict)(k, k + 10) == tup(k, k + 2, k + 8)
 
+    assert Get([1, 2, 3], default=0)(4) == tup(0)
+
+    with pytest.raises(IndexError):
+        Get([1, 2, 3])(4)
+
+    f = Get({'a': 1, 'b': 2}, default=0, key=str)
+    assert f('a') == tup(1)
+    assert f('b') == tup(2)
+    assert f('c') == tup(0)
+
+    g = Get({'a': 1, 'b': 2}, default=0)
+    assert g('a') == tup(0)
+    assert g('b') == tup(0)
+    assert g('c') == tup(0)
+
     s = ElementOf(43, 93, 103)
     assert s(43) == tup(1)
     assert s(93) == tup(1)
