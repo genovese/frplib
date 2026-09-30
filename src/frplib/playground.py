@@ -106,7 +106,7 @@ from frplib.numeric import (
     nothing,
 )
 
-from frplib.quantity import as_quantity, is_quantity, is_quantifiable, qvec, tup
+from frplib.quantity import as_quantity, as_quant_vec, is_quantity, is_quantifiable, qvec, tup
 
 from frplib.symbolic import gen_symbol, is_symbolic, is_zero, symbol, symbols
 
@@ -181,7 +181,7 @@ __all__ = [
     'numeric_abs', 'numeric_sqrt', 'numeric_floor', 'numeric_ceil',
     'nothing',
     # frplib.quantity
-    'as_quantity', 'is_quantity', 'is_quantifiable', 'qvec', 'tup',
+    'as_quantity', 'as_quant_vec', 'is_quantity', 'is_quantifiable', 'qvec', 'tup',
     # frplib.symbolic
     'gen_symbol', 'is_symbolic', 'is_zero', 'symbol', 'symbols',
     # frplib.utils

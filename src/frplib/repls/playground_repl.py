@@ -76,7 +76,7 @@ playground_imports: dict[str, list[str]] = {
     'numeric': ['numeric_exp', 'numeric_ln', 'numeric_log10', 'numeric_log2',
                 'numeric_abs', 'numeric_sqrt', 'numeric_floor', 'numeric_ceil',
                 'nothing'],
-    'quantity': ['as_quantity', 'is_quantity', 'is_quantifiable', 'qvec', 'tup'],
+    'quantity': ['as_quantity', 'as_quant_vec', 'is_quantity', 'is_quantifiable', 'qvec', 'tup'],
     'symbolic': ['gen_symbol', 'is_symbolic', 'is_zero', 'symbol', 'symbols'],
     'utils': [
         'clone', 'compose', 'const', 'every', 'frequencies',
