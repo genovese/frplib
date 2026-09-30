@@ -147,6 +147,12 @@ class _Nothing:
     def __abs__(self):
         return self
 
+    def __neg__(self):
+        return self
+
+    def __pos__(self):
+        return self
+
 Nothing: TypeAlias = _Nothing
 nothing = _Nothing()  # This is a singleton!
 _nothing_str = str(nothing)  # To simplify conversions

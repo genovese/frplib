@@ -6,7 +6,7 @@ import math
 import pytest
 
 from frplib.exceptions import StatisticError
-from frplib.numeric    import numeric_ln
+from frplib.numeric    import numeric_ln, nothing
 from frplib.quantity   import tup
 from frplib.statistics import (Sqrt, Log, Log2, Log10, Cos, Tan,
                                Gamma, GammaLn,
@@ -42,6 +42,21 @@ def test_special_statistics():
     assert Gamma(4) == tup(6)
     assert math.isclose(float(GammaLn(4)[0]), float(numeric_ln(6)))
 
+def test_nothing():
+    assert abs(nothing) == nothing
+    assert -nothing == nothing
+    assert +nothing == nothing
+    assert 2 * nothing == nothing
+    assert 0 * nothing == nothing
+    assert 1 + nothing == nothing
+    assert nothing + nothing == nothing
+
+    xn = tup(nothing, nothing, nothing)
+    assert -xn == xn
+    assert +xn == xn
+    assert 2 * xn == xn
+    assert 0 * xn == xn
+    assert xn + xn == xn
 
 def test_rounding():
     assert tup(1, 99.2343456, 256.652, 12345.678) ^ ForEach(Round(2))  == tup(1, 99.23, 256.65, 12345.68)
