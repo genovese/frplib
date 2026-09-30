@@ -1365,7 +1365,7 @@ class ProjectionStatistic(Statistic, Projection):
 def _ibool(x) -> Literal[0, 1]:
     return 1 if bool(x) else 0
 
-def _ibool_vec(x) -> VecTuple[Literal[0, 1]]:     # type: ignore
+def _ibool_vec(x) -> VecTuple[Literal[0, 1]]:
     if isinstance(x, str) or not isinstance(x, Iterable):
         base = [x]
     else:
@@ -1374,10 +1374,10 @@ def _ibool_vec(x) -> VecTuple[Literal[0, 1]]:     # type: ignore
         except TypeError:     # e.g., 0-d numpy arrays claim to be Iterable but are not
             base = [x]
     if len(base) == 0:        # Empty containers are falsy
-        return as_vec_tuple(0)                               # type: ignore
+        return as_vec_tuple(0)
     if len(base) != 1:
         raise StatisticError(f'A condition returned a non-scalar value (dim == {len(base)}).')
-    return as_vec_tuple(_ibool(base[0]))                    # type: ignore
+    return as_vec_tuple(_ibool(base[0]))
 
 class Condition(Statistic):
     """A condition is a statistic that returns a boolean value.
@@ -2602,6 +2602,7 @@ def Fork(
     if len(more_stats) == 0:
         return stat
 
+    unit: VecTuple
     if is_monoidal(stat) and all(is_monoidal(s) for s in more_stats):
         monoidal = True
         units = [stat.unit]
@@ -3512,11 +3513,11 @@ def IndexOf(*items):
         return tbl
 
     if len(items) == 1 and isinstance(items[0], Sequence):
-        xs = as_vec_tuple(items[0])   # type: ignore
+        xs = as_vec_tuple(items[0])
     elif len(items) == 0:
         raise StatisticError('IndexOf requires a non-empty search sequence.')
     else:
-        xs = as_vec_tuple(items)      # type: ignore
+        xs = as_vec_tuple(items)
 
     n = len(xs)
     kmp = kmp_tbl(xs)

@@ -53,7 +53,7 @@ from fractions         import Fraction
 from functools         import reduce
 from operator          import (add, mul, sub, truediv, floordiv, mod, pow,   # pylint: disable=redefined-builtin
                                lt, gt, eq, le, ge)
-from typing            import cast, overload, Callable, SupportsIndex, Type, TypeVar, Union
+from typing            import cast, overload, Any, Callable, SupportsIndex, Type, TypeVar, Union
 from typing_extensions import Self, TypeGuard
 
 import numpy
@@ -75,7 +75,7 @@ from frplib.symbolic   import Symbolic, is_symbolic, symbolic_sqrt
 #
 
 # A VecTuple should contain entirely interoperable types
-T = TypeVar('T', NumericF, NumericD, NumericB, Union[Numeric, Symbolic, Nothing])
+T = TypeVar('T', bound=Union[NumericF, NumericD, NumericB, NumericQ, Symbolic, Nothing])
 
 
 #
@@ -116,7 +116,7 @@ def cyclic_extend(
 
     # We'll likely need a list for other but also handles iterators
     try:
-        y = list(other)
+        y = list(cast(Iterable[T], other))   # scalar T case handled above
     except Exception as e:
         raise OperationError('Object cannot be converted to a VecTuple.') from e
     m = len(y)
@@ -138,15 +138,15 @@ def zero_extend(
         vec: VecTuple[T],
         other: Union[T, Iterable[T]]
 ) -> tuple[VecTuple[T], VecTuple[T]]:
-    """Stretches to vectors to the same length by cycling extension.
+    """Stretches two vectors to the same length by extending with zeros.
 
     Parameters:
       vec - a VecTuple
       other - a scalar or other iterable, iterator/generator allowed
 
     Returns a pair of VecTuples in the same order where the shorter
-    of vec and other is extended to the length of the longer
-    by R-style cycling extension.
+    of vec and other is padded with zeros to the length of the longer.
+    Scalars and 1-tuples are extended by repetition instead.
 
     """
     n = len(vec)
@@ -160,18 +160,23 @@ def zero_extend(
 
     # We'll likely need a list for other but also handles iterators
     try:
-        y = list(other)
+        y = list(cast(Iterable[T], other))   # scalar T case handled above
     except Exception as e:
         raise OperationError('Object cannot be converted to a VecTuple.') from e
     m = len(y)
 
     if m == n:
         return (vec, VecTuple(y))
+    if m == 1:
+        return (vec, VecTuple(y * n))
+    if n == 1:
+        return (VecTuple(list(vec) * m), VecTuple(y))
 
+    zero = cast(T, 0)
     if m < n:
-        return (vec, VecTuple(y + [0] * (m - n)))
+        return (vec, VecTuple(y + [zero] * (n - m)))
 
-    return (VecTuple(list(vec) + [0] * (n - m)), VecTuple(y))
+    return (VecTuple(list(vec) + [zero] * (m - n)), VecTuple(y))
 
 
 #
@@ -204,7 +209,7 @@ def scalar_extend(
 
     # We'll likely need a list for other but also handles iterators
     try:
-        y = list(other)
+        y = list(cast(Iterable[T], other))   # Scalar T handled above; runtime check here
     except Exception as e:
         raise OperationError('Object cannot be converted to a VecTuple.') from e
 
@@ -283,14 +288,15 @@ def as_scalar(x) -> T | None:
         return cast(T, x[0])
     return None
 
-# ATTN:Sep2026 This is a temporary solution to the typing in VecTuple
-# Plan to change the constraint in T to a bound
-# T = TypeVar('T', bound=Union[NumericF, NumericD, NumericB, NumericQ, Symbolic, Nothing])
-# but this will need some casts and other minor changes throughout, so I'm deferring
-# this for now.  CRG 29 Sep 2026
-S = TypeVar('S', bound=Union[int, float, Fraction, Decimal, NumericQ, str, Symbolic, Nothing, bool])
+@overload
+def as_scalar_strict(x: str | tuple[str]) -> str:
+    ...
 
-def as_scalar_strict(x: S | tuple[S, ...]) -> S:
+@overload
+def as_scalar_strict(x: T | tuple[T, ...]) -> T:
+    ...
+
+def as_scalar_strict(x):
     "Returns a scalar if convertible, otherwise raises an exception."
     if isinstance(x, (int, float, Fraction, Decimal, Symbolic, str, bool)):
         return x
@@ -363,7 +369,7 @@ def from_numpy(x: numpy.typing.NDArray, convert=None) -> VecTuple:
 class VecTuple(tuple[T, ...]):
     "A variant tuple type that supports addition and scalar multiplication like a vector."
     def __new__(cls, contents: Iterable[T]) -> 'VecTuple[T]':
-        return super().__new__(cls, contents)     # type: ignore
+        return super().__new__(cls, contents)
 
     def __str__(self):
         return f'<{", ".join(map(str, self))}>'
@@ -580,7 +586,7 @@ class VecTuple(tuple[T, ...]):
     #         combined.extend(list(value))
     #     return cls(combined)
     @classmethod
-    def join(cls: Type[Self], *x: T | VecTuple[T] | Iterable[T | tuple[T, ...]]) -> Self:  # VecTuple[T]:
+    def join(cls: Type[Self], *x: Any) -> Self:   # Scalars, tuples, or an iterable of these
         """Concatenates one or more values in order into a single VecTuple.
 
         Values can be given as a single iterable argument (not a string)
@@ -676,13 +682,13 @@ def vec_tuple(*a: T) -> VecTuple[T]:
     """Collects its arguments into a VecTuple."""
     return VecTuple(a)
 
-def as_vec_tuple(x: T | Iterable[T] = ()) -> VecTuple[T]:
+def as_vec_tuple(x: T | Iterable[T] | str = ()) -> VecTuple[T]:
     """Converts an iterable to -- or wraps a single value in -- a VecTuple."""
     if isinstance(x, VecTuple):
         return x
     if isinstance(x, Iterable) and not isinstance(x, str):
         return VecTuple(x)
-    return vec_tuple(x)
+    return vec_tuple(cast(T, x))   # A str is tolerated here, though it is not a T
 
 def map_to_vec_tuple(f: Callable[..., T], *xs: Iterable[T]) -> VecTuple[T]:
     """Maps a function over one or more iterables, converting the result to a VecTuple.

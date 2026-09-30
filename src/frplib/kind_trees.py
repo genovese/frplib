@@ -189,7 +189,7 @@ def unfold_tree(canonical: list[KindBranch]) -> list | None:  # ATTN: give this 
     This is used as a primitive in a higher-level unfolding utility.
 
     """
-    root = vec_tuple()
+    root: VecTuple = vec_tuple()
     if len(canonical) == 0 or len(canonical[0].vs) == 1:
         return None  # Nothing to do as we can already handle the canonical kind
         # return [root, *map(lambda b: [b.p, b.vs], canonical)]  # Unfolded tree but ...

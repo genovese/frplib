@@ -7,7 +7,7 @@ from decimal import Decimal
 from frplib.exceptions import MismatchedDimensionError
 from frplib.statistics import Sum, Max, ArgMax, Product, Id, Proj
 from frplib.symbolic   import symbols
-from frplib.vec_tuples import VecTuple, vec_tuple, as_vec_tuple, is_vec_tuple
+from frplib.vec_tuples import VecTuple, vec_tuple, as_vec_tuple, is_vec_tuple, zero_extend
 
 
 # Note: lots of room for property testing here!
@@ -68,6 +68,20 @@ def test_mismatched_extension():
         vec_tuple(1, 2, 3) + vec_tuple(1, 2)
     with pytest.raises(MismatchedDimensionError):
         vec_tuple(1, 2, 3) > vec_tuple(1, 2)
+
+def test_zero_extension():
+    "zero extension pads the shorter tuple with zeros"
+    assert zero_extend(vec_tuple(1, 2, 3), [9, 8]) == (vec_tuple(1, 2, 3), vec_tuple(9, 8, 0))
+    assert zero_extend(vec_tuple(1, 2), []) == (vec_tuple(1, 2), vec_tuple(0, 0))
+    assert zero_extend(vec_tuple(1, 2), (9, 8)) == (vec_tuple(1, 2), vec_tuple(9, 8))
+    assert zero_extend(vec_tuple(1, 2), iter([9, 8, 7])) == (vec_tuple(1, 2, 0), vec_tuple(9, 8, 7))
+
+    # Scalars and 1-dim tuples or iterables are extended by repetition
+    assert zero_extend(vec_tuple(1, 2, 3), 5) == (vec_tuple(1, 2, 3), vec_tuple(5, 5, 5))
+    assert zero_extend(vec_tuple(1, 2, 3), vec_tuple(5)) == (vec_tuple(1, 2, 3), vec_tuple(5, 5, 5))
+    assert zero_extend(vec_tuple(1, 2, 3), [5]) == (vec_tuple(1, 2, 3), vec_tuple(5, 5, 5))
+    assert zero_extend(vec_tuple(1, 2, 3), iter([5])) == (vec_tuple(1, 2, 3), vec_tuple(5, 5, 5))
+    assert zero_extend(vec_tuple(1), [9, 8, 7]) == (vec_tuple(1, 1, 1), vec_tuple(9, 8, 7))
 
 def test_vec_carrot():
     "test v ^ f as a synonym for f(v), added later than it should have been"

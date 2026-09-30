@@ -87,12 +87,12 @@ def test_conditional_frps():
 
     f2 = conditional_frp(k1)
     f12 = f1 * f2
-    assert f12.target(0).value == VecTuple.join(f1.target(0).value, f2.target(0).value)  # type: ignore[type-var]
-    assert f12.target(1).value == VecTuple.join(f1.target(1).value, f2.target(1).value)  # type: ignore[type-var]
-    assert f12.target(2).value == VecTuple.join(f1.target(2).value, f2.target(2).value)  # type: ignore[type-var]
-    assert f12.joined(0).value == VecTuple.join(f1.joined(0).value, f2.target(0).value)  # type: ignore[type-var]
-    assert f12.joined(1).value == VecTuple.join(f1.joined(1).value, f2.target(1).value)  # type: ignore[type-var]
-    assert f12.joined(2).value == VecTuple.join(f1.joined(2).value, f2.target(2).value)  # type: ignore[type-var]
+    assert f12.target(0).value == VecTuple.join(f1.target(0).value, f2.target(0).value)
+    assert f12.target(1).value == VecTuple.join(f1.target(1).value, f2.target(1).value)
+    assert f12.target(2).value == VecTuple.join(f1.target(2).value, f2.target(2).value)
+    assert f12.joined(0).value == VecTuple.join(f1.joined(0).value, f2.target(0).value)
+    assert f12.joined(1).value == VecTuple.join(f1.joined(1).value, f2.target(1).value)
+    assert f12.joined(2).value == VecTuple.join(f1.joined(2).value, f2.target(2).value)
 
     f1_3 = f1 ** 3
     assert f1_3(0).dim == 3

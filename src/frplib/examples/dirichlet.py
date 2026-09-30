@@ -90,9 +90,9 @@ def solve_dirichlet(cKind, *, fixed, fixed_values, alpha=0, beta=1, states=None)
 
     def f(*state):
         if len(state) == 1 and isinstance(state[0], tuple):
-            s = as_vec_tuple(state[0])  # type: ignore
+            s = as_vec_tuple(state[0])
         else:
-            s = as_vec_tuple(state)     # type: ignore
+            s = as_vec_tuple(state)
         if s in fixed_map:
             return fixed_map[s]
         return float(f_s[free_map[s]])
@@ -192,9 +192,9 @@ def solve_dirichlet_sparse(cKind, *, fixed, fixed_values, alpha=0, beta=1, state
 
     def f(*state):
         if len(state) == 1 and isinstance(state[0], tuple):
-            s = as_vec_tuple(state[0])  # type: ignore
+            s = as_vec_tuple(state[0])
         else:
-            s = as_vec_tuple(state)     # type: ignore
+            s = as_vec_tuple(state)
         if s in fixed_map:
             return fixed_map[s]
         return float(f_s[free_map[s]])
