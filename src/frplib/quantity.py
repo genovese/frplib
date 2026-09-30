@@ -184,8 +184,10 @@ def tup(*xs, convert=as_quantity) -> VecTuple:
 # We will specialize later.
 qvec = tup
 
-def show_quantity(x: Numeric | Symbolic | Nothing, digits=None) -> str:
+def show_quantity(x: Numeric | Symbolic | Nothing | str, digits=None) -> str:
     """Converts a single quantity to a string, hopefully in a pleasant way."""
+    if isinstance(x, str):  # ATTN: Sep2026 catches use in FRPDemoSummary
+        x = as_quantity(x)
     if isinstance(x, Symbolic):
         return str(x)
     if isinstance(x, Nothing):
