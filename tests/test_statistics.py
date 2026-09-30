@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import numpy as np
 import pytest
 
 from hypothesis             import given
@@ -10,9 +11,9 @@ from hypothesis.strategies  import integers, lists, floats
 
 from frplib.exceptions import (DomainDimensionError, InputError, MismatchedDimensionError,
                                MismatchedDomain, StatisticError)
-from frplib.kinds      import Kind, choice
+from frplib.kinds      import Kind, choice, uniform
 from frplib.numeric    import nothing
-from frplib.statistics import (Condition, is_statistic, statistic,
+from frplib.statistics import (Condition, Statistic, condition, is_statistic, statistic,
                                tuple_safe, infinity, is_true, is_false, scalar_fn,
                                Id, Scalar, __,
                                Sum, Count, Product, Max, Min, Mean, Abs,
@@ -496,6 +497,90 @@ def test_statistic_expressions():
         tup(1, 2) < object()
     with pytest.raises(MismatchedDimensionError):
         tup(1, 2) <= [1, 2, 3]
+
+def test_conditions():
+    assert isinstance((__ == 1)(Sum), Condition)
+    assert isinstance(Sum ^ (__ == 1), Condition)
+    assert isinstance(Sum(__ == 1), Statistic) and not isinstance(Sum(__ == 1), Condition)
+    assert isinstance((__ == 1) ^ Sum, Statistic) and not isinstance((__ == 1) ^ Sum, Condition)
+
+    fs = [
+        condition(lambda x: x >= 4, codim=1),
+        condition(lambda x: '' if x < 4 else 'a', codim=1),
+        condition(lambda x: tup(0) if x < 4 else tup(1), codim=1),
+        condition(lambda x: False if x < 4 else tup(99), codim=1),
+    ]
+    for f in fs:
+        assert f(0) == tup(0)
+        assert f(4) == tup(1)
+        assert f(10) == tup(1)
+        assert f(3.9) == tup(0)
+        assert (tup(1, 3.9, 4) ^ f(Proj[2])) == tup(0)
+        assert (tup(1, 3.9, 4) ^ f(Proj[3])) == tup(1)
+
+    with pytest.raises(StatisticError):
+        f1 = condition(lambda x: (x, x, x), codim=1)
+        f1(0)
+
+    # Condition wrapping a non-condition Statistic converts to 0-1
+    assert Condition(Sum)(1, 2) == tup(1)
+    assert Condition(Sum)(0, 0) == tup(0)
+    assert condition(Sum)(1, 2) == tup(1)
+    assert Condition(Proj[2])(1, 0, 3) == tup(0)
+    assert Condition(Proj[2])(1, 7, 3) == tup(1)
+    with pytest.raises(StatisticError):
+        Condition(Proj[1, 2])(1, 7, 3)
+
+    # Rewrapping a condition with new codim/strictness keeps falsy-value handling
+    empty = condition(lambda x: '' if x < 4 else 'a', codim=1)
+    assert Condition(empty, codim=1)(0) == tup(0)
+    assert Condition(empty, strict=False)(0) == tup(0)
+    assert Condition(empty, strict=False)(5) == tup(1)
+
+    # Falsy and unusual return values
+    assert condition(lambda x: None, codim=1)(0) == tup(0)
+    assert condition(lambda x: nothing, codim=1)(0) == tup(0)
+    assert condition(lambda x: [], codim=1)(0) == tup(0)
+    assert condition(lambda x: set(), codim=1)(0) == tup(0)
+    assert condition(lambda x: [7], codim=1)(0) == tup(1)
+    assert condition(lambda x, y: '' if x < y else 'a')(1, 2) == tup(0)   # multi-arg path
+    assert condition(lambda v: tup(0))(1, 2, 3) == tup(0)                 # ANY_TUPLE path
+    assert condition(lambda x: np.bool_(False), codim=1)(0) == tup(0)
+    assert condition(lambda x: np.array(False), codim=1)(0) == tup(0)    # 0-d array
+    assert condition(lambda x: np.array([]), codim=1)(0) == tup(0)
+    assert condition(lambda x: np.array([True]), codim=1)(0) == tup(1)
+    with pytest.raises(StatisticError):
+        condition(lambda x: [1, 2], codim=1)(0)
+
+    # Conditions built from falsy-returning predicates still combine
+    assert (empty == 1)(5) == tup(1)
+    assert And(empty, __ > 4)(5) == tup(1)
+    assert Not(empty)(0) == tup(1)
+    assert isinstance(empty(uniform(1, 5)), Kind)
+
+    # Combinators give a condition when the final step is a condition
+    assert isinstance(Chain(Sum, __ == 3), Condition)
+    assert Chain(Sum, __ == 3)(1, 2) == tup(1)
+    assert not isinstance(Chain(__ == 3, Sum), Condition)
+    assert isinstance(Compose(__ == 3, Sum), Condition)
+    assert Compose(__ == 3, Sum)(1, 1) == tup(0)
+    assert not isinstance(Compose(Sum, __ == 3), Condition)
+    assert isinstance(IfThenElse(__ > 0, __ == 1, __ == 2), Condition)
+    assert IfThenElse(__ > 0, __ == 1, __ == 2)(-2) == tup(0)
+    assert not isinstance(IfThenElse(__ > 0, __ == 1, Sum), Condition)
+
+    # Conditions have dim 1
+    with pytest.raises(StatisticError):
+        Condition(lambda x: 1, dim=2)
+
+    assert is_true(Distinct(1, 2, 3, 4))
+    assert is_false(Distinct(1, 2, 1, 4))
+    assert is_false(Distinct(1 / 3, 1 / 3))
+    assert is_true(Distinct(1))
+    assert is_true(Distinct())    # pylint: disable=no-value-for-parameter
+
+    assert is_true(tup(0, 10, 9, 4, 3) ^ (Proj[2, 3] == (10, 9)))
+    assert is_false(tup(0, 10, 8, 4, 3) ^ (Proj[2, 3] == (10, 9)))
 
 def test_tuple_safe():
     def sc_fn(x):

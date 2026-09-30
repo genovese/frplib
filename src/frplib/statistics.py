@@ -185,14 +185,22 @@ def stat_label(s: Statistic) -> str:
         return name
     return f'{name}(__)'
 
-def compose2(after: 'Statistic', before: 'Statistic') -> 'Statistic':
-    """Returns the composition of two statistics (f, g) -> f after g."""
+def compose2(after: Statistic, before: Statistic, *, cls: type[Statistic] | None = None) -> Statistic:
+    """Returns the composition of two statistics (f, g) -> f after g.
+
+    The optional `cls` argument, if supplied, should be a subclass of Statistic
+    that should be used to construct the resulting composition. This is most
+    likely to be used for Conditions.
+
+    """
     lo, hi = after.codim
+    if cls is None:
+        cls = Statistic
     if before.dim is None or (before.dim >= lo and before.dim <= hi):
         def composed(*x):
             return after(before(*x))
-        return Statistic(composed, codim=before.codim, dim=after.dim,
-                         name=f'{after.name}({stat_label(before)})')
+        return cls(composed, codim=before.codim, dim=after.dim,
+                   name=f'{after.name}({stat_label(before)})')
     raise OperationError(f'Statistics {after.name} and {before.name} are not compatible for composition.')
 
 def combine_arities(has_arity, more) -> ArityType:
@@ -1030,7 +1038,7 @@ class Statistic:
         # EXPERIMENTAL: Allow stat // kind for analogous averaging of conditioning operator
         # Problem: this requires a circular import
         # Solution: use a lazy import in this function alone
-        from frplib.kinds import Kind
+        from frplib.kinds import Kind                      # pylint: disable=import-outside-toplevel
 
         codim = self.codim
         dim: int | None = None                             # pylint: disable=redefined-outer-name
@@ -1210,6 +1218,9 @@ class Statistic:
         "Chained composition of two statistics, self then other"
         if not isinstance(other, Statistic):
             return NotImplemented
+
+        if isinstance(other, Condition):
+            return compose2(other, self, cls=Condition)
         return compose2(other, self)
 
 def is_statistic(x) -> TypeGuard[Statistic]:
@@ -1354,35 +1365,64 @@ class ProjectionStatistic(Statistic, Projection):
 def _ibool(x) -> Literal[0, 1]:
     return 1 if bool(x) else 0
 
+def _ibool_vec(x) -> VecTuple[Literal[0, 1]]:     # type: ignore
+    if isinstance(x, str) or not isinstance(x, Iterable):
+        base = [x]
+    else:
+        try:
+            base = list(x)
+        except TypeError:     # e.g., 0-d numpy arrays claim to be Iterable but are not
+            base = [x]
+    if len(base) == 0:        # Empty containers are falsy
+        return as_vec_tuple(0)                               # type: ignore
+    if len(base) != 1:
+        raise StatisticError(f'A condition returned a non-scalar value (dim == {len(base)}).')
+    return as_vec_tuple(_ibool(base[0]))                    # type: ignore
+
 class Condition(Statistic):
     """A condition is a statistic that returns a boolean value.
 
-    Boolean values here are represented in the output with
-    0 for false and 1 for true, though the input callable
-    can return any
+    Boolean values here are represented in the output with scalar
+    VecTuples 0 for false and 1 for true, though the input callable's
+    return value will be converted to these automatically based
+    on its truthiness.
+
     """
     def __init__(
             self,
             predicate: Callable | 'Statistic',        # Either a Statistic or a function to be turned into one
+            *,
             codim: Optional[int | ArityType] = None,  # (a, b) means fn accepts a <= n <= b args; a means (a, a)
                                                       # infinity allowed for b; None means infer by inspection
             name: Optional[str] = None,               # A user-facing name for the statistic
             description: Optional[str] = None,        # A description used as a __doc__ string for the Statistic
-            strict=True                               # If true, then strictly enforce dim upper bound
+            strict=True,                              # If true, then strictly enforce dim upper bound
+            dim: int | None = 1                       # For compatibility; ignored, error if set != 1 # pylint: disable=redefined-outer-name
     ) -> None:
-        super().__init__(predicate, codim, 1, name, description, strict)
+        if dim != 1:
+            raise StatisticError(f'A condition must have dimension 1, dimension {dim} specified.')
+        super().__init__(predicate, codim=codim, dim=1, name=name, description=description, strict=strict)
         self.__doc__ = self.__describe__(description or predicate.__doc__ or '', 'returns a 0-1 (boolean) value')
 
+        # We update the underlying function to convert to 0-1 ("boolean") values.
+        # If we convert after the super call, some falsy values fail, e.g.,
+        # an empty string '' gets converted to a symbol but raises an error as empty symbol.
+        if not isinstance(predicate, Statistic):
+            self.fn = tuple_safe(predicate, arities=self.arity, strict=strict, convert=_ibool_vec)
+        elif hasattr(predicate.fn, '__wrapped__'):  # Rewrap the original function (from @wraps)
+            self.fn = tuple_safe(getattr(predicate.fn, '__wrapped__'), arities=self.arity,
+                                 strict=self.strict_arity, convert=_ibool_vec)
+        else:  # For other Statistics, best we can do is convert its output; we know no odd values like ''
+            inner = self.fn
+            self.fn = lambda *x: _ibool_vec(inner(*x))
+
     def __call__(self, *args) -> tuple[Literal[0, 1], ...] | Statistic:
-        if len(args) == 1 and isinstance(args[0], Transformable):
-            return args[0].transform(self)
-        if len(args) == 1 and isinstance(args[0], Statistic):
-            return Condition(compose2(self, args[0]))
-        result = super().__call__(*args)
-        return as_vec_tuple(_ibool(as_scalar(result)))  # type: ignore
-        # if is_vec_tuple(result):
-        #     return result.map(_ibool)
-        # return as_vec_tuple(result).map(_ibool)
+        if len(args) == 1:
+            if isinstance(args[0], Transformable):
+                return args[0].transform(self)
+            if isinstance(args[0], Statistic):
+                return compose2(self, args[0], cls=Condition)  # This cls is the only difference from super().__call__
+        return self.fn(*args)
 
     def bool_eval(self, *args) -> bool:
         """Evaluates a condition to a standard Python Boolean."""
@@ -1620,10 +1660,10 @@ def condition(
 
     """
     if maybe_predicate:
-        return Condition(maybe_predicate, codim, name, description, strict=strict)
+        return Condition(maybe_predicate, codim=codim, name=name, description=description, strict=strict)
 
     def decorator(predicate: Callable) -> Condition:     # Function to be converted to a statistic
-        return Condition(predicate, codim, name, description, strict=strict)
+        return Condition(predicate, codim=codim, name=name, description=description, strict=strict)
     return decorator
 
 
@@ -1766,7 +1806,8 @@ def Chain(*statistics: Statistic) -> Statistic:
 
     arity = statistics[0].arity
     names = ", ".join([stat.name for stat in statistics])
-    return Statistic(chained, arity, name=f'Chain({names})')
+    cls = Condition if isinstance(statistics[-1], Condition) else Statistic
+    return cls(chained, codim=arity, name=f'Chain({names})')
 
 @StatisticCombinator
 def Compose(*statistics: Statistic) -> Statistic:
@@ -1794,7 +1835,8 @@ def Compose(*statistics: Statistic) -> Statistic:
         return state
     arity = rev_statistics[0].arity
     names = ", ".join([stat.name for stat in statistics])
-    return Statistic(composed, arity, name=f'Compose({names})')
+    cls = Condition if isinstance(statistics[0], Condition) else Statistic
+    return cls(composed, codim=arity, name=f'Compose({names})')
 
 
 #
@@ -2791,8 +2833,9 @@ def IfThenElse(
         if as_scalar_strict(cond(*x)):
             return t(*x)
         return f(*x)
-    return Statistic(ifelse, codim=cond.arity, dim=t.dim,
-                     name=f'returns {t.name} if {cond.name} is true else returns {f.name}')
+    cls = Condition if isinstance(t, Condition) and isinstance(f, Condition) else Statistic
+    return cls(ifelse, codim=cond.arity, dim=t.dim,
+               name=f'returns {t.name} if {cond.name} is true else returns {f.name}')
 
 @StatisticCombinator
 def Not(s: Statistic) -> Condition:
