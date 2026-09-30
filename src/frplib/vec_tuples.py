@@ -454,6 +454,12 @@ class VecTuple(tuple[T, ...]):
 
         return vec_tuple(math.sqrt(dot_prod))
 
+    def __neg__(self) -> 'VecTuple[T]':
+        return self.map(lambda x: -x)
+
+    def __pos__(self) -> 'VecTuple[T]':
+        return self
+
     def __getitem__(self, key):
         x = super().__getitem__(key)
         if isinstance(key, slice):
