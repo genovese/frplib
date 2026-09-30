@@ -61,7 +61,7 @@ import numpy.typing
 
 from frplib.exceptions import (FrplibException, OperationError, NumericConversionError,
                                MismatchedDimensionError, MismatchedDomain)
-from frplib.numeric    import (Numeric, NumericF, NumericD, NumericB, Nothing, nothing,
+from frplib.numeric    import (Numeric, NumericF, NumericD, NumericB, NumericQ, Nothing, nothing,
                                numeric_sqrt)  # ATTN: Numeric+Symbolic+SupportsVec
 from frplib.numeric    import as_numeric as scalar_as_numeric
 from frplib.symbolic   import Symbolic, is_symbolic, symbolic_sqrt
@@ -283,12 +283,19 @@ def as_scalar(x) -> T | None:
         return cast(T, x[0])
     return None
 
-def as_scalar_strict(x) -> T:
+# ATTN:Sep2026 This is a temporary solution to the typing in VecTuple
+# Plan to change the constraint in T to a bound
+# T = TypeVar('T', bound=Union[NumericF, NumericD, NumericB, NumericQ, Symbolic, Nothing])
+# but this will need some casts and other minor changes throughout, so I'm deferring
+# this for now.  CRG 29 Sep 2026
+S = TypeVar('S', bound=Union[int, float, Fraction, Decimal, NumericQ, str, Symbolic, Nothing, bool])
+
+def as_scalar_strict(x: S | tuple[S, ...]) -> S:
     "Returns a scalar if convertible, otherwise raises an exception."
     if isinstance(x, (int, float, Fraction, Decimal, Symbolic, str, bool)):
-        return cast(T, x)
+        return x
     if isinstance(x, tuple) and len(x) == 1:
-        return cast(T, x[0])
+        return x[0]
     raise NumericConversionError(f'The quantity {x} could not be converted to a numeric/symbolic scalar.')
 
 def as_scalar_weak(x):
