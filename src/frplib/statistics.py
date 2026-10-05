@@ -2794,6 +2794,54 @@ def Permute(*p: int | tuple[int, ...], cycle=True):
         return VecTuple(value[perm[i]] if i < n else value[i] for i in range(m))
     return permute_direct
 
+@statistic_factory
+def Shift(by=1):
+    """cyclically shifts the components of its input to the right (or left) by the specified amount.
+
+    Negative shifts produce a cyclic left shift by the absolute value.
+    If the shift is 0, this just returns the identity statistic.
+
+    Examples
+    + (tup(1, 2, 3, 4, 5) ^ Shift(1)) == tup(5, 1, 2, 3, 4)
+    + (tup(1, 2, 3, 4, 5) ^ Shift(2)) == tup(4, 5, 1, 2, 3)
+    + (tup(1, 2, 3, 4, 5) ^ Shift(0)) == tup(1, 2, 3, 4, 5)
+    + (tup(1, 2, 3, 4, 5) ^ Shift(-1)) == tup(2, 3, 4, 5, 1)
+    + (tup(1, 2, 3, 4, 5) ^ Shift(-2)) == tup(3, 4, 5, 1, 2)
+    + (tup(1, 2, 3, 4, 5) ^ Shift(99)) == tup(2, 3, 4, 5, 1)
+    + (tup(1, 2, 3, 4, 5) ^ Shift(101)) == tup(5, 1, 2, 3, 4, 5)
+    + (tup(1, 2, 3, 4, 5) ^ Shift(5)) == tup(1, 2, 3, 4, 5)
+    + (tup(1, 2, 3, 4, 5) ^ Shift(-5)) == tup(1, 2, 3, 4, 5)
+    + (tup(1, 2, 3, 4, 5) ^ Shift(100)) == tup(1, 2, 3, 4, 5)
+    + (tup(irange(1, 7)) ^ Shift(6)) == (tup(irange(1, 7)) ^ Shift(-1))
+    + (tup(irange(1, 7)) ^ Shift(5)) == (tup(irange(1, 7)) ^ Shift(-2))
+    + (tup(irange(1, 7)) ^ Shift(4)) == (tup(irange(1, 7)) ^ Shift(-3))
+    + (tup(irange(1, 7)) ^ Shift(3)) == (tup(irange(1, 7)) ^ Shift(-4))
+    + (tup(irange(1, 7)) ^ Shift(2)) == (tup(irange(1, 7)) ^ Shift(-5))
+    + (tup(irange(1, 7)) ^ Shift(1)) == (tup(irange(1, 7)) ^ Shift(-6))
+
+    """
+    if by == 0:
+        return Id
+
+    if by < 0:
+        doc = f'cyclically shifts its input left by {by}'
+
+        @statistic(description=doc)
+        def cyclic_shift(value):
+            n = len(value)
+            m = abs(by) % n
+            return VecTuple.join(value[m:], value[:m])
+    else:
+        doc = f'cyclically shifts its input right by {abs(by)}'
+
+        @statistic(description=doc)
+        def cyclic_shift(value):
+            n = len(value)
+            m = by % n
+            return VecTuple.join(value[(n - m):], value[:(n - m)])
+
+    return cyclic_shift
+
 @StatisticCombinator
 def IfThenElse(
         cond: Statistic,
@@ -3645,7 +3693,7 @@ for obj in [
     Median, Quartiles, IQR,
     Bag, Freqs,
     # Statistic Factories
-    Proj, Constantly, Append, Prepend, Permute,
+    Proj, Constantly, Append, Prepend, Permute, Shift,
     Get, Keep, MaybeMap,
     IndexOf, Cases, ChiSquare, Round,
     # Statistic Combinators

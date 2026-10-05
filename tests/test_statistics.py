@@ -23,7 +23,7 @@ from frplib.statistics import (Condition, Statistic, condition, is_statistic, st
                                FromDegrees, FromRadians,
                                ArgMax, ArgMin,
                                Diff, SumSq, Norm, Ascending, Descending,
-                               Constantly, Diffs, Proj, Permute, Dot,
+                               Constantly, Diffs, Proj, Permute, Shift, Dot,
                                Chain, Compose, Fork, ForEach, ForEachIndexed, IfThenElse,
                                And, Or, Not, Xor, All, Any, top, bottom,
                                Cases,
@@ -220,6 +220,22 @@ def test_statistic_factories():
     with pytest.raises(DomainDimensionError):
         Cases({(1, 2): (3, 4), (5, 6): (7, 8), (9, 10): (11, 12, 13)})
 
+    assert (tup(1, 2, 3, 4, 5) ^ Shift(1)) == tup(5, 1, 2, 3, 4)
+    assert (tup(1, 2, 3, 4, 5) ^ Shift(2)) == tup(4, 5, 1, 2, 3)
+    assert (tup(1, 2, 3, 4, 5) ^ Shift(0)) == tup(1, 2, 3, 4, 5)
+    assert (tup(1, 2, 3, 4, 5) ^ Shift(-1)) == tup(2, 3, 4, 5, 1)
+    assert (tup(1, 2, 3, 4, 5) ^ Shift(-2)) == tup(3, 4, 5, 1, 2)
+    assert (tup(1, 2, 3, 4, 5) ^ Shift(99)) == tup(2, 3, 4, 5, 1)
+    assert (tup(1, 2, 3, 4, 5) ^ Shift(101)) == tup(5, 1, 2, 3, 4, 5)
+    assert (tup(1, 2, 3, 4, 5) ^ Shift(5)) == tup(1, 2, 3, 4, 5)
+    assert (tup(1, 2, 3, 4, 5) ^ Shift(-5)) == tup(1, 2, 3, 4, 5)
+    assert (tup(1, 2, 3, 4, 5) ^ Shift(100)) == tup(1, 2, 3, 4, 5)
+    assert (tup(irange(1, 7)) ^ Shift(6)) == (tup(irange(1, 7)) ^ Shift(-1))
+    assert (tup(irange(1, 7)) ^ Shift(5)) == (tup(irange(1, 7)) ^ Shift(-2))
+    assert (tup(irange(1, 7)) ^ Shift(4)) == (tup(irange(1, 7)) ^ Shift(-3))
+    assert (tup(irange(1, 7)) ^ Shift(3)) == (tup(irange(1, 7)) ^ Shift(-4))
+    assert (tup(irange(1, 7)) ^ Shift(2)) == (tup(irange(1, 7)) ^ Shift(-5))
+    assert (tup(irange(1, 7)) ^ Shift(1)) == (tup(irange(1, 7)) ^ Shift(-6))
 
 def test_more_factories():
     a_list = [2 * k + 100 for k in range(25)]
