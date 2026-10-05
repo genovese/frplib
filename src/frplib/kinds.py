@@ -1300,7 +1300,7 @@ class UnfoldedKind:
             return str(self)
         return Panel(str(self), expand=False, box=box.SQUARE)
 
-def unfold(k: Kind) -> UnfoldedKind:
+def unfolded(k: Kind) -> UnfoldedKind:
     """Shows a canonical Kind unfolds to width == dimension.
 
     Parameter
@@ -1324,6 +1324,8 @@ def unfold(k: Kind) -> UnfoldedKind:
     scan, _ = unfold_scan(labelled, wd, sep)
 
     return UnfoldedKind(unfolded, unfolded_str(scan, wd))
+
+unfold = unfolded  # Will be DEPRECATED in v0.4.1
 
 def clean(k: Kind, tolerance: ScalarQ = '1e-16') -> Kind:
     """Returns a new Kind that eliminates from `k` any branches with numerically negligible weights.
@@ -3049,7 +3051,7 @@ for obj in [
     is_kind, given,
     clean, fast_join_pow, bayes,
     # Display
-    unfold,
+    unfolded,
     # Combinators
     bin, branch,
     # Factories
@@ -3064,3 +3066,4 @@ for obj in [
     setattr(obj, '__info__', INFO_AUTO)
 
 setattr(kind_factory, '__info__', 'Factories')
+setattr(unfold, '__info__', 'kinds::unfolded')
