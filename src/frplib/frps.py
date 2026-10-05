@@ -1,4 +1,6 @@
-"""FRPs ATTN
+"""FRPs and Conditional FRPs and supporting tools and functions.
+
+
 """
 # pylint: disable=redefined-outer-name, protected-access, too-many-lines    # TEMP
 
@@ -11,7 +13,6 @@ import random
 from abc               import ABC, abstractmethod
 from collections       import defaultdict
 from collections.abc   import Generator, Iterable, Mapping
-from decimal           import Decimal
 from functools         import reduce
 from types             import MappingProxyType
 from typing            import Callable, cast, Literal, overload, Union
@@ -550,7 +551,7 @@ class ConditionalExpression(FrpExpression):
             # certainly not what the user wants here. Alternatively,
             # we can just set _cachedc_value to the empty tuple.
             if Kind.equal(self._cached_kind, Kind.empty):
-                raise FrpError('Constrained an FRP by a condition that cannot be true. '
+                raise FrpError('Updated an FRP by a condition that cannot be true. '
                                'This would give the empty FRP, but that is probably not what you wanted.')
                 # Alternatively: return its value. Logically consistent but not likely what is needed
                 # self._cached_value = vec_tuple()
@@ -565,7 +566,7 @@ class ConditionalExpression(FrpExpression):
                 if bool(as_scalar(self._condition(val))):
                     return val
         except KeyboardInterrupt as e:
-            raise FrpError('Generating a value for a constrained FRP. '
+            raise FrpError('Generating a value for an updated FRP. '
                            'Make sure the given condition is true for some possible value.') from e
 
     def value(self) -> ValueType:
@@ -584,7 +585,7 @@ class ConditionalExpression(FrpExpression):
                     return val
                 target = target.clone()
         except KeyboardInterrupt as e:
-            raise FrpError('Generating a value for a constrained FRP. '
+            raise FrpError('Generating a value for an updated FRP. '
                            'Make sure the given condition is true for some possible value.') from e
 
     def kind(self) -> Kind:
@@ -753,7 +754,7 @@ class GeneratedFrpExpression(FrpExpression):
                     source = source.clone()
                     value = source._frp_do_(self._make_generator)   # pylint: disable=protected-access
             except KeyboardInterrupt as e:
-                raise FrpError('Generating a value for a constrained FRP. '
+                raise FrpError('Generating a value for an updated FRP. '
                                'Make sure the given condition is true for some possible value.') from e
 
             self._cached_value = value
@@ -2248,26 +2249,26 @@ class FRP:
         return self.marginal(indices)
 
     def __or__(self, predicate):
-        """Applies an observational constraint to an FRP as expressed through a condition."""
+        """Updates an FRP with an observation as expressed through a condition."""
         if isinstance(predicate, Statistic):
             condition: Callable = predicate
         elif callable(predicate):
             condition = tuple_safe(predicate)   # ATTN: update?  Condition(predicate) ??
         else:
-            raise ConditionMustBeCallable('Constraining with an observation requires a condition after the given bar.')
+            raise ConditionMustBeCallable('Updating with an observation requires a condition after the given bar.')
 
         # ^^ATTN:Aug2026 Do we force condition to be a Condition?
         # Might want an as_condition function or Condition.from class method
         # That creates a condition and checks that the result is a scalar, converts it properly, etc.
         # This will handle the relevant tuple check below, for instance.
 
-        # If this FRP is fresh, we use a constraint expression to preserve both the
+        # If this FRP is fresh, we use an update expression to preserve both the
         # Kind and the value when it is determined. This avoids forcing an empty
         # FRP when nothing suggests it.
         #
-        # An FRP constrained by an observation is a distinct but related FRP to the original.
+        # An FRP updated with an observation is a distinct but related FRP to the original.
         # It should be consistent with the value when the condition is satisfied but also
-        # have the appropriate constrained Kind.
+        # have the appropriate updated Kind.
         #
         # This requires that when xi(X.value) is true, (X | xi).value = X.value, but
         # when xi(X.value) is false, we *resample* clones of X until we get a consistent value.
@@ -2287,20 +2288,20 @@ class FRP:
                     raise FrpError(f'Condition after given | should return a scalar; got {relevant}.')
                 relevant = relevant[0]
 
-            constrained = FRP(self.kind | condition)
+            updated = FRP(self.kind | condition)
             if relevant:  # Make X | condition consistent with X
-                constrained._value = self._value
+                updated._value = self._value
 
-            return constrained
+            return updated
 
-        constrained = FRP(ConditionalExpression(as_expression(self), condition))
+        updated = FRP(ConditionalExpression(as_expression(self), condition))
         if not self.is_fresh and condition(self._value):    # Make X | condition consistent with X
-            constrained._value = self._value
+            updated._value = self._value
 
-        return constrained
+        return updated
 
     def __rmatmul__(self, statistic):
-        "Returns a transformed FRP with the original FRP as context for constraining with observations."
+        "Returns a transformed FRP with the original FRP as context for updating with observations."
         if isinstance(statistic, Statistic):
             return TaggedFRP(self, statistic)
         return NotImplemented
@@ -2411,7 +2412,7 @@ def frp_factory(
 
 
 #
-# Tagged FRPs for context when constraining with observations
+# Tagged FRPs for context when updating with observations
 #
 # phi@X acts exactly like phi(X) except after the given bar of an observation, where
 #    phi@X | (s(X) == v)
@@ -2421,12 +2422,12 @@ def frp_factory(
 #
 
 class TaggedFRP(FRP):
-    """A transformed FRP that remembers its origin for use with observational constraints.
+    """A transformed FRP that remembers its origin for use with observational updates.
 
     If phi is a statistic and X an FRP, then phi @ X produces a TaggedFRP.
     This behaves exactly like phi(X) (i.e., X ^ phi) except when used with the
-    given operator in observational constraints. This remembers the original
-    FRP and passes that to the condition in the constraint, making for
+    given operator in observational updates. This remembers the original
+    FRP and passes that to the condition for the observation, making for
     a much more convenient expression.
 
     So, if cond is a condition and X has dimension d,

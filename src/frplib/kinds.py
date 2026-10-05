@@ -859,7 +859,7 @@ class Kind:                 # pylint: disable=too-many-public-methods
         return self.marginal(indices)
 
     def __or__(self, predicate):  # Self -> ValueMap[ValueType, bool] -> Kind[ValueType, ProbType]
-        "Applies a constraint to a Kind with an observation."
+        "Updates a Kind with an observation."
         if isinstance(predicate, Condition):
             def keep(value):
                 return predicate.bool_eval(value)
@@ -1003,7 +1003,7 @@ def kind_proc(make_generator: Callable[[], Generator[Kind, VecTuple, VecTuple]])
     or if the value on the right side of a yield is not a Kind.
 
     See also `given` which can be passed to yield to impose
-    constraints based on observations.
+    updates with observations.
 
     See `_kind_proc_` for the implementation,
 
@@ -1121,7 +1121,7 @@ def given(cond: bool | VecTuple ) -> Kind:
 
     If the condition is true, this has no effect. If it is false,
     the procedure short-circuits, skipping to the next values for
-    Kinds and regenerating a value via the constraint processor for
+    Kinds and regenerating a value via the observation processor for
     FRPs.
 
     """
@@ -1130,16 +1130,16 @@ def given(cond: bool | VecTuple ) -> Kind:
     return constant(1)
 
 #
-# Tagged kinds for context in observational constraints
+# Tagged kinds for context in observational updates
 #
 
 class TaggedKind(Kind):
-    """A transformed Kind that remembers its origin for use with observational constraints.
+    """A transformed Kind that remembers its origin for use with observational updates.
 
     If phi is a statistic and k a Kind, then phi @ k produces a TaggedKind.
     This behaves exactly like phi(k) (i.e., k ^ phi) except when used with the
-    given operator in observational constraints. This remembers the original
-    and passes that to the condition in the constraint, making for
+    given operator in observational updates. This remembers the original
+    and passes that to the condition in the observation, making for
     a much more convenient expression.
 
     So, if cond is a condition and k has dimension d,

@@ -1,11 +1,16 @@
-#
-# Random Points in a Circle Example Chapter 0, Section 4.3
-# Points in a Circle, With Constraints Example Chapter 0, Section 5
-#
+"""Random Points in a Circle With Observations Example 4.11 Chapter 4.4
+
+Exports
+
++ y_points :: generates y coordinates of points at a given x
++ points_inside :: list of integer points in a circle of given radius
++ circle_points :: FRP factory for uniform point in a circle
+
+"""
 from math              import floor
 from typing            import Literal, Union
 
-from frplib.frps       import FRP, frp
+from frplib.frps       import frp, frp_factory
 from frplib.kinds      import (conditional_kind,
                                constant, uniform, weighted_by)
 from frplib.utils      import compose, irange
@@ -36,11 +41,12 @@ def points_inside(radius: Union[int, float] = 5) -> list[tuple[int, int]]:
 # FRP Factories
 #
 
+@frp_factory
 def circle_points(
         radius: Union[int, float] = 5,
         method: Literal["join", "all"] = "join"
-) -> FRP:
-    """Returns an FRP for uniform random point inside circle of a given radius.
+):
+    """a uniform random point inside circle of a given radius.
 
     Accepts two parameters
     - radius (default: 5): the radius of the circle
