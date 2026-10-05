@@ -31,7 +31,7 @@ from frplib.kinds import (                                # pylint: disable=rede
     clean, fast_join_pow, bayes,
     ijoin_log_kernel, ijoin_log_likelihood,
     # Display
-    unfold,
+    unfolded, unfold,
     # Combinators
     bin, branch,
     # Factories
@@ -75,7 +75,7 @@ from frplib.statistics import (
     Median, Quartiles, IQR,
     Bag, Freqs,
     # Statistic Factories
-    Proj, Constantly, Append, Prepend, Permute,
+    Proj, Constantly, Append, Prepend, Permute, Shift,
     Get, Keep, MaybeMap,
     IndexOf, Cases, ChiSquare, Round,
     # Statistic Combinators
@@ -137,7 +137,7 @@ __all__ = [
     # frplib.kinds
     'Kind', 'ConditionalKind',
     'kind', 'conditional_kind', 'given',
-    'is_kind', 'unfold', 'clean', 'fast_join_pow', 'bayes', 'branch',
+    'is_kind', 'unfolded', 'unfold', 'clean', 'fast_join_pow', 'bayes', 'branch',
     'ijoin_log_kernel', 'ijoin_log_likelihood',
     'constant', 'uniform', 'choice', 'binary', 'either',   # DEPRECATED: either
     'symmetric', 'linear', 'geometric',
@@ -159,7 +159,7 @@ __all__ = [
     'Median', 'Quartiles', 'IQR',
     'Norm', 'Dot',
     'ArgMin', 'ArgMax', 'Ascending', 'Descending', 'Distinct',
-    'Diff', 'Diffs', 'Dim', 'Permute', 'ElementOf',
+    'Diff', 'Diffs', 'Dim', 'Permute', 'Shift', 'ElementOf',
     'Constantly', 'Fork', 'MFork', 'ForEach', 'ForEachIndexed', 'IfThenElse',
     'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
     'All', 'Any', 'Cases', 'Bag', 'Append', 'Prepend',

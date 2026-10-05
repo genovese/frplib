@@ -35,7 +35,7 @@ playground_imports: dict[str, list[str]] = {
         'Kind', 'ConditionalKind',
         'kind', 'conditional_kind',
         'is_kind', 'kind_factory', 'given',
-        'unfold', 'clean', 'fast_join_pow', 'bayes', 'branch',
+        'unfolded', 'unfold', 'clean', 'fast_join_pow', 'bayes', 'branch',
         'ijoin_log_kernel', 'ijoin_log_likelihood',
         'constant', 'uniform', 'choice', 'binary', 'either',  # DEPRECATED: either
         'symmetric', 'linear', 'geometric',
@@ -59,7 +59,7 @@ playground_imports: dict[str, list[str]] = {
         'Median', 'Quartiles', 'IQR',
         'SumSq', 'Norm', 'Dot',
         'ArgMin', 'ArgMax', 'Ascending', 'Descending', 'Distinct',
-        'Diff', 'Diffs', 'Dim', 'Permute', 'ElementOf',
+        'Diff', 'Diffs', 'Dim', 'Permute', 'Shift', 'ElementOf',
         'Constantly', 'Fork', 'MFork', 'ForEach', 'ForEachIndexed', 'IfThenElse',
         'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
         'All', 'Any', 'Cases', 'Bag', 'Append', 'Prepend',
