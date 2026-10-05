@@ -418,3 +418,4 @@ def apply_config(env: 'Environment', config: dict) -> None:
 #
 
 environment = Environment()
+setattr(environment, '__info__', 'environment')
