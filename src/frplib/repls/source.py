@@ -47,8 +47,8 @@ def source(f) -> None:
     which includes factories (uniform, constant, shuffle, etc.),
     conditional Kinds/FRPs built from a function, and Statistics.
 
-    Notee: A conditional Kind/FRP built from a dict has no separate
-    source to show and reports that cleanly.
+    Note: A conditional Kind/FRP built from a dict has no separate
+    source to show, and this reports that cleanly.
 
     """
     target = _resolve_source_target(f)
@@ -63,3 +63,5 @@ def source(f) -> None:
 
     code_theme = 'monokai' if environment.dark_mode else 'slate'
     print_paged(Syntax(code, 'python', theme=code_theme, line_numbers=True, word_wrap=True))
+
+setattr(source, '__info__', 'utilities::source')
