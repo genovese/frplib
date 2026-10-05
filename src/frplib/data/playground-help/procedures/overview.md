@@ -22,7 +22,7 @@ or
 
 The `yield` keyword is used to bind values
 from FRPs and Kinds, and `yield given`
-is used to define constraints with observations.
+is used to specify observations.
 The decorated functions for procedures should
 be "generator functions", meaning that they
 have at least one `yield` statement.

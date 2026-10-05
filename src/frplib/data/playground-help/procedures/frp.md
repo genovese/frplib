@@ -60,7 +60,7 @@ For example:
 This FRP `V` is five-dimensional.
 
 The `given` operator can be use on the right side of a `yield`
-to enforce an observational constraint:
+to enforce an observational update:
 ```python
     @frp
     def R():

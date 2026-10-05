@@ -10,14 +10,22 @@ lower levels in the info hierarchy.
 + `tup` :: converts arguments to a quantitative vector tuple, whose values are
       numeric or symbolic quantities and can be added or scaled like vectors.
 
++ `v.map(f)` :: creates a new vector tuple from `v` by applying function
+      `f` to every component of `v`.
+
 + `as_scalar` :: converts a 1-dimensional tuple to a scalar
 
 + `as_quantity` :: converts to a quantity, takes symbols, strings, or numbers.
+
++ `as_quant_vec` :: converts an iterable or a value into a vector tuple with numerics or symbols.
 
 + `as_float` :: converts high-precision decimal tuples to Python floats,
       and 1-dimensional tuples to scalar floats.
 
 + `as_numpy` :: converts high-precision decimal tuples to a numpy float array
+
++ `from_numpy` :: converts scalar numpy arrays to vector tuples
+
 
 ## Sequence Helpers
 
@@ -56,7 +64,10 @@ lower levels in the info hierarchy.
 
 + `iterates(f, n, start)` :: returns sequence of first n items from `start, f(start), f(f(start)), ...`
 
-## Output Helpers
+## Input/Output Helpers
 
 + `show(x)` :: displays an object, list, or dictionary in a more friendly manner.
-    See subtopic `show`.
+
++ `add_to_search_path(paths...)` :: add paths to the import path,
+    paths should be strings or Path objects for readable directories
+

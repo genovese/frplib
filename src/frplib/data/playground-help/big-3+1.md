@@ -36,14 +36,14 @@ we derive essentially all the probabilistic calculations.
   The join operation is the only one of the Big 3+1 that can
   inject new randomness into a system.
 
-+ Constraining with Obervations
++ Updating with Obervations
 
   We use observations to **update our knowledge and predictions with new information**.
   An observation is a constraint that some specific observable condition
   is *known to be true*, either because we actually observed that condition or
   because we are considering the hypothetical in which we observe it.
 
-  When we constrain a Kind with an observation, we simply *erase all the branches that are inconsistent with the condition*.
+  When we update a Kind with an observation, we simply *erase all the branches that are inconsistent with the condition*.
   This gives us a new Kind, which in canonical
   form simply re-normalizes the weights of the remaining branches by the total weight
   of branches that are consistent with the condition.

@@ -25,7 +25,7 @@ operations called the **Big 3+1**:
 
 + Tranforming with Statistics
 + Building with Joins
-+ Constraining with Observations
++ Updating with Observations
 + Predicting with Expectations
 
 These four operations and one principle (the Likelihood Principle)

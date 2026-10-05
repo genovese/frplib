@@ -88,5 +88,13 @@ order, wrap the vector tuples in `tuple()`.
    + join((1, 2), 3, (4, 5, 6)) => <1, 2, 3, 4, 5, 6>
    + join([(1, 2), (3, 4), (5, 6)]) => <1, 2, 3, 4, 5, 6>
 
++ `v.map(f)`
+
+   If `v` is a vector tuple and `f` a function that can
+   accept the components of `v`, then `v.map(f)` is
+   the vector tuple with components
+   ```
+      f(v[0]), f(v[1]), f(v[2]), ..., f(v[n-1])
+   ```
 
 The class for vector tuples is `VecTuple` in module `frplib.vec_tuples`.

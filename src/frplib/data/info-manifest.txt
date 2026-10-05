@@ -41,7 +41,7 @@ Overview of frplib: overview.md
 Using the Playground: playground.md
 Configuring the Playground Environment: environment.md
 FRPs:
-    Overview: frps overview.md
+    Overview of FRPs: frps overview.md
     The States of an FRP: frps states.md
     Examining Properties: frps properties.md
     Special Methods: frps methods.md
@@ -57,7 +57,7 @@ FRPs:
         General Join (>>): combinators frp gjoin.md
         Observations (|): combinators frp observations.md
         Conditioning (//): combinators frp conditioning.md
-    Expectations: frps expectation.md
+    Expectations (E): frps expectation.md
     Distribution Operator: distribution-op.md
     Utilities:
         is_frp: kinds is_frp.md
@@ -67,7 +67,7 @@ FRPs:
         average_conditional_entropy: computations avg-cond-entropy.md
         mutual_information: computations mutual-information.md
 Kinds:
-    Overview: kinds overview.md
+    Overview of Kinds: kinds overview.md
     Examining Properties: kinds properties.md
     Displaying Kinds: kinds display.md
     Special Methods:
@@ -110,18 +110,19 @@ Kinds:
         branch: combintors kind branch.md
         bin: combinators kind bin.md
         fast_join_pow: combinators kind fast_join_pow.md
-    Expectations: kinds expectation.md
-    Distribution Operator: distribution-op.md
+    Expectations (E): kinds expectation.md
+    Distribution Operator (D_): distribution-op.md
     Utilities:
         is_kind: kinds is_kind.md
         clean: actions clean.md
+        unfolded: kinds unfolded.md
         E: computations E.md
         D_: computations D.md
-        independent_join: computations avg-cond-entropy.md
+        independent_join: computations independent_join.md
         average_conditional_entropy: computations avg-cond-entropy.md
         mutual_information: computations mutual-information.md
 Statistics:
-    Overview: statistics overview.md
+    Overview of Statistics: statistics overview.md
     Builtin Constants: builtin-constants.md
     Built-Ins: statistics builtins.md
         Tuple Functions:
@@ -133,18 +134,21 @@ Statistics:
             Dim: statistics builtins count.md
             Sum: statistics builtins sum.md
             Product: statistics builtins product.md
+            SumSq: statistics builtins sumsq.md
+            Abs: statistics builtins abs.md
+            Negate: statistics builtins negate.md
             Ascending: statistics builtins ascending.md
             Descending: statistics builtins descending.md
         Arithmetic Functions:
             Sqrt: statistics builtins sqrt.md
             Abs: statistics builtins abs.md
+            Negate: statistics builtins negate.md
             Exp: statistics builtins exp.md
             Log: statistics builtins logs.md
             Log2: statistics builtins logs.md
             Log10: statistics builtins logs.md
             Floor: statistics builtins floor-and-ceiling.md
             Ceiling: statistics builtins floor-and-ceiling.md
-            Negate: statistics builtins negate.md
         Trigonometric Functions:
             Sin: statistics builtins trig-fns.md
             Cos: statistics builtins trig-fns.md
@@ -164,44 +168,50 @@ Statistics:
         Special Functions:
             NormalCDF: statistics builtins normal-cdf.md
             Binomial: statistics builtins binomial-coefs.md
+            Gamma: statistics builtins gamma-function.md
+            GammaLn: statistics builtins gamma-function.md
         Statistical Summaries:
-            Min: statistics builtins min.md
-            Max: statistics builtins max.md
-            ArgMin: statistics builtins argmin.md
             ArgMax: statistics builtins argmax.md
+            ArgMin: statistics builtins argmin.md
+            Bag: statistics builtins bag.md
             Diff: statistics builtins diff.md
+            Freqs: statistics builtins freqs.md
+            IQR: statistics builtins iqr.md
+            Max: statistics builtins max.md
             Mean: statistics builtins mean.md
+            Median: statistics builtins median.md
+            Min: statistics builtins min.md
+            Quartiles: statistics builtins quartiles.md
             StDev: statistics builtins sd.md
             Variance: statistics builtins var.md
-            Median: statistics builtins median.md
-            Quartiles: statistics builtins quartiles.md
-            IQR: statistics builtins iqr.md
-            Bag: statistics builtins bag.md
-            Freqs: statistics builtins freqs.md
         Conditions:
             Distinct: statistics builtins distinct.md
+            top: statistics builtins top-and-bottom.md
+            bottom: statistics builtins top-and-bottom.md
     Builtin Statistic Factories: factories statistic.md
-        Proj: factories statistic proj.md
-        Constantly: factories statistic constantly.md
-        Permute: factories statistic permute.md
         Append: factories statistic append.md
-        Prepend: factories statistic prepend.md
         Cases: factories statistic cases.md
+        ChiSquare: factories statistic chisquare.md
+        Constantly: factories statistic constantly.md
+        Diffs: factories statistic diffs.md
+        Dot: factories statistic dot.md
         Get: factories statistic get.md
         IndexOf: factories statistic index-of.md
         Keep: factories statistic keep.md
         MaybeMap: factories statistic maybe-map.md
+        Permute: factories statistic permute.md
+        Prepend: factories statistic prepend.md
+        Proj: factories statistic proj.md
         Round: factories statistic round.md
-        Dot: factories statistic dot.md
-        ChiSquare: factories statistic chisquare.md
+        Shift: factories statistic shift.md
     Builtin Condition Factories: factories condition.md
         Between: factories condition between.md
         Contains: factories condition contains.md
         ElementOf: factories condition element-of.md
     Custom Statistic and Condition Factories: statistics factories.md
     Statistic Combinators: combinators statistic.md
-        Chain: combinators statistic chain.md
-        Compose: combinators statistic compose.md
+        Chain: combinators statistic composition.md
+        Compose: combinators statistic composition.md
         ForEach: combinators statistic foreach.md
         ForEachIndexed: combinators statistic foreachindexed.md
         Fork: combinators statistic fork.md
@@ -223,7 +233,7 @@ Statistics:
         flexible_inputs: statistics utilities flexible_inputs.md
         tuple_safe: statistics utilities tuple_safe.md
 Conditional FRPs:
-    Overview: conditional-frps overview.md
+    Overview of Conditional FRPs: conditional-frps overview.md
     Constructing Conditional FRPs: conditional-frps construction.md
     Evaluating Conditional FRPs: conditional-frps evaluations.md
     conditional_frp: conditional-frps conditional_frp.md
@@ -232,7 +242,7 @@ Conditional FRPs:
     Conditional Expectations: conditional-frps expectations.md
     Conditional FRP Procedures: procedures conditional-frp.md
 Conditional Kinds:
-    Overview: conditional-kinds overview.md
+    Overview of Conditional Kinds: conditional-kinds overview.md
     Constructing Conditional Kinds: conditional-kinds construction.md
     Evaluating Conditional Kinds: conditional-kinds evaluations.md
     conditional_kind: conditional-kinds conditional_kind.md
@@ -270,19 +280,20 @@ Factories: factories.md
         statistic: factories statistic constructors.md
         scalar_statistic: factories statistic constructors.md
         condition: factories statistic constructors.md
-        Proj: factories statistic proj.md
-        Constantly: factories statistic constantly.md
-        Permute: factories statistic permute.md
         Append: factories statistic append.md
-        Prepend: factories statistic prepend.md
         Cases: factories statistic cases.md
+        ChiSquare: factories statistic chisquare.md
+        Constantly: factories statistic constantly.md
+        Dot: factories statistic dot.md
         Get: factories statistic get.md
         IndexOf: factories statistic index-of.md
         Keep: factories statistic keep.md
         MaybeMap: factories statistic maybe-map.md
+        Permute: factories statistic permute.md
+        Prepend: factories statistic prepend.md
+        Proj: factories statistic proj.md
         Round: factories statistic round.md
-        Dot: factories statistic dot.md
-        ChiSquare: factories statistic chisquare.md
+        Shift: factories statistic shift.md
 Combinators: combinators.md
     FRP Combinators:
         Transform (^): combinators frp transform.md
@@ -301,8 +312,8 @@ Combinators: combinators.md
         bin: combinators kind bin.md
         fast_join_pow: combinators kind fast_join_pow.md
     Statistic Combinators: combinators statistic.md
-        Chain: combinators statistic chain.md
-        Compose: combinators statistic compose.md
+        Chain: combinators statistic composition.md
+        Compose: combinators statistic composition.md
         ForEach: combinators statistic foreach.md
         ForEachIndexed: combinators statistic foreachindexed.md
         Fork: combinators statistic fork.md
@@ -324,7 +335,7 @@ Values and Vector Tuples: vec-tuples.md
 Numeric Calculations: numerics.md
     is_zero: numerics is_zero.md
     as_float: numerics as_float.md
-    as_numpy: numerics as_numpy.md
+    as_numpy: utilities as_numpy.md
     numeric_abs: numerics numeric_abs.md
     numeric_sqrt: numerics numeric_sqrt.md
     numeric_exp: numerics numeric_exp.md
@@ -343,10 +354,13 @@ Symbolic Calculations: symbolic.md
 Utilities: utilities.md
     Vector Tuple and Quantity Helpers:
         tup: utilities tup.md
+        as_quant_vec: utilities as_quant_vec.md
         as_scalar: utilities as_scalar.md
         as_quantity: utilities as_quantity.md
         is_quantity: utilities is_quantity.md
         is_quantifiable: utilities is_quantifiable.md
+        as_numpy: utilities as_numpy.md
+        from_numpy: utilities from_numpy.md
     Sequence Helpers:
         irange: utilities irange.md
         index_of: utilities index_of.md
@@ -365,6 +379,7 @@ Utilities: utilities.md
         frequencies: utilities frequencies.md
     Input/Output Helpers:
         show: utilities show.md
+        source: utilities source.md
         add_to_search_path: utilities add_to_search_path.md
 Useful Programming Patterns:
     Decorators: patterns decorators.md
