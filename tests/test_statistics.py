@@ -226,7 +226,7 @@ def test_statistic_factories():
     assert (tup(1, 2, 3, 4, 5) ^ Shift(-1)) == tup(2, 3, 4, 5, 1)
     assert (tup(1, 2, 3, 4, 5) ^ Shift(-2)) == tup(3, 4, 5, 1, 2)
     assert (tup(1, 2, 3, 4, 5) ^ Shift(99)) == tup(2, 3, 4, 5, 1)
-    assert (tup(1, 2, 3, 4, 5) ^ Shift(101)) == tup(5, 1, 2, 3, 4, 5)
+    assert (tup(1, 2, 3, 4, 5) ^ Shift(101)) == tup(5, 1, 2, 3, 4)
     assert (tup(1, 2, 3, 4, 5) ^ Shift(5)) == tup(1, 2, 3, 4, 5)
     assert (tup(1, 2, 3, 4, 5) ^ Shift(-5)) == tup(1, 2, 3, 4, 5)
     assert (tup(1, 2, 3, 4, 5) ^ Shift(100)) == tup(1, 2, 3, 4, 5)
