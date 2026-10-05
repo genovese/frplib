@@ -268,7 +268,7 @@ def menu_select_via_dialog(root_data: InfoTree, action: Callable | None, **kwds)
 
         def run_custom_dialog():
             layout = Layout(HSplit([header, search_field, menu_list], height=D()))
-            dialog_app = Application(layout=layout, key_bindings=kb, full_screen=True)
+            dialog_app: Application = Application(layout=layout, key_bindings=kb, full_screen=True)
             return dialog_app.run(in_thread=True)
 
         choice = run_custom_dialog()
@@ -436,19 +436,33 @@ def _flattened_menu(menu: InfoTree, *, key: str, path: list[str]) -> dict[str, I
         path.pop()
     return flattened
 
+#
+# To check for redundancies/conflicts, do the following in the playground
+#    from frplib.repls.info import info_tree, _menu_leaves
+#    tmp = _menu_leaves(info_tree, check=True)
+#
 def _menu_leaves(menu: InfoTree, *, files_of: dict | None = None, check=False) -> dict[str, list[str]]:
     if files_of is None:
         files_of = {}
     for k in menu:
         subtree = menu[k]['subtopics']
         if subtree is None:  # leaf
-            if r' ' not in k and 'filepath' in menu[k] and (fpath := menu[k]['filepath']):
+            # if r' ' not in k and 'filepath' in menu[k] and (fpath := menu[k]['filepath']):
+            # ATTN:Oct 2026 -- excluding leaves with spaces makes the check less useful
+            #                  including them seems to have no really significant cost
+            if 'filepath' in menu[k] and (fpath := menu[k]['filepath']):
                 if check and k in files_of and (''.join(fpath) != ''.join(files_of[k])):
-                    print(f'Warning: info leaf {k} has conflicting file paths {fpath} and {files_of[k]}',
-                          file=sys.stderr)
+                    if r' ' in k:
+                        # Leaf nodes with spaces may be descriptive and so can repeat (e.g., Big 3+1)
+                        # Indicate the reduced seriousness
+                        print(f'  Potential issue: descriptive leaf {k} appears with\n'
+                              f'    paths {fpath} and {files_of[k]}', file=sys.stderr)
+                    else:
+                        print(f'!! Warning: info leaf {k} has conflicting file paths\n'
+                              f'    {fpath} and {files_of[k]}', file=sys.stderr)
                 files_of[k] = fpath
         else:
-            _menu_leaves(subtree, files_of=files_of)
+            _menu_leaves(subtree, files_of=files_of, check=check)
 
     return files_of
 
@@ -536,12 +550,13 @@ def get_info_markdown(docpath: list[str] | None = None, *, obj=None) -> Markdown
                 else:
                     return None  # ATTN:Aug2026  print warning??
             else:
+                # The stored __info__ attribute should be a valid ::-separated file path.
+                # The final component should be the base name of the md file with no extension.
                 docpath = obj.__info__.split('::')
                 if docpath:
-                    # Always a markdown file at the end
                     # NOTE: This mutation OK since we created docpath here
                     # but docpath from elsewhere should be read-only!
-                    docpath[-1] += '.md'
+                    docpath[-1] += '.md'  # Always a markdown file at the end
         else:
             return None
 
@@ -725,7 +740,6 @@ def _make_info_dict():
 if __name__ == '__main__':
     import pprint
     import subprocess
-    import sys
 
     it_table = _make_info_dict()
     tree_rs = files('frplib.data') / 'info_tree.py'
