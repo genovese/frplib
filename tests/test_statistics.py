@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from hypothesis             import given
-from hypothesis.strategies  import integers, lists, floats
+from hypothesis.strategies  import SearchStrategy, integers, lists, floats
 
 from frplib.exceptions import (DomainDimensionError, InputError, MismatchedDimensionError,
                                MismatchedDomain, StatisticError)
@@ -30,12 +30,29 @@ from frplib.statistics import (Condition, Statistic, condition, is_statistic, st
                                Median, Quartiles, IQR, Binomial, Distinct,
                                Get, ElementOf, Contains, Between, Keep, MaybeMap,
                                Prepend, Append, Bag,
+                               _valid_chunk_size
                                )
 from frplib.quantity   import as_quantity, tup
 from frplib.symbolic   import symbol
 from frplib.utils      import codim, dim, identity, irange
 from frplib.vec_tuples import VecTuple, as_vec_tuple, vec_tuple
 
+
+#
+# Hypothesis Setup
+#
+
+def quant_vecs(elements: SearchStrategy = integers(), min_dim: int = 1, max_dim: int = 6) -> SearchStrategy[VecTuple]:
+    "Strategy for quantity VecTuples, with components converted by `tup`."
+    return lists(elements, min_size=min_dim, max_size=max_dim).map(lambda xs: tup(*xs))
+
+int_qvecs = quant_vecs()
+int_qvecs_twelve = quant_vecs(min_dim=12, max_dim=12)
+
+
+#
+# Tests
+#
 
 def test_simple_builtin_statistics():
     assert Id(2) == tup(2)
@@ -454,6 +471,26 @@ def test_condition_combinators():
     assert Any(__ == 2)(2, 2, 3, 2) == tup(1)
     assert Any(__ == 7)(2, 2, 3, 2) == tup(0)
 
+    assert is_true(tup(1, 3, 2, 1) ^ All(__ > 0))
+    assert is_false(tup(1, 3, 0, 1) ^ All(__ > 0))
+    assert is_true(tup(1, 1, 2, 2, 3, 3, 4, 4) ^ All(Proj[1] == Proj[2]))
+    assert is_false(tup(1, 1, 2, 2, 8, 3, 4, 4) ^ All(Proj[1] == Proj[2]))
+    assert is_true(tup(1, 1, 2, 2, 3, 3, 4, 4) ^ All(Proj[1] == Proj[2], by=4))
+    assert is_false(tup(1, 1, 2, 2, 3, 3, 4, 4) ^ All(Proj[1] == Proj[3], by=4))
+
+    assert is_true(tup(1, 0, -2, 1) ^ Any(__ > 0))
+    assert is_false(tup(-1, -3, 0, -11) ^ Any(__ > 0))
+    assert is_true(tup(1, 1, 2, 2, 3, 3, 4, 4) ^ Any(Proj[1] == Proj[2]))
+    assert is_true(tup(1, 1, 2, 8, 3, 2, 4, 4) ^ Any(Proj[1] == Proj[2]))
+    assert is_false(tup(1, 9, 2, 0, 8, 3, 4, 7) ^ Any(Proj[1] == Proj[2]))
+    assert is_true(tup(1, 0, 2, 2, 8, 8, 4, 4, 9, 10, 11, 12) ^ Any(Proj[1] == Proj[2], by=4))
+    assert is_false(tup(1, 0, 2, 2, 8, 8, 4, 4, 9, 10, 11, 12) ^ Any(Proj[1] == Proj[3], by=4))
+
+    assert _valid_chunk_size(12, 2, infinity) == 2
+    assert _valid_chunk_size(12, 3, infinity) == 3
+    assert _valid_chunk_size(12, 5, 7) == 6
+    assert _valid_chunk_size(12, 5, 5) is None
+
     assert is_true(tup(1))
     assert not is_true(tup(0))
     assert is_false(tup(0))
@@ -468,6 +505,16 @@ def test_condition_combinators():
 
     with pytest.raises(StatisticError):
         is_true(tup())
+
+@given(int_qvecs_twelve)
+def test_chunked_combinators(v):
+    assert (v ^ Any(Proj[1] > Proj[2])) >= (v ^ All(Proj[1] > Proj[2]))
+    assert (v ^ Any(Proj[1] > Proj[2], by=4)) >= (v ^ All(Proj[1] > Proj[2], by=4))
+    assert (v ^ Any(Proj[1] > Proj[2], by=4)) >= (v ^ All(Proj[1] > Proj[2]))
+
+    assert (v ^ ForEach(Proj[4])) == (v ^ Proj[4, 8, 12])
+    assert (v ^ ForEach(Proj[2])) == (v ^ Proj[2, 4, 6, 8, 10, 12])
+    assert (v ^ ForEach(Proj[2], by=4)) == (v ^ Proj[2, 6, 10])
 
 def test_statistic_expressions():
     a = symbol('a')

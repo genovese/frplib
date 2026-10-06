@@ -16,6 +16,7 @@ import typing
 from collections       import defaultdict
 from collections.abc   import Iterable, Collection, Sequence
 from decimal           import Decimal
+from enum              import Enum, auto
 from fractions         import Fraction
 from functools         import wraps
 from math              import prod
@@ -2242,8 +2243,35 @@ def Dim(x):
 
 
 #
-# Combinators
+# Chunk Argument Handling for Combinators
 #
+
+class ChunkType(Enum):
+    """Classifies what we know about chunk size in parsing args to chunked combinators."""
+    EVERY_COMPONENT = auto()
+    FIXED_CHUNKS = auto()
+    DYNAMIC = auto()
+
+def _which_chunk_type(by: int | None, lo: int, hi: int | float, name='<anonymous>') -> ChunkType:
+    """Determine which type of chunking we are doing in combinator argument processing.
+
+    If EVERY_COMPONENT, chunk size is 1.If FIXED_CHUNKS, chunk size is `by`.
+    Otherwise, it is determined dynamically from the codimensions and input length.
+
+    """
+    if by is not None:
+        if by < 1:
+            raise StatisticError(f'The by argument to {name} must be a positive integer when supplied')
+        if by == 1 and (lo > 1 or hi < 1):
+            raise StatisticError(f'The statistic given to {name} does not accept scalars but by == 1')
+        if by < lo or by > hi:
+            raise StatisticError(f'The statistic given to {name} has codim incompatible with by == {by}')
+
+    if (by is not None and by == 1) or (by is None and lo <= 1 <= hi):
+        return ChunkType.EVERY_COMPONENT
+    if by is not None:  # chunk size fixed
+        return ChunkType.FIXED_CHUNKS
+    return ChunkType.DYNAMIC
 
 def _convert_to_statistic(const_or_func: Statistic | Callable | ScalarQ | Nothing | Iterable ) -> Statistic:
     if not isinstance(const_or_func, Statistic):
@@ -2256,7 +2284,7 @@ def _convert_to_statistic(const_or_func: Statistic | Callable | ScalarQ | Nothin
         return Constantly(as_quantity(const_or_func))
     return const_or_func
 
-def _foreach_chunk_size(ell: int, a: int, b: int | float) -> int | None:
+def _valid_chunk_size(ell: int, a: int, b: int | float) -> int | None:
     """Returns the smallest divisor of `ell` in the range a..b, or None."""
     if ell <= DIVISORS_UP_TO:
         divs = divisors[ell]
@@ -2269,7 +2297,7 @@ def _foreach_chunk_size(ell: int, a: int, b: int | float) -> int | None:
         return divs[ind]
     return None
 
-def _foreach_chunk_size_loose(ell: int, a: int, b: int | float) -> int | None:
+def _valid_chunk_size_loose(ell: int, a: int, b: int | float) -> int | None:
     """Returns the smallest chunk size in a..b with remainder on `ell` either 0 or in a..b, or None."""
     if ell == 0 or ell < a:
         return None
@@ -2331,6 +2359,11 @@ def take_by_k(k: int, xs: Iterable, *, exact=True, with_index=False):
             yield xs[i:(i + k)]    # Guaranteed to be a VecTuple
         if not exact and n > n_k:
             yield xs[n_k:]
+
+
+#
+# Combinators
+#
 
 @StatisticCombinator
 def ForEach(
@@ -2403,16 +2436,9 @@ def ForEach(
     """
     stat = _convert_to_statistic(s)
     lo, hi = stat.codim
+    chunk_type = _which_chunk_type(by, lo, hi, 'ForEach')
 
-    if by is not None:
-        if by < 1:
-            raise StatisticError('The by argument to ForEach must be a positive integer when supplied')
-        if by == 1 and (lo > 1 or hi < 1):
-            raise StatisticError('The statistic given to ForEach does not accept scalars but by == 1')
-        if by < lo or by > hi:
-            raise StatisticError('The statistic given to ForEach has codim incompatible with by == {by}')
-
-    if (by is not None and by == 1) or (by is None and lo <= 1 <= hi):  # Apply to every component
+    if chunk_type == ChunkType.EVERY_COMPONENT:
         doc = f'applies {stat.name} to every component of its input'
 
         def foreach(*x):
@@ -2422,7 +2448,8 @@ def ForEach(
             for xi in x:
                 result.extend(stat(xi))
             return as_quant_vec(result)
-    elif by is not None:  # chunk size fixed
+    elif chunk_type == ChunkType.FIXED_CHUNKS:
+        assert by is not None
         doc = f'applies {stat.name} to successive chunks of its input of size {by}'
 
         def foreach(*x):
@@ -2438,7 +2465,7 @@ def ForEach(
                                      f'with codim(stat) ({lo}, {hi}) and chunk size {by}')
 
             return VecTuple.join(map(stat, take_by_k(by, x, exact=strict)))
-    else:  # chunk size dynamically determined
+    else:  # chunk_type == ChunkType.DYNAMIC
         doc = f'applies {stat.name} to successive chunks of its input'
 
         def foreach(*x):
@@ -2451,9 +2478,9 @@ def ForEach(
             # The strict=False does nothing for us here unless we find a chunk_size
             # that makes the residual bigger than lo and no bigger than hi.
             if strict:
-                chunk_size = _foreach_chunk_size(n, lo, hi)
+                chunk_size = _valid_chunk_size(n, lo, hi)
             else:
-                chunk_size = _foreach_chunk_size_loose(n, lo, hi)
+                chunk_size = _valid_chunk_size_loose(n, lo, hi)
 
             if chunk_size is None:
                 raise StatisticError(f'ForEach(stat) applied to tuple (dim {n}) '
@@ -2552,9 +2579,9 @@ def ForEachIndexed(
             n = len(x)
 
             if strict:
-                chunk_size = _foreach_chunk_size(n, lo - 1, hi - 1)
+                chunk_size = _valid_chunk_size(n, lo - 1, hi - 1)
             else:
-                chunk_size = _foreach_chunk_size_loose(n, lo - 1, hi - 1)
+                chunk_size = _valid_chunk_size_loose(n, lo - 1, hi - 1)
 
             if chunk_size is None:
                 raise StatisticError(f'ForEachIndexed(stat) applied to tuple (dim {n}) '
@@ -2638,6 +2665,7 @@ def Fork(
     return Statistic(forked, codim=codim, dim=dim,
                      name=f'fork({stat.name}, {", ".join([s.name for s in more_stats])})')
 
+# DEPRECATED as of v0.2.6
 def MFork(stat: MonoidalStatistic | ScalarQ, *other_stats: MonoidalStatistic | ScalarQ) -> MonoidalStatistic:
     """Like Fork, but takes and returns Monoidal Statistics.
 
@@ -2646,28 +2674,137 @@ def MFork(stat: MonoidalStatistic | ScalarQ, *other_stats: MonoidalStatistic | S
     """
     return cast(MonoidalStatistic, Fork(stat, *other_stats))
 
-# This is a temporary placeholder. We want to generalize in several ways
 @StatisticCombinator
-def Tensor(f, g, by: int | Sequence[int] | None = None):
-    """TODO: Generalize and fill in"""
-    if is_tuple(f):
-        f, n_f = f
-    elif by is not None:
-        n_f = by[0] if isinstance(by, Sequence) else by
-    else:
-        n_f = max(min(f.codim), 1)
-    if is_tuple(g):
-        g, n_g = g
-    elif by is not None:
-        n_g = by[1] if isinstance(by, Sequence) else by
-    else:
-        n_g = max(min(g.codim), 1)
+def Tensor(                                               # pylint: disable=too-many-locals
+        *stats: Statistic | tuple[Statistic, int],  # | tuple[Statistic, int, int | float],
+        by: int | Sequence[int | None] | None = None
+):
+    """TODO: Generalize and fill in
 
-    @statistic(codim=n_f + n_g, dim=dim(f) + dim(g) if dim(f) is not None and dim(g) is not None else None)
-    def tensor(x):
-        return VecTuple.join(f(x[:n_f]), g(x[n_f:]))
+    Examples
+    + (tup(1, 2, 3, 4, 5, 6) ^ Tensor(Proj[1] + 2*Proj[2], Proj[1] + 10*Proj[2] + Proj[3], 100 * __))
+        == tup(5, 48, 600)
+    + (tup(1, 2, 3, 4, 5, 6, 7, 8) ^ Tensor(Proj[1] + 2*Proj[2], Proj[1] + 10*Proj[2] + Proj[3], 100 * __))
+        == tup(5, 48, 600, 700, 800)
+    + (tup(1, 2, 3, 4, 5, 6, 7, 8) ^ Tensor(Proj[1] + 2*Proj[2], Proj[1] + 10*Proj[2] + Proj[3], Sum, (100 * __, 1)))
+        == tup(5, 48, 13, 800>
+    + (tup(1, 2, 3, 4, 5, 6, 7, 8) ^ Tensor(Proj[1] + 2*Proj[2], Proj[1] + 10*Proj[2] + Proj[3], (Sum, 2), 100 * __))
+        == tup(5, 48, 13, 800)
 
-    return tensor
+    """
+    num_stats = len(stats)
+    if num_stats == 0:
+        raise StatisticError('Tensor requires at least one statistic')
+
+    if not isinstance(by, Sequence):
+        if by is not None:
+            by = max(by, 0)
+        by = [by] * num_stats
+
+    # Parse stats and bounds on the codimension
+    # Each stat is either s or (s, n)
+    # We take n over by over the codim of s
+    #
+    # We track the codimension bounds, total and per term,
+    # and extract and check the corresponding statistics
+    codim_lo: int = 0
+    codim_hi: int | float = 0
+    tdim: int | None = 0
+    infinite: int | None = None
+    terms = []
+    lo = []
+    hi = []
+    for ind, s in enumerate(stats):
+        if is_tuple(s):
+            stat, n = s
+            if n <= 0:
+                raise StatisticError('Supplied codimension (statistic, c) in Tensor must be positive')
+        else:
+            stat = s
+            n = 0
+        if not isinstance(stat, Statistic):
+            raise StatisticError('Tensor requires statistics, not just callables')
+
+        terms.append(stat)
+        lo_i = n or by[ind] or stat.codim[0]
+        hi_i = n or by[ind] or stat.codim[1]
+        lo.append(lo_i)
+        hi.append(hi_i)
+        codim_lo += lo_i
+        codim_hi += hi_i
+        if hi_i == infinity:
+            infinite = ind
+        if tdim is not None:
+            tdim = tdim + stat.dim if stat.dim is not None else None
+
+    fixed = all(lo[i] == hi[i] and lo[i] < infinity for i in range(num_stats))
+
+    print(num_stats, (codim_lo, codim_hi), infinite, lo, hi)
+
+    # Can assume codim_lo <= len(input) <= codim_hi here, statistic checks
+    if fixed:
+        def tensor_product(x):
+            chunks = []
+            ind = 0
+            for j, s in enumerate(terms):
+                chunks.append(s(x[ind:(ind + lo[j])]))
+                ind += lo[j]
+            return VecTuple.join(chunks)
+    else:
+        def tensor_product(x):
+            n = len(x)
+            surplus: int | float = codim_hi - n
+
+            # We don't get fancy here. The last infinite codim, if any,
+            # absorbs the surplus. Otherwise, we absorb the surplus greedily.
+
+            chunks = []
+            ind = 0
+
+            if infinite is not None:
+                true_surplus = n - sum(lo[j] for j in range(num_stats) if j != infinite)
+                for j, s in enumerate(terms):
+                    delta = lo[j] + true_surplus if j == infinite else lo[j]
+                    chunks.append(s(x[ind:(ind + delta)]))
+                    ind += delta
+            else:
+                for j, s in enumerate(terms):
+                    delta = cast(int, min(hi[j], lo[j] + surplus))  # We know there are no infinities
+                    surplus -= delta
+                    chunks.append(s(x[ind:(ind + delta)]))
+                    ind += delta
+
+            return VecTuple.join(chunks)
+
+    term_names = ", ".join(t.name for t in terms)
+    name = f'Tensor({term_names})'
+    doc = f'Tensor product of {term_names}'
+
+    return Statistic(tensor_product, codim=(codim_lo, codim_hi), dim=tdim,
+                     name=name, description=doc)
+
+# # This is a temporary placeholder. We want to generalize in several ways
+# @StatisticCombinator
+# def Tensor(f, g, by: int | Sequence[int] | None = None):
+#     """TODO: Generalize and fill in"""
+#     if is_tuple(f):
+#         f, n_f = f
+#     elif by is not None:
+#         n_f = by[0] if isinstance(by, Sequence) else by
+#     else:
+#         n_f = max(min(f.codim), 1)
+#     if is_tuple(g):
+#         g, n_g = g
+#     elif by is not None:
+#         n_g = by[1] if isinstance(by, Sequence) else by
+#     else:
+#         n_g = max(min(g.codim), 1)
+#
+#     @statistic(codim=n_f + n_g, dim=dim(f) + dim(g) if dim(f) is not None and dim(g) is not None else None)
+#     def tensor(x):
+#         return VecTuple.join(f(x[:n_f]), g(x[n_f:]))
+#
+#     return tensor
 
 # ATTN: fix up (cycle notation and straight) but keeping it simple for now
 def _find_cycles(inds: list[int], drop_singletons=True) -> list[list[int]]:
@@ -2981,36 +3118,161 @@ def Xor(*stats: Statistic) -> Condition:
                      description=f'returns the logical exclusieve-or of {", ".join(labels)}')
 
 @StatisticCombinator
-def All(cond: Condition) -> Condition:
-    """tests whether all components of the input satisfy the given condition.
+def All(cond: Condition, by: int | None = None) -> Condition:
+    """tests whether all successive, non-overlapping chunks of the input satisfy the given condition.
 
-    Returns a condition applies a condition to all components of the input and
-    returns True only if all return True.  As usual for a condition, True
-    is <1> and False is <0>.
+    The chunk size is determined by the `by` argument, if supplied,
+    the codimension of the statistic `s`, and the length of the
+    input.
+
+    If `by` is supplied, it should be a positive integer that is
+    compatible with the codimension of the statistic `s`, meaning
+    that `s` should accept tuples of dimension `by`. The `by` should
+    also evenly divide the input tuple's dimension, as this requires
+    the input to be partitioned into equal-size chunks. If `s` or
+    the input are incompatible with `by`, an error is raised.
+
+    If `by` is not supplied, the chunk size is the smallest number
+    that is consistent with the the codimension of the statistic `s`
+    and the length of the input. The chunk size is chosen to evenly
+    divide the input tuple's dimension. If no such chunk size can be
+    found, an error is raised.
+
+    Once the chunk size is determined, All applies `cond` to each
+    such chunk (as a VecTuple) and returns true if all the results
+    are true. As usual for a condition, True is <1> and False is
+    <0>.
+
+    Examples
+    + is_true(tup(1, 3, 2, 1) ^ All(__ > 0))
+    + is_false(tup(1, 3, 0, 1) ^ All(__ > 0))
+    + is_true(tup(1, 1, 2, 2, 3, 3, 4, 4) ^ All(Proj[1] == Proj[2]))
+    + is_false(tup(1, 1, 2, 2, 8, 3, 4, 4) ^ All(Proj[1] == Proj[2]))
+    + is_true(tup(1, 1, 2, 2, 3, 3, 4, 4) ^ All(Proj[1] == Proj[2], by=4))
+    + is_false(tup(1, 1, 2, 2, 3, 3, 4, 4) ^ All(Proj[1] == Proj[3], by=4))
 
     """
-    def all_comps(*x):
-        if len(x) == 1 and is_tuple(x[0]):
-            x = x[0]
-        return all(cond.bool_eval(y) for y in x)
-    return Condition(all_comps, codim=ANY_TUPLE,
-                     name=f'tests if {cond.name} is true for every component of input value')
+    lo, hi = cond.codim
+    chunk_type = _which_chunk_type(by, lo, hi, 'All')
+
+    if chunk_type == ChunkType.EVERY_COMPONENT:
+        doc = f'tests if {cond.name} is true for every component of input value'
+
+        def all_chunks(*x):
+            if len(x) == 0:
+                return True
+            if len(x) == 1 and is_tuple(x[0]):
+                x = x[0]
+            return all(cond.bool_eval(y) for y in x)
+    elif chunk_type == ChunkType.FIXED_CHUNKS:
+        assert by is not None
+        doc = f'tests if {cond.name} is true for every chunk of {by} input components'
+
+        def all_chunks(*x):
+            if len(x) == 0:
+                return True
+            if len(x) == 1 and is_tuple(x[0]):
+                x = x[0]
+            return all(cond.bool_eval(y) for y in take_by_k(by, x))
+    else:  # chunk_type == ChunkType.DYNAMIC
+        doc = f'tests if {cond.name} is true for every chunk the input'
+
+        def all_chunks(*x):
+            if len(x) == 0:
+                return True
+            if len(x) == 1 and is_tuple(x[0]):
+                x = x[0]
+            n = len(x)
+
+            chunk_size = _valid_chunk_size(n, lo, hi)
+            print(chunk_size)
+            if chunk_size is None:
+                raise StatisticError(f'All(cond) applied to tuple (dim {n}) '
+                                     f'incompatible with codim(stat) ({lo}, {hi})')
+
+            return all(cond.bool_eval(y) for y in take_by_k(chunk_size, x))
+
+    return Condition(all_chunks, codim=ANY_TUPLE,
+                     name=f'All({cond.name})', description=doc)
 
 @StatisticCombinator
-def Any(cond: Condition) -> Condition:
-    """tests whether any components of the input satisfy the given condition.
+def Any(cond: Condition, by: int | None = None) -> Condition:
+    """tests whether any successive, non-overlapping chunks of the input satisfy the given condition.
 
-    Returns a condition applies a condition to all components of the input and
-    returns True only if at least one returns True.  As usual for a condition, True
-    is <1> and False is <0>.
+    The chunk size is determined by the `by` argument, if supplied,
+    the codimension of the statistic `s`, and the length of the
+    input.
+
+    If `by` is supplied, it should be a positive integer that is
+    compatible with the codimension of the statistic `s`, meaning
+    that `s` should accept tuples of dimension `by`. The `by` should
+    also evenly divide the input tuple's dimension, as this requires
+    the input to be partitioned into equal-size chunks. If `s` or
+    the input are incompatible with `by`, an error is raised.
+
+    If `by` is not supplied, the chunk size is the smallest number
+    that is consistent with the the codimension of the statistic `s`
+    and the length of the input. The chunk size is chosen to evenly
+    divide the input tuple's dimension. If no such chunk size can be
+    found, an error is raised.
+
+    Once the chunk size is determined, Any applies `cond` to each
+    such chunk (as a VecTuple) and returns true if any of the results
+    are true. As usual for a condition, True is <1> and False is
+    <0>.
+
+    Examples
+    + is_true(tup(1, 0, -2, 1) ^ Any(__ > 0))
+    + is_false(tup(-1, -3, 0, -11) ^ Any(__ > 0))
+    + is_true(tup(1, 1, 2, 2, 3, 3, 4, 4) ^ Any(Proj[1] == Proj[2]))
+    + is_true(tup(1, 1, 2, 8, 3, 2, 4, 4) ^ Any(Proj[1] == Proj[2]))
+    + is_false(tup(1, 9, 2, 0, 8, 3, 4, 7) ^ Any(Proj[1] == Proj[2]))
+    + is_true(tup(1, 0, 2, 2, 8, 8, 4, 4, 9, 10, 11, 12) ^ Any(Proj[1] == Proj[2], by=4))
+    + is_false(tup(1, 0, 2, 2, 8, 8, 4, 4, 9, 10, 11, 12) ^ Any(Proj[1] == Proj[3], by=4))
 
     """
-    def any_comp(*x):
-        if len(x) == 1 and is_tuple(x[0]):
-            x = x[0]
-        return any(cond.bool_eval(y) for y in x)
-    return Condition(any_comp, codim=ANY_TUPLE,
-                     name=f'tests if {cond.name} is true for some component of input value')
+    lo, hi = cond.codim
+    chunk_type = _which_chunk_type(by, lo, hi, 'Any')
+
+    if chunk_type == ChunkType.EVERY_COMPONENT:
+        doc = f'tests if {cond.name} is true for every component of input value'
+
+        def any_chunks(*x):
+            if len(x) == 0:
+                return True
+            if len(x) == 1 and is_tuple(x[0]):
+                x = x[0]
+            return any(cond.bool_eval(y) for y in x)
+    elif chunk_type == ChunkType.FIXED_CHUNKS:
+        assert by is not None
+        doc = f'tests if {cond.name} is true for every chunk of {by} input components'
+
+        def any_chunks(*x):
+            if len(x) == 0:
+                return True
+            if len(x) == 1 and is_tuple(x[0]):
+                x = x[0]
+            return any(cond.bool_eval(y) for y in take_by_k(by, x))
+    else:  # chunk_type == ChunkType.DYNAMIC
+        doc = f'tests if {cond.name} is true for every chunk the input'
+
+        def any_chunks(*x):
+            if len(x) == 0:
+                return True
+            if len(x) == 1 and is_tuple(x[0]):
+                x = x[0]
+            n = len(x)
+
+            chunk_size = _valid_chunk_size(n, lo, hi)
+            print(chunk_size)
+            if chunk_size is None:
+                raise StatisticError(f'All(cond) applied to tuple (dim {n}) '
+                                     f'incompatible with codim(stat) ({lo}, {hi})')
+
+            return any(cond.bool_eval(y) for y in take_by_k(chunk_size, x))
+
+    return Condition(any_chunks, codim=ANY_TUPLE,
+                     name=f'Any({cond.name})', description=doc)
 
 top = Condition(lambda _x: True, name='top', description='returns true for any value')
 
