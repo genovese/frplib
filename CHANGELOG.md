@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.3.10 - 2026-10-04
+
+### Added
+
+- `Shift(m)` statistic factory does cyclic shifts of an input tuple
+
+- `Tensor(s1, ..., sn)` statistic combinator implements tensor products
+    in an dwim way for determining chunk size
+
+- `unfolded` added in lieu of `unfold`, which is currently an alias.
+  `unfold` will be deprecated in v0.4.1, and `unfolded` will be
+  part of a more general Kind display facility.
+
+- New tests and documentation
+
+### Changed
+
+- New version of ProbabilityExplained v3.1.1
+
+- New version of the frplib cheatsheet is much improved
+
+- "Constraining with Observations" changed to "Updating with Observations"
+  throughout
+
+- Minor update to frplib cookbook for consistency with previous item
+
+### Fixed
+
+- `environment` now has a proper info link
+
+- Some missing info docs/links fixed
+
+- Info tree check script now more robust with better output
+
 ## 0.3.9 - 2026-09-30
 
 ### Added
