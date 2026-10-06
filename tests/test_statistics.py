@@ -24,7 +24,7 @@ from frplib.statistics import (Condition, Statistic, condition, is_statistic, st
                                ArgMax, ArgMin,
                                Diff, SumSq, Norm, Ascending, Descending,
                                Constantly, Diffs, Proj, Permute, Shift, Dot,
-                               Chain, Compose, Fork, ForEach, ForEachIndexed, IfThenElse,
+                               Chain, Compose, Fork, ForEach, ForEachIndexed, IfThenElse, Tensor,
                                And, Or, Not, Xor, All, Any, top, bottom,
                                Cases,
                                Median, Quartiles, IQR, Binomial, Distinct,
@@ -436,6 +436,13 @@ def test_statistic_combinators():
     assert is_statistic(Proj[1, 2] ^ Sum)
     assert codim(Proj[1, 2] ^ Sum) == (2, infinity)
     assert dim(Proj[1, 2] ^ Sum) == 1
+
+    assert (tup(1, 2, 3, 4, 5, 6) ^ Tensor(Proj[1] + 2 * Proj[2], Proj[1] + 10 * Proj[2] + Proj[3], 100 * __)) == tup(5, 48, 600)
+    assert (tup(1, 2, 3, 4, 5, 6, 7, 8) ^ Tensor(Proj[1] + 2 * Proj[2], Proj[1] + 10 * Proj[2] + Proj[3], 100 * __)) == tup(5, 48, 600, 700, 800)
+    assert (tup(1, 2, 3, 4, 5, 6, 7, 8) ^ Tensor(Proj[1] + 2 * Proj[2], Proj[1] + 10 * Proj[2] + Proj[3], Sum, (100 * __, 1))) == tup(5, 48, 13, 800)
+    assert (tup(1, 2, 3, 4, 5, 6, 7, 8) ^ Tensor(Proj[1] + 2 * Proj[2], Proj[1] + 10 * Proj[2] + Proj[3], (Sum, 2), 100 * __)) == tup(5, 48, 13, 800)
+    assert (tup(1, 2, 3, 4, 5, 6, 7, 8) ^ Tensor(Proj[1] + 2 * Proj[2], Proj[1] + 10 * Proj[2] + Proj[3], (Sum, 1, infinity), 100 * __)) == tup(5, 48, 6, 700, 800)
+    assert (tup(irange(1, 10)) ^ Tensor(Proj[1] + 2 * Proj[2], Proj[1] + 10 * Proj[2] + Proj[3], 100 * __, by=[4, 4, 2])) == tup(5, 72, 900, 1000)
 
 def test_condition_combinators():
     assert And(Proj[1] % 2 == 0, Proj[2] > 0)(-12, 21) == tup(1)
