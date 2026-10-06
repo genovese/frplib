@@ -81,7 +81,7 @@ from frplib.statistics import (
     # Statistic Combinators
     Chain, Compose,
     Diffs,
-    Fork, MFork, ForEach, ForEachIndexed, IfThenElse,
+    Fork, MFork, ForEach, ForEachIndexed, IfThenElse, Tensor,
     # Conditions
     Distinct, top, bottom,
     # Condition Factories
@@ -160,7 +160,7 @@ __all__ = [
     'Norm', 'Dot',
     'ArgMin', 'ArgMax', 'Ascending', 'Descending', 'Distinct',
     'Diff', 'Diffs', 'Dim', 'Permute', 'Shift', 'ElementOf',
-    'Constantly', 'Fork', 'MFork', 'ForEach', 'ForEachIndexed', 'IfThenElse',
+    'Constantly', 'Fork', 'MFork', 'ForEach', 'ForEachIndexed', 'IfThenElse', 'Tensor',
     'And', 'Or', 'Not', 'Xor', 'top', 'bottom',
     'All', 'Any', 'Cases', 'Bag', 'Append', 'Prepend',
     'Get', 'Keep', 'MaybeMap',

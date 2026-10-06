@@ -1,4 +1,13 @@
-# Disease Testing Redux Example from Chapter 0 Section 8
+"""Disease Testing Redux Example 8.12
+
+Exports
++ d, n, p - symbols
++ has_disease
++ test_by_status
++ disease_given_positive
++ disease_given_negative
+
+"""
 
 from frplib.kinds       import bayes, conditional_kind, weighted_as
 from frplib.symbolic    import symbol

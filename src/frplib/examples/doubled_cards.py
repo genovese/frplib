@@ -1,4 +1,20 @@
-# Doubled Cards Example, Chapter 0 Section 8
+"""Doubled Cards Example 8.2
+
+Exports
++ first_card
++ all_cards
++ second_card
++ draw
++ draw_alt
++ is_card_doubled
++ is_either_doubled
++ P
++ D
++ T
++ D_kind
++ T_kind
+
+"""
 
 from frplib.frps         import frp
 from frplib.kinds        import conditional_kind, uniform, ordered_samples

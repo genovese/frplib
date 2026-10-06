@@ -318,6 +318,7 @@ Combinators: combinators.md
         ForEachIndexed: combinators statistic foreachindexed.md
         Fork: combinators statistic fork.md
         IfThenElse: combinators statistic ifthenelse.md
+        Tensor: combinators statistic tensor.md
     Condition Combinators: combinators condition.md
         And: combinators condition and.md
         Or:  combinators condition or.md
